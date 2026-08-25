@@ -1,0 +1,90 @@
+# EmptySock Engine — Cursor / Windsurf Rules
+
+You are working on a game built with EmptySock (@emptysock/engine).
+TypeScript strict mode. 2D primary (PixiJS v8 + Rapier2D + Howler.js). Optional 3D via Three.js. Tauri v2 shell.
+
+## Absolute rules
+
+NEVER import pixi.js, @dimforge/rapier2d, howler, or three directly.
+NEVER use `any` type. Use `unknown` + Zod or type guards.
+NEVER use `!` non-null assertions. Use `?.` and `?? fallback`.
+NEVER use setTimeout or setInterval in game logic. Use Timer.after() or Timer.every().
+NEVER use async/await inside onUpdate() or onFixedUpdate(). Use function* coroutines.
+NEVER access the DOM directly. Use the engine UI system.
+ALWAYS call entity.destroy() when entities are no longer needed.
+ALWAYS cancel TimerHandles in onDestroy() if they reference scene objects.
+ALWAYS parse external/saved JSON through a Zod schema before use.
+ALWAYS add explicit return types to functions.
+ALWAYS commit with conventional format: feat/fix/refactor/chore(scope): message
+
+## Core API — quick reference
+
+Engine.create({ scenes, startScene, gameSpeed }) then engine.start()
+
+Scene base class:
+  onLoad(): Promise<void>     — async setup, awaited before render
+  onUpdate(dt: number): void  — every frame, dt = seconds
+  onDestroy(): void           — cleanup before unload
+
+entity = scene.createEntity('name')
+entity.addComponent(Type, props)
+entity.getComponent(Type)          → T | undefined
+entity.requireComponent(Type)      → T | throws
+entity.hasTag(tag)                 → boolean
+entity.destroy()
+
+Input.isDown(key)          — held
+Input.isPressed(key)       — just pressed this frame
+Input.isReleased(key)      — just released this frame
+Input.axis('Horizontal')   — -1 to 1
+Input.pointer.position     — { x, y }
+
+Audio.play(id, opts?)
+Audio.music(id, opts?)
+Audio.setGroupVolume(group, vol)
+
+Camera.follow(entity, opts?)
+Camera.shake(opts)
+Camera.zoom(scale, opts?)
+Camera.fade(opts) / Camera.unfade(opts?)
+
+SceneManager.load(name)
+SceneManager.transition(name, { effect, duration })
+SceneManager.push(name) / SceneManager.pop()
+
+Timer.after(seconds, fn)   → TimerHandle
+Timer.every(seconds, fn)   → TimerHandle
+handle.cancel()
+
+entity.startCoroutine(function* () {
+  yield waitSeconds(1.0)
+  yield waitUntil(() => condition)
+  yield waitForEvent('eventName')
+})
+
+SaveSystem.save(slot, data)
+SaveSystem.load(slot)       → { data: unknown } — always Zod parse before use
+
+t(key, vars?)               — localisation lookup
+LocalisationSystem.setLocale(code)
+
+TilemapSystem.load(file)    → map
+map.getLayer(name).enablePhysics()
+
+Tween.to(target, props, { duration, ease })
+Profiler.getStats()         → { fps, drawCalls, frameTime, memoryMB }
+Engine.gpuTier              → 'potato' | 'low' | 'mid' | 'high' | 'ultra'
+
+## Performance — Pi 4 and mobile targets
+
+Keep draw calls under 50/frame on 'low' tier.
+Use texture atlases to batch sprites sharing the same texture.
+Use ObjectPool for high-frequency entities (bullets, particles).
+Avoid object allocation inside onUpdate() — reuse private fields.
+Disable soft shadows on 'potato' and 'low' GPU tiers.
+
+## Full reference
+
+skills/          — per-system skill files
+docs/            — human-readable guides
+ai/api-reference.json — full typed API

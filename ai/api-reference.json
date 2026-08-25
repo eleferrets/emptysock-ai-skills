@@ -1,0 +1,521 @@
+{
+  "meta": {
+    "engine": "EmptySock",
+    "version": "1.0.0",
+    "package": "@emptysock/engine",
+    "description": "Machine-readable public API reference. Load at agent task start for full typed context. No internal implementation details.",
+    "repo": "https://github.com/your-org/emptysock-agent-pack"
+  },
+
+  "stack": {
+    "renderer2d": "PixiJS v8 (WebGL2 primary, WebGPU where available)",
+    "renderer3d": "Three.js (optional, hybrid scenes only)",
+    "physics": "Rapier2D WASM (@dimforge/rapier2d)",
+    "audio": "Howler.js",
+    "shell": "Tauri v2",
+    "language": "TypeScript strict mode"
+  },
+
+  "rules": {
+    "banned_imports": ["pixi.js", "@dimforge/rapier2d", "howler", "three"],
+    "banned_patterns": [
+      "any type",
+      "non-null assertion (!)",
+      "ts-ignore",
+      "setTimeout in game logic",
+      "setInterval in game logic",
+      "async onUpdate()",
+      "await inside onUpdate()",
+      "document.querySelector",
+      "document.getElementById",
+      "JSON.parse(x) as T — always use Zod",
+      "window.localStorage — use SaveSystem"
+    ],
+    "required_patterns": [
+      "explicit return types on all functions",
+      "import type for type-only imports",
+      "Zod schema for all external data",
+      "entity.destroy() when entity is done",
+      "TimerHandle.cancel() in onDestroy()",
+      "conventional commits: feat/fix/refactor/chore(scope): message"
+    ]
+  },
+
+  "systems": {
+
+    "Engine": {
+      "import": "import { Engine } from '@emptysock/engine'",
+      "methods": {
+        "create": {
+          "signature": "Engine.create(config: EngineConfig): Promise<Engine>",
+          "config": {
+            "scenes": "Record<string, typeof Scene> — all scene classes",
+            "startScene": "string — name of first scene to load",
+            "gameSpeed": "number — target FPS, default 60",
+            "rendererType": "'auto' | 'webgpu' | 'webgl2' — default 'auto'",
+            "splash": "boolean — show splash on boot, default false"
+          }
+        },
+        "start": "engine.start(): Promise<void>",
+        "stop": "engine.stop(): void"
+      },
+      "properties": {
+        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' — read-only"
+      }
+    },
+
+    "Scene": {
+      "import": "import { Scene, type SceneConfig } from '@emptysock/engine'",
+      "description": "Base class. Extend for every game scene.",
+      "static": {
+        "config": "SceneConfig — declare as static readonly on each subclass"
+      },
+      "SceneConfig": {
+        "renderMode": "'2d' | '3d' | 'hybrid'",
+        "gameSpeed": "number — overrides engine default for this scene",
+        "physics": "boolean — enable Rapier world, default true",
+        "lighting": "boolean — enable 2D lighting pass, default false",
+        "backgroundColor": "number — hex colour"
+      },
+      "lifecycle": {
+        "onLoad": "async onLoad(): Promise<void> — awaited before scene renders",
+        "onStart": "onStart(): void — called once after onLoad",
+        "onUpdate": "onUpdate(dt: number): void — every frame, dt = seconds",
+        "onFixedUpdate": "onFixedUpdate(dt: number): void — fixed 1/60s timestep",
+        "onDestroy": "onDestroy(): void — before scene unloads",
+        "onPause": "onPause(): void — when scene is pushed under another",
+        "onResume": "onResume(): void — when scene returns to top"
+      },
+      "methods": {
+        "createEntity": "scene.createEntity(name: string, opts?: { position?: Point, rotation?: number, scale?: Point }): Entity",
+        "getEntity": "scene.getEntity(name: string): Entity | undefined",
+        "getEntitiesByTag": "scene.getEntitiesByTag(tag: string): Entity[]",
+        "getEntitiesWithComponent": "scene.getEntitiesWithComponent(type: ComponentType): Entity[]",
+        "instantiatePrefab": "scene.instantiatePrefab(file: string, opts?: PrefabOptions): Entity",
+        "createParticleEmitter": "scene.createParticleEmitter(opts: ParticleEmitterOptions): ParticleEmitter"
+      },
+      "properties": {
+        "lighting.ambientColour": "number (hex)",
+        "lighting.ambientIntensity": "number (0–1)",
+        "postProcess": {
+          "add": "scene.postProcess.add(effect: PostEffect, opts?: object): void",
+          "remove": "scene.postProcess.remove(effect: PostEffect): void",
+          "flash": "scene.postProcess.flash(opts: FlashOptions): void"
+        }
+      }
+    },
+
+    "SceneManager": {
+      "import": "import { SceneManager } from '@emptysock/engine'",
+      "methods": {
+        "load": "SceneManager.load(name: string, opts?: LoadOptions): Promise<void>",
+        "transition": "SceneManager.transition(name: string, opts: TransitionOptions): Promise<void>",
+        "push": "SceneManager.push(name: string): Promise<void>",
+        "pop": "SceneManager.pop(): Promise<void>",
+        "preload": "SceneManager.preload(name: string): Promise<void>"
+      },
+      "properties": {
+        "currentScene": "string — name of active scene"
+      },
+      "TransitionOptions": {
+        "effect": "'fade' | 'wipe' | 'iris' | 'slide' | 'zoom' | 'dissolve' | 'flash' | 'custom'",
+        "duration": "number (seconds)",
+        "colour": "number (hex, for fade/flash)",
+        "direction": "'left' | 'right' | 'up' | 'down' (for wipe/slide)",
+        "origin": "Point (for iris/zoom)"
+      }
+    },
+
+    "Entity": {
+      "import": "import { Entity } from '@emptysock/engine'",
+      "properties": {
+        "name": "string",
+        "position": "{ x: number, y: number }",
+        "globalPosition": "{ x: number, y: number } — world-space",
+        "rotation": "number — radians",
+        "rotationDegrees": "number",
+        "scale": "{ x: number, y: number }",
+        "active": "boolean",
+        "isAlive": "boolean"
+      },
+      "methods": {
+        "addComponent": "entity.addComponent<T>(type: new() => T, props?: Partial<T>): T",
+        "getComponent": "entity.getComponent<T>(type: new() => T): T | undefined",
+        "requireComponent": "entity.requireComponent<T>(type: new() => T): T",
+        "hasComponent": "entity.hasComponent(type: ComponentType): boolean",
+        "removeComponent": "entity.removeComponent(type: ComponentType): void",
+        "addTag": "entity.addTag(tag: string): void",
+        "removeTag": "entity.removeTag(tag: string): void",
+        "hasTag": "entity.hasTag(tag: string): boolean",
+        "setParent": "entity.setParent(parent: Entity | null): void",
+        "setPosition": "entity.setPosition(x: number, y: number): void",
+        "translate": "entity.translate(dx: number, dy: number): void",
+        "rotateTo": "entity.rotateTo(radians: number, opts?: TweenOptions): void",
+        "distanceTo": "entity.distanceTo(other: Entity): number",
+        "angleTo": "entity.angleTo(other: Entity): number",
+        "destroy": "entity.destroy(): void",
+        "emit": "entity.emit(event: string, data?: unknown): void",
+        "on": "entity.on(event: string, fn: (data: unknown) => void): void",
+        "once": "entity.once(event: string, fn: (data: unknown) => void): void",
+        "off": "entity.off(event: string, fn: Function): void",
+        "onCollisionEnter": "entity.onCollisionEnter(fn: (other: Entity, contact: ContactInfo) => void): void",
+        "onCollisionExit": "entity.onCollisionExit(fn: (other: Entity) => void): void",
+        "onSensorEnter": "entity.onSensorEnter(fn: (other: Entity) => void): void",
+        "onSensorExit": "entity.onSensorExit(fn: (other: Entity) => void): void",
+        "startCoroutine": "entity.startCoroutine(gen: GeneratorFunction, name?: string): void",
+        "stopCoroutine": "entity.stopCoroutine(name: string): void"
+      }
+    },
+
+    "components": {
+      "Sprite": {
+        "import": "import { Sprite } from '@emptysock/engine'",
+        "props": {
+          "texture": "string — filename in assets/sprites/",
+          "frame": "string — atlas frame name (optional)",
+          "anchor": "{ x: number, y: number } — 0–1, default { x: 0.5, y: 0.5 }",
+          "tint": "number — hex, default 0xffffff",
+          "alpha": "number — 0–1",
+          "blendMode": "'normal' | 'add' | 'multiply' | 'screen'",
+          "flipX": "boolean",
+          "flipY": "boolean",
+          "normalMap": "string — filename for 2D lighting normal map (optional)"
+        }
+      },
+      "Animator": {
+        "import": "import { Animator } from '@emptysock/engine'",
+        "props": {
+          "spritesheet": "string — .esanim file",
+          "defaultClip": "string — animation name to play on attach",
+          "speed": "number — playback multiplier, default 1"
+        },
+        "methods": {
+          "play": "animator.play(clip: string, opts?: { loop?: boolean, onComplete?: () => void }): void",
+          "pause": "animator.pause(): void",
+          "resume": "animator.resume(): void",
+          "stop": "animator.stop(): void"
+        },
+        "properties": {
+          "currentClip": "string",
+          "currentFrame": "number",
+          "isPlaying": "boolean"
+        }
+      },
+      "PhysicsBody": {
+        "import": "import { PhysicsBody } from '@emptysock/engine'",
+        "props": {
+          "shape": "'cuboid' | 'ball' | 'capsule' | 'polygon' | 'compound'",
+          "bodyType": "'fixed' | 'dynamic' | 'kinematicPosition' | 'kinematicVelocity'",
+          "mass": "number",
+          "friction": "number — 0–1",
+          "restitution": "number — 0–1 (bounciness)",
+          "ccd": "boolean — continuous collision detection, for fast objects",
+          "sensor": "boolean — trigger volume, no physical response",
+          "collisionGroups": "string[] — named group labels"
+        },
+        "methods": {
+          "applyImpulse": "body.applyImpulse(force: Vector2): void",
+          "applyForce": "body.applyForce(force: Vector2): void",
+          "setVelocity": "body.setVelocity(vel: Vector2): void",
+          "getVelocity": "body.getVelocity(): Vector2"
+        }
+      },
+      "CharacterController": {
+        "import": "import { CharacterController } from '@emptysock/engine'",
+        "props": {
+          "slopeAngle": "number — max walkable slope degrees",
+          "snapToGround": "number — snap distance (0 = off)",
+          "offset": "number — collision skin width, default 0.01"
+        },
+        "methods": {
+          "moveAndSlide": "controller.moveAndSlide(velocity: Vector2): void",
+          "isGrounded": "controller.isGrounded(): boolean",
+          "isTouchingCeiling": "controller.isTouchingCeiling(): boolean",
+          "isTouchingWall": "controller.isTouchingWall(): 'left' | 'right' | null"
+        }
+      },
+      "PointLight": {
+        "import": "import { PointLight } from '@emptysock/engine'",
+        "note": "Requires scene config lighting: true",
+        "props": {
+          "colour": "number — hex",
+          "intensity": "number",
+          "radius": "number — pixels",
+          "castShadows": "boolean"
+        }
+      },
+      "DirectionalLight": {
+        "import": "import { DirectionalLight } from '@emptysock/engine'",
+        "props": { "colour": "number", "intensity": "number", "angle": "number — radians", "castShadows": "boolean" }
+      },
+      "SpotLight": {
+        "import": "import { SpotLight } from '@emptysock/engine'",
+        "props": { "colour": "number", "intensity": "number", "radius": "number", "innerAngle": "number", "outerAngle": "number", "castShadows": "boolean" }
+      },
+      "PathFollower": {
+        "import": "import { PathFollower } from '@emptysock/engine'",
+        "props": { "path": "Path", "speed": "number", "onComplete": "() => void — optional" },
+        "methods": {
+          "setPath": "follower.setPath(path: Path): void",
+          "stop": "follower.stop(): void",
+          "resume": "follower.resume(): void",
+          "isComplete": "follower.isComplete(): boolean"
+        }
+      },
+      "VNController": {
+        "import": "import { VNController } from '@emptysock/engine'",
+        "props": {
+          "dialogueTree": "string — .esvn file",
+          "onChoice": "(index: number, text: string) => void",
+          "onEvent": "(name: string, data: unknown) => void"
+        },
+        "methods": {
+          "advance": "vn.advance(): void",
+          "jump": "vn.jump(nodeId: string): void",
+          "isFinished": "vn.isFinished(): boolean"
+        }
+      }
+    },
+
+    "Input": {
+      "import": "import { Input } from '@emptysock/engine'",
+      "methods": {
+        "isDown": "Input.isDown(key: string): boolean — held",
+        "isPressed": "Input.isPressed(key: string): boolean — just pressed",
+        "isReleased": "Input.isReleased(key: string): boolean — just released",
+        "axis": "Input.axis(name: 'Horizontal' | 'Vertical' | string): number — -1 to 1",
+        "onKeyDown": "Input.onKeyDown(key: string, fn: () => void): void",
+        "rumble": "Input.rumble(gamepad: string, opts: { intensity: number, duration: number }): void",
+        "vibrate": "Input.vibrate(ms: number): void"
+      },
+      "properties": {
+        "pointer.position": "{ x: number, y: number }",
+        "pointer.isDown": "boolean",
+        "pointer.isPressed": "boolean",
+        "touches": "Touch[]"
+      },
+      "keyNames": "ArrowLeft ArrowRight ArrowUp ArrowDown Space Enter Escape KeyA-Z Digit0-9 gamepad0/A gamepad0/B gamepad0/X gamepad0/Y gamepad0/L1 gamepad0/R1 gamepad0/L2 gamepad0/R2 gamepad0/DPadLeft gamepad0/DPadRight gamepad0/DPadUp gamepad0/DPadDown gamepad0/Start gamepad0/Select"
+    },
+
+    "Audio": {
+      "import": "import { Audio } from '@emptysock/engine'",
+      "methods": {
+        "play": "Audio.play(id: string, opts?: PlayOptions): AudioHandle",
+        "music": "Audio.music(id: string, opts?: MusicOptions): void",
+        "stopMusic": "Audio.stopMusic(opts?: { fade?: number }): void",
+        "stop": "Audio.stop(id: string): void",
+        "setGroupVolume": "Audio.setGroupVolume(group: 'music' | 'sfx' | 'ui' | 'voice', vol: number): void",
+        "mute": "Audio.mute(group?: string): void",
+        "unmute": "Audio.unmute(group?: string): void"
+      },
+      "PlayOptions": {
+        "volume": "number 0–1",
+        "loop": "boolean",
+        "spatial": "boolean",
+        "position": "{ x: number, y: number }",
+        "fade": "number — fade-in seconds",
+        "rate": "number — playback speed multiplier"
+      }
+    },
+
+    "Camera": {
+      "import": "import { Camera } from '@emptysock/engine'",
+      "methods": {
+        "follow": "Camera.follow(entity: Entity, opts?: FollowOptions): void",
+        "stopFollow": "Camera.stopFollow(): void",
+        "shake": "Camera.shake(opts: { intensity: number, duration: number, decay?: 'linear' | 'exponential' }): void",
+        "trauma": "Camera.trauma(amount: number): void",
+        "zoom": "Camera.zoom(scale: number, opts?: TweenOptions): void",
+        "flash": "Camera.flash(opts: { colour: number, duration: number }): void",
+        "fade": "Camera.fade(opts: { to: number, duration: number }): void",
+        "unfade": "Camera.unfade(opts?: { duration: number }): void",
+        "letterbox": "Camera.letterbox(opts: { ratio: string }): void",
+        "pillarbox": "Camera.pillarbox(opts: { ratio: string }): void"
+      },
+      "FollowOptions": {
+        "lerp": "number 0–1",
+        "deadzone": "{ x: number, y: number }",
+        "lookahead": "{ x: number, y: number }",
+        "bounds": "{ x: number, y: number, width: number, height: number }"
+      }
+    },
+
+    "Timer": {
+      "import": "import { Timer } from '@emptysock/engine'",
+      "methods": {
+        "after": "Timer.after(seconds: number, fn: () => void): TimerHandle",
+        "every": "Timer.every(seconds: number, fn: () => void, opts?: { times?: number }): TimerHandle"
+      },
+      "TimerHandle": {
+        "cancel": "handle.cancel(): void"
+      }
+    },
+
+    "coroutines": {
+      "import": "import { waitSeconds, waitFrames, waitUntil, waitForEvent, waitForAnimation, waitForDialogue, waitForPath } from '@emptysock/engine'",
+      "usage": "entity.startCoroutine(function* name() { yield helper })",
+      "helpers": {
+        "waitSeconds": "yield waitSeconds(seconds: number)",
+        "waitFrames": "yield waitFrames(count: number)",
+        "waitUntil": "yield waitUntil(predicate: () => boolean)",
+        "waitForEvent": "yield waitForEvent(eventName: string)",
+        "waitForAnimation": "yield waitForAnimation(entity: Entity)",
+        "waitForDialogue": "yield waitForDialogue()",
+        "waitForPath": "yield waitForPath(entity: Entity)"
+      }
+    },
+
+    "Tween": {
+      "import": "import { Tween } from '@emptysock/engine'",
+      "methods": {
+        "to": "Tween.to(target: object, props: object, opts: TweenOptions): TweenHandle",
+        "from": "Tween.from(target: object, props: object, opts: TweenOptions): TweenHandle",
+        "sequence": "Tween.sequence(tweens: TweenHandle[]): TweenHandle"
+      },
+      "TweenOptions": {
+        "duration": "number — seconds",
+        "ease": "string — see easings list",
+        "delay": "number — seconds",
+        "loop": "boolean",
+        "yoyo": "boolean",
+        "onComplete": "() => void"
+      },
+      "easings": ["linear","sineIn","sineOut","sineInOut","quadIn","quadOut","quadInOut","cubicIn","cubicOut","cubicInOut","bounceOut","bounceIn","elasticOut","backOut","backIn"]
+    },
+
+    "SaveSystem": {
+      "import": "import { SaveSystem } from '@emptysock/engine'",
+      "methods": {
+        "save": "SaveSystem.save(slot: string, data: unknown): Promise<void>",
+        "load": "SaveSystem.load(slot: string): Promise<SaveSlot>",
+        "delete": "SaveSystem.delete(slot: string): Promise<void>",
+        "listSlots": "SaveSystem.listSlots(): Promise<SaveSlot[]>",
+        "enableAutoSave": "SaveSystem.enableAutoSave(opts: { interval: number, slot: string }): void",
+        "disableAutoSave": "SaveSystem.disableAutoSave(): void"
+      },
+      "SaveSlot": {
+        "slot": "string",
+        "data": "unknown — ALWAYS parse through Zod before use",
+        "timestamp": "number",
+        "playtime": "number — seconds",
+        "scene": "string"
+      },
+      "settings": {
+        "get": "SaveSystem.settings.get<T>(key: string): T | undefined",
+        "set": "SaveSystem.settings.set(key: string, value: unknown): Promise<void>"
+      }
+    },
+
+    "LocalisationSystem": {
+      "import": "import { t, LocalisationSystem } from '@emptysock/engine'",
+      "methods": {
+        "t": "t(key: string, vars?: Record<string, string | number>): string",
+        "setLocale": "LocalisationSystem.setLocale(code: string): void",
+        "getLocale": "LocalisationSystem.getLocale(): string",
+        "hasKey": "LocalisationSystem.hasKey(key: string): boolean",
+        "availableLocales": "LocalisationSystem.availableLocales: string[]"
+      },
+      "translationFileFormat": {
+        "location": "assets/i18n/[locale].json",
+        "example": { "menu.start": "Start Game", "hud.score": "Score: {{score}}", "hud.lives": "{{count}} lives" }
+      }
+    },
+
+    "PathfindingSystem": {
+      "import": "import { PathfindingSystem } from '@emptysock/engine'",
+      "methods": {
+        "findPath": "PathfindingSystem.findPath(opts: { from: Point, to: Point, grid: Grid, allowDiagonal?: boolean }): Promise<Path>",
+        "buildNavMesh": "PathfindingSystem.buildNavMesh(scene: Scene): NavMesh",
+        "debugDraw": "PathfindingSystem.debugDraw(enabled: boolean): void"
+      }
+    },
+
+    "TilemapSystem": {
+      "import": "import { TilemapSystem } from '@emptysock/engine'",
+      "methods": {
+        "load": "TilemapSystem.load(file: string): TilemapInstance"
+      },
+      "TilemapInstance": {
+        "getLayer": "map.getLayer(name: string): TilemapLayer",
+        "width": "number — tiles",
+        "height": "number — tiles",
+        "tileWidth": "number — pixels",
+        "tileHeight": "number — pixels"
+      },
+      "TilemapLayer": {
+        "enablePhysics": "layer.enablePhysics(): void",
+        "entities": "Entity[] — object layer placements",
+        "getTile": "layer.getTile(x: number, y: number): Tile | null",
+        "asGrid": "layer.asGrid(): Grid — for A* pathfinding"
+      }
+    },
+
+    "ObjectPool": {
+      "import": "import { ObjectPool } from '@emptysock/engine'",
+      "constructor": "new ObjectPool<T>(EntityClass: new() => T, opts: { size: number })",
+      "methods": {
+        "acquire": "pool.acquire(): T",
+        "release": "pool.release(instance: T): void",
+        "size": "pool.size: number",
+        "available": "pool.available: number"
+      }
+    },
+
+    "Profiler": {
+      "import": "import { Profiler } from '@emptysock/engine'",
+      "methods": {
+        "begin": "Profiler.begin(label: string): void",
+        "end": "Profiler.end(label: string): void",
+        "getStats": "Profiler.getStats(): ProfileStats"
+      },
+      "ProfileStats": {
+        "fps": "number",
+        "frameTime": "number — ms",
+        "drawCalls": "number",
+        "entityCount": "number",
+        "physicsTime": "number — ms",
+        "renderTime": "number — ms",
+        "scriptTime": "number — ms",
+        "memoryMB": "number"
+      }
+    }
+  },
+
+  "fileExtensions": {
+    ".esscene": "Scene — entities, components, properties (JSON)",
+    ".esmap": "Tilemap — layers, tiles, collision, objects (JSON)",
+    ".esanim": "Spritesheet animation clips (JSON)",
+    ".esprefab": "Reusable entity template (JSON)",
+    ".esvn": "Visual novel dialogue tree (JSON)",
+    ".esparticle": "Particle system definition (JSON)",
+    ".esui": "UI layout panel (JSON)",
+    ".esdata": "Game data file (validated JSON)"
+  },
+
+  "postProcessEffects": [
+    "bloom", "chromatic-aberration", "vignette", "scanlines",
+    "pixelate", "colour-grade", "blur", "outline", "shockwave", "noise"
+  ],
+
+  "gpuTiers": {
+    "potato": { "examples": "Pi Zero, Pi 1, Mali-G51", "maxParticles": 100, "maxLights": 1, "postFx": false, "targetFPS": 30 },
+    "low":    { "examples": "Pi 4 4GB, S9+ (Mali-G72), 2013 laptop iGPU", "maxParticles": 500, "maxLights": 4, "postFx": "1 pass", "targetFPS": 60 },
+    "mid":    { "examples": "2015 laptop iGPU, GTX 750", "maxParticles": 2000, "maxLights": 8, "postFx": "2 passes", "targetFPS": 60 },
+    "high":   { "examples": "GTX 1060, RX 580, M1", "maxParticles": 5000, "maxLights": 16, "postFx": "full", "targetFPS": 60 },
+    "ultra":  { "examples": "RTX 30+, RX 6000+, M2+", "maxParticles": 10000, "maxLights": 32, "postFx": "full", "targetFPS": "unlocked" }
+  },
+
+  "exportTargets": ["web", "windows", "macos", "linux", "android", "ios", "raspi"],
+
+  "commitConvention": {
+    "format": "type(scope): description",
+    "types": ["feat", "fix", "refactor", "perf", "chore", "docs", "test"],
+    "examples": [
+      "feat(player): add double jump",
+      "fix(physics): character clips through thin floor at high speed",
+      "refactor(enemy): extract patrol into PatrolComponent",
+      "perf(particles): cap emitter on low GPU tier",
+      "chore(assets): compress atlas for Pi export"
+    ]
+  }
+}
