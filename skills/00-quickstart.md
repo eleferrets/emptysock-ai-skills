@@ -37,7 +37,7 @@ export class GameScene extends Scene {
   }
 
   override onDestroy(): void {
-    // cancel timers, remove listeners
+    // cancel timers, remove listeners, call physics3d.destroy()
   }
 }
 ```
@@ -55,12 +55,72 @@ player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
 player.addComponent(CharacterController, { slopeAngle: 45 })
 player.addComponent(Animator, { spritesheet: 'hero.esanim', defaultClip: 'idle' })
 
-// Read
 const sprite = player.getComponent(Sprite)          // T | undefined
 const body   = player.requireComponent(PhysicsBody) // T | throws
-
-// Cleanup
 player.destroy()
+```
+
+---
+
+## 2D physics (sync, no init required)
+
+```typescript
+import { PhysicsBody, CharacterController } from '@emptysock/engine'
+
+player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
+player.addComponent(CharacterController, { slopeAngle: 45 })
+
+// In onUpdate:
+const ctrl = player.requireComponent(CharacterController)
+if (ctrl.isGrounded() && Input.isPressed('Space')) ctrl.jump(600)
+ctrl.moveAndSlide({ x: Input.axis('Horizontal') * 200 * dt, y: 0 })
+```
+
+---
+
+## 3D physics (Rapier3D — must await init)
+
+```typescript
+import { PhysicsSystem3D } from '@emptysock/engine'
+
+// In onLoad:
+const physics = new PhysicsSystem3D()
+await physics.init({ x: 0, y: -9.81, z: 0 })
+
+const box = physics.addBody({
+  bodyType: 'dynamic',
+  shape: 'box',
+  halfExtents: { x: 0.5, y: 0.5, z: 0.5 },
+  position: { x: 0, y: 5, z: 0 },
+})
+
+// In onUpdate:
+physics.update(dt)
+const pos = box.getPosition() // { x, y, z }
+
+// In onDestroy — REQUIRED, frees WASM memory:
+physics.destroy()
+```
+
+---
+
+## Actor Model (message-driven logic)
+
+```typescript
+import { Actor, ActorSystem, type Message } from '@emptysock/engine'
+
+class EnemyActor extends Actor {
+  receive(msg: Message): void {
+    if ((msg as any).type === 'TAKE_DAMAGE') { /* handle */ }
+  }
+  update(dt: number): void { /* per-frame AI */ }
+}
+
+const system = new ActorSystem()
+system.register(new EnemyActor('enemy-1'))
+system.send('enemy-1', { type: 'TAKE_DAMAGE', amount: 25 })
+system.update(dt)   // flush mailboxes then run update() on all actors
+system.destroy()    // in onDestroy
 ```
 
 ---
@@ -131,33 +191,49 @@ Camera.fade({ to: 0x000000, duration: 0.5 })
 
 ---
 
-## Timers
+## Save and load
 
 ```typescript
-import { Timer, type TimerHandle } from '@emptysock/engine'
+import { SaveSystem } from '@emptysock/engine'
+import { z } from 'zod'
 
-private _spawn: TimerHandle | null = null
+const Schema = z.object({ scene: z.string(), score: z.number(), flags: z.record(z.boolean()) })
+type Save = z.infer<typeof Schema>
 
-override onLoad(): void {
-  this._spawn = Timer.every(3.0, () => this.spawnEnemy())
-}
-
-override onDestroy(): void {
-  this._spawn?.cancel() // always cancel in onDestroy
-}
+await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: {} })
+const raw  = await SaveSystem.load('slot-1')
+const data = Schema.parse(raw.data) // always validate — throws on corrupt
 ```
 
 ---
 
-## Coroutines
+## Localisation
 
 ```typescript
+import { i18n } from '@emptysock/engine'
+
+await i18n.load('en', () => import('./locales/en.json'))
+i18n.setLocale('en')
+i18n.t('greeting')           // → "Hello"
+i18n.t('score', { n: 42 })  // → "Score: 42"
+```
+
+---
+
+## Timers and coroutines
+
+```typescript
+import { Timer, waitSeconds, waitForAnimation } from '@emptysock/engine'
+
+// Timer (cancel in onDestroy):
+const h = Timer.every(3.0, () => this.spawnEnemy())
+// in onDestroy: h.cancel()
+
+// Coroutine:
 entity.startCoroutine(function* boss_sequence() {
   yield waitSeconds(1.0)
   boss.roar()
   yield waitForAnimation(boss)
-  Camera.shake({ intensity: 10, duration: 0.4 })
-  yield waitSeconds(0.3)
   boss.startAttacking()
 })
 ```
@@ -171,48 +247,8 @@ import { SceneManager } from '@emptysock/engine'
 
 SceneManager.load('GameScene')
 SceneManager.transition('MenuScene', { effect: 'fade', duration: 0.4 })
-SceneManager.push('PauseScene')   // overlay; previous pauses
-SceneManager.pop()                 // return
-```
-
----
-
-## Save and load
-
-```typescript
-import { SaveSystem } from '@emptysock/engine'
-import { z } from 'zod'
-
-const Schema = z.object({ scene: z.string(), score: z.number(), flags: z.record(z.boolean()) })
-type Save = z.infer<typeof Schema>
-
-await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: {} })
-
-const raw  = await SaveSystem.load('slot-1')
-const data = Schema.parse(raw.data) // always validate — throws on corrupt
-```
-
----
-
-## Tilemap
-
-```typescript
-import { TilemapSystem } from '@emptysock/engine'
-
-const map    = TilemapSystem.load('level1.esmap')
-map.getLayer('Collision').enablePhysics()
-const spawns = map.getLayer('Spawns').entities
-```
-
----
-
-## Tweens
-
-```typescript
-import { Tween } from '@emptysock/engine'
-
-Tween.to(entity, { x: 400 }, { duration: 0.5, ease: 'bounceOut' })
-Tween.to(sprite, { alpha: 0 }, { duration: 0.3, onComplete: () => entity.destroy() })
+SceneManager.push('PauseScene')
+SceneManager.pop()
 ```
 
 ---
@@ -229,3 +265,4 @@ Tween.to(sprite, { alpha: 0 }, { duration: 0.3, onComplete: () => entity.destroy
 | `let x: any` | `let x: unknown` then narrow |
 | Forgetting `entity.destroy()` | Always destroy when done |
 | Forgetting `handle.cancel()` | Always cancel timers in `onDestroy` |
+| Skip `physics3d.destroy()` | Always call in `onDestroy` — leaks WASM |
