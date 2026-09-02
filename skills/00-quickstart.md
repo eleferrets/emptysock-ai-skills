@@ -302,6 +302,27 @@ Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the
 
 ---
 
+## Window management
+
+```typescript
+import { windowSystem } from '@emptysock/engine'
+
+// Apply from project settings on startup:
+await windowSystem.apply({ mode: 'windowed', width: GAME_WIDTH, height: GAME_HEIGHT, title: PROJECT_TITLE })
+
+// Runtime changes:
+await windowSystem.setMode('fullscreen')   // 'windowed' | 'fullscreen' | 'borderless'
+await windowSystem.setTitle('New Title')
+await windowSystem.setSize(1920, 1080)
+await windowSystem.setResizable(false)
+await windowSystem.center()
+```
+
+`GAME_WIDTH`, `GAME_HEIGHT`, `PROJECT_TITLE`, `PROJECT_NAME`, and `DEBUG` are compile-time constants
+injected from project settings — use them freely, no import needed.
+
+---
+
 ## Rules — never break these
 
 | Wrong | Right |

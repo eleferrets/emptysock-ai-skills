@@ -51,6 +51,7 @@ emptysock-agent-pack/
     19-export.md               ← All platforms, build pipeline, icons
     20-performance.md          ← GPU tiers, draw calls, Pi4, mobile
     21-typescript.md           ← Strict TS rules, Zod, banned patterns
+    10-window-system.md        ← WindowSystem, window modes, compile-time constants
 
   docs/
     getting-started.md         ← Install EmptySock, first project, first game

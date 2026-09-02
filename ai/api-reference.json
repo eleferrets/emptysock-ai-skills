@@ -530,6 +530,52 @@
         "Particles sharing the same textureName are batched into one draw call.",
         "count should be kept as low as visually acceptable \u2014 all particles update every frame."
       ]
+    },
+    "WindowSystem": {
+      "description": "Manages window mode, size, title, and position. Wraps Tauri native window API with transparent browser fallback. Import the singleton `windowSystem`.",
+      "import": "import { windowSystem, type WindowMode, type WindowConfig } from '@emptysock/engine'",
+      "methods": {
+        "apply": {
+          "signature": "apply(config: Partial<WindowConfig>): Promise<void>",
+          "description": "Apply all window settings at once. Call once in root scene onLoad."
+        },
+        "setMode": {
+          "signature": "setMode(mode: WindowMode): Promise<void>",
+          "description": "Switch window mode. 'windowed' | 'fullscreen' | 'borderless'."
+        },
+        "setSize": {
+          "signature": "setSize(width: number, height: number): Promise<void>",
+          "description": "Resize the window. No-op in fullscreen/borderless modes on desktop."
+        },
+        "setTitle": {
+          "signature": "setTitle(title: string): Promise<void>",
+          "description": "Update the window/tab title."
+        },
+        "setResizable": {
+          "signature": "setResizable(resizable: boolean): Promise<void>",
+          "description": "Allow or prevent manual resizing. Desktop only."
+        },
+        "setMinSize": {
+          "signature": "setMinSize(width: number, height: number): Promise<void>",
+          "description": "Set minimum window dimensions. Desktop only."
+        },
+        "setPosition": {
+          "signature": "setPosition(x: number, y: number): Promise<void>",
+          "description": "Move window to screen coordinates. Desktop only."
+        },
+        "center": {
+          "signature": "center(): Promise<void>",
+          "description": "Centre window on the current monitor. Desktop only."
+        },
+        "setAlwaysOnTop": {
+          "signature": "setAlwaysOnTop(value: boolean): Promise<void>",
+          "description": "Pin window above others. Desktop only."
+        }
+      },
+      "properties": {
+        "currentMode": "WindowMode \u2014 current window mode",
+        "currentConfig": "Readonly<WindowConfig> \u2014 full current config snapshot"
+      }
     }
   },
   "fileExtensions": {
@@ -618,5 +664,30 @@
       "perf(particles): cap emitter on low GPU tier",
       "chore(assets): compress atlas for Pi export"
     ]
+  },
+  "builtins": {
+    "description": "Compile-time constants injected by the EmptySock build pipeline. Replace with literal values at build time \u2014 no runtime lookup. Available in all game files without import.",
+    "constants": {
+      "PROJECT_TITLE": {
+        "type": "string",
+        "source": "Project window title setting"
+      },
+      "PROJECT_NAME": {
+        "type": "string",
+        "source": "Project name"
+      },
+      "GAME_WIDTH": {
+        "type": "number",
+        "source": "Project window width setting"
+      },
+      "GAME_HEIGHT": {
+        "type": "number",
+        "source": "Project window height setting"
+      },
+      "DEBUG": {
+        "type": "boolean",
+        "source": "true in debug build, false in release"
+      }
+    }
   }
 }
