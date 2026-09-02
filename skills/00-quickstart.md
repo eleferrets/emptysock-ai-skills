@@ -164,6 +164,24 @@ override onUpdate(dt: number): void {
 
 ---
 
+## Particles
+
+```typescript
+import { ParticleEmitter } from '@emptysock/engine'
+
+const entity = scene.createEntity('sparks')
+const emitter = entity.addComponent(ParticleEmitter, {
+  rate: 30, lifetime: 1.5, speed: 120, spread: 45, count: 100,
+  textureName: 'fx/spark.png',   // optional, defaults to white square
+})
+emitter.start()           // continuous emission
+emitter.burst(24)         // one-shot, ignores rate
+emitter.stop()            // stop new particles; existing ones finish
+// in onDestroy: emitter.stop()
+```
+
+---
+
 ## Audio
 
 ```typescript

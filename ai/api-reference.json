@@ -6,7 +6,6 @@
     "description": "Machine-readable public API reference. Load at agent task start for full typed context. No internal implementation details.",
     "repo": "https://github.com/your-org/emptysock-agent-pack"
   },
-
   "stack": {
     "renderer2d": "PixiJS v8 (WebGL2 primary, WebGPU where available)",
     "renderer3d": "Three.js (optional, hybrid scenes only)",
@@ -15,9 +14,13 @@
     "shell": "Tauri v2",
     "language": "TypeScript strict mode"
   },
-
   "rules": {
-    "banned_imports": ["pixi.js", "@dimforge/rapier2d", "howler", "three"],
+    "banned_imports": [
+      "pixi.js",
+      "@dimforge/rapier2d",
+      "howler",
+      "three"
+    ],
     "banned_patterns": [
       "any type",
       "non-null assertion (!)",
@@ -28,8 +31,8 @@
       "await inside onUpdate()",
       "document.querySelector",
       "document.getElementById",
-      "JSON.parse(x) as T — always use Zod",
-      "window.localStorage — use SaveSystem"
+      "JSON.parse(x) as T \u2014 always use Zod",
+      "window.localStorage \u2014 use SaveSystem"
     ],
     "required_patterns": [
       "explicit return types on all functions",
@@ -40,51 +43,48 @@
       "conventional commits: feat/fix/refactor/chore(scope): message"
     ]
   },
-
   "systems": {
-
     "Engine": {
       "import": "import { Engine } from '@emptysock/engine'",
       "methods": {
         "create": {
           "signature": "Engine.create(config: EngineConfig): Promise<Engine>",
           "config": {
-            "scenes": "Record<string, typeof Scene> — all scene classes",
-            "startScene": "string — name of first scene to load",
-            "gameSpeed": "number — target FPS, default 60",
-            "rendererType": "'auto' | 'webgpu' | 'webgl2' — default 'auto'",
-            "splash": "boolean — show splash on boot, default false"
+            "scenes": "Record<string, typeof Scene> \u2014 all scene classes",
+            "startScene": "string \u2014 name of first scene to load",
+            "gameSpeed": "number \u2014 target FPS, default 60",
+            "rendererType": "'auto' | 'webgpu' | 'webgl2' \u2014 default 'auto'",
+            "splash": "boolean \u2014 show splash on boot, default false"
           }
         },
         "start": "engine.start(): Promise<void>",
         "stop": "engine.stop(): void"
       },
       "properties": {
-        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' — read-only"
+        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' \u2014 read-only"
       }
     },
-
     "Scene": {
       "import": "import { Scene, type SceneConfig } from '@emptysock/engine'",
       "description": "Base class. Extend for every game scene.",
       "static": {
-        "config": "SceneConfig — declare as static readonly on each subclass"
+        "config": "SceneConfig \u2014 declare as static readonly on each subclass"
       },
       "SceneConfig": {
         "renderMode": "'2d' | '3d' | 'hybrid'",
-        "gameSpeed": "number — overrides engine default for this scene",
-        "physics": "boolean — enable Rapier world, default true",
-        "lighting": "boolean — enable 2D lighting pass, default false",
-        "backgroundColor": "number — hex colour"
+        "gameSpeed": "number \u2014 overrides engine default for this scene",
+        "physics": "boolean \u2014 enable Rapier world, default true",
+        "lighting": "boolean \u2014 enable 2D lighting pass, default false",
+        "backgroundColor": "number \u2014 hex colour"
       },
       "lifecycle": {
-        "onLoad": "async onLoad(): Promise<void> — awaited before scene renders",
-        "onStart": "onStart(): void — called once after onLoad",
-        "onUpdate": "onUpdate(dt: number): void — every frame, dt = seconds",
-        "onFixedUpdate": "onFixedUpdate(dt: number): void — fixed 1/60s timestep",
-        "onDestroy": "onDestroy(): void — before scene unloads",
-        "onPause": "onPause(): void — when scene is pushed under another",
-        "onResume": "onResume(): void — when scene returns to top"
+        "onLoad": "async onLoad(): Promise<void> \u2014 awaited before scene renders",
+        "onStart": "onStart(): void \u2014 called once after onLoad",
+        "onUpdate": "onUpdate(dt: number): void \u2014 every frame, dt = seconds",
+        "onFixedUpdate": "onFixedUpdate(dt: number): void \u2014 fixed 1/60s timestep",
+        "onDestroy": "onDestroy(): void \u2014 before scene unloads",
+        "onPause": "onPause(): void \u2014 when scene is pushed under another",
+        "onResume": "onResume(): void \u2014 when scene returns to top"
       },
       "methods": {
         "createEntity": "scene.createEntity(name: string, opts?: { position?: Point, rotation?: number, scale?: Point }): Entity",
@@ -96,7 +96,7 @@
       },
       "properties": {
         "lighting.ambientColour": "number (hex)",
-        "lighting.ambientIntensity": "number (0–1)",
+        "lighting.ambientIntensity": "number (0\u20131)",
         "postProcess": {
           "add": "scene.postProcess.add(effect: PostEffect, opts?: object): void",
           "remove": "scene.postProcess.remove(effect: PostEffect): void",
@@ -104,7 +104,6 @@
         }
       }
     },
-
     "SceneManager": {
       "import": "import { SceneManager } from '@emptysock/engine'",
       "methods": {
@@ -115,7 +114,7 @@
         "preload": "SceneManager.preload(name: string): Promise<void>"
       },
       "properties": {
-        "currentScene": "string — name of active scene"
+        "currentScene": "string \u2014 name of active scene"
       },
       "TransitionOptions": {
         "effect": "'fade' | 'wipe' | 'iris' | 'slide' | 'zoom' | 'dissolve' | 'flash' | 'custom'",
@@ -125,14 +124,13 @@
         "origin": "Point (for iris/zoom)"
       }
     },
-
     "Entity": {
       "import": "import { Entity } from '@emptysock/engine'",
       "properties": {
         "name": "string",
         "position": "{ x: number, y: number }",
-        "globalPosition": "{ x: number, y: number } — world-space",
-        "rotation": "number — radians",
+        "globalPosition": "{ x: number, y: number } \u2014 world-space",
+        "rotation": "number \u2014 radians",
         "rotationDegrees": "number",
         "scale": "{ x: number, y: number }",
         "active": "boolean",
@@ -166,28 +164,27 @@
         "stopCoroutine": "entity.stopCoroutine(name: string): void"
       }
     },
-
     "components": {
       "Sprite": {
         "import": "import { Sprite } from '@emptysock/engine'",
         "props": {
-          "texture": "string — filename in assets/sprites/",
-          "frame": "string — atlas frame name (optional)",
-          "anchor": "{ x: number, y: number } — 0–1, default { x: 0.5, y: 0.5 }",
-          "tint": "number — hex, default 0xffffff",
-          "alpha": "number — 0–1",
+          "texture": "string \u2014 filename in assets/sprites/",
+          "frame": "string \u2014 atlas frame name (optional)",
+          "anchor": "{ x: number, y: number } \u2014 0\u20131, default { x: 0.5, y: 0.5 }",
+          "tint": "number \u2014 hex, default 0xffffff",
+          "alpha": "number \u2014 0\u20131",
           "blendMode": "'normal' | 'add' | 'multiply' | 'screen'",
           "flipX": "boolean",
           "flipY": "boolean",
-          "normalMap": "string — filename for 2D lighting normal map (optional)"
+          "normalMap": "string \u2014 filename for 2D lighting normal map (optional)"
         }
       },
       "Animator": {
         "import": "import { Animator } from '@emptysock/engine'",
         "props": {
-          "spritesheet": "string — .esanim file",
-          "defaultClip": "string — animation name to play on attach",
-          "speed": "number — playback multiplier, default 1"
+          "spritesheet": "string \u2014 .esanim file",
+          "defaultClip": "string \u2014 animation name to play on attach",
+          "speed": "number \u2014 playback multiplier, default 1"
         },
         "methods": {
           "play": "animator.play(clip: string, opts?: { loop?: boolean, onComplete?: () => void }): void",
@@ -207,11 +204,11 @@
           "shape": "'cuboid' | 'ball' | 'capsule' | 'polygon' | 'compound'",
           "bodyType": "'fixed' | 'dynamic' | 'kinematicPosition' | 'kinematicVelocity'",
           "mass": "number",
-          "friction": "number — 0–1",
-          "restitution": "number — 0–1 (bounciness)",
-          "ccd": "boolean — continuous collision detection, for fast objects",
-          "sensor": "boolean — trigger volume, no physical response",
-          "collisionGroups": "string[] — named group labels"
+          "friction": "number \u2014 0\u20131",
+          "restitution": "number \u2014 0\u20131 (bounciness)",
+          "ccd": "boolean \u2014 continuous collision detection, for fast objects",
+          "sensor": "boolean \u2014 trigger volume, no physical response",
+          "collisionGroups": "string[] \u2014 named group labels"
         },
         "methods": {
           "applyImpulse": "body.applyImpulse(force: Vector2): void",
@@ -223,9 +220,9 @@
       "CharacterController": {
         "import": "import { CharacterController } from '@emptysock/engine'",
         "props": {
-          "slopeAngle": "number — max walkable slope degrees",
-          "snapToGround": "number — snap distance (0 = off)",
-          "offset": "number — collision skin width, default 0.01"
+          "slopeAngle": "number \u2014 max walkable slope degrees",
+          "snapToGround": "number \u2014 snap distance (0 = off)",
+          "offset": "number \u2014 collision skin width, default 0.01"
         },
         "methods": {
           "moveAndSlide": "controller.moveAndSlide(velocity: Vector2): void",
@@ -238,23 +235,39 @@
         "import": "import { PointLight } from '@emptysock/engine'",
         "note": "Requires scene config lighting: true",
         "props": {
-          "colour": "number — hex",
+          "colour": "number \u2014 hex",
           "intensity": "number",
-          "radius": "number — pixels",
+          "radius": "number \u2014 pixels",
           "castShadows": "boolean"
         }
       },
       "DirectionalLight": {
         "import": "import { DirectionalLight } from '@emptysock/engine'",
-        "props": { "colour": "number", "intensity": "number", "angle": "number — radians", "castShadows": "boolean" }
+        "props": {
+          "colour": "number",
+          "intensity": "number",
+          "angle": "number \u2014 radians",
+          "castShadows": "boolean"
+        }
       },
       "SpotLight": {
         "import": "import { SpotLight } from '@emptysock/engine'",
-        "props": { "colour": "number", "intensity": "number", "radius": "number", "innerAngle": "number", "outerAngle": "number", "castShadows": "boolean" }
+        "props": {
+          "colour": "number",
+          "intensity": "number",
+          "radius": "number",
+          "innerAngle": "number",
+          "outerAngle": "number",
+          "castShadows": "boolean"
+        }
       },
       "PathFollower": {
         "import": "import { PathFollower } from '@emptysock/engine'",
-        "props": { "path": "Path", "speed": "number", "onComplete": "() => void — optional" },
+        "props": {
+          "path": "Path",
+          "speed": "number",
+          "onComplete": "() => void \u2014 optional"
+        },
         "methods": {
           "setPath": "follower.setPath(path: Path): void",
           "stop": "follower.stop(): void",
@@ -265,7 +278,7 @@
       "VNController": {
         "import": "import { VNController } from '@emptysock/engine'",
         "props": {
-          "dialogueTree": "string — .esvn file",
+          "dialogueTree": "string \u2014 .esvn file",
           "onChoice": "(index: number, text: string) => void",
           "onEvent": "(name: string, data: unknown) => void"
         },
@@ -276,14 +289,13 @@
         }
       }
     },
-
     "Input": {
       "import": "import { Input } from '@emptysock/engine'",
       "methods": {
-        "isDown": "Input.isDown(key: string): boolean — held",
-        "isPressed": "Input.isPressed(key: string): boolean — just pressed",
-        "isReleased": "Input.isReleased(key: string): boolean — just released",
-        "axis": "Input.axis(name: 'Horizontal' | 'Vertical' | string): number — -1 to 1",
+        "isDown": "Input.isDown(key: string): boolean \u2014 held",
+        "isPressed": "Input.isPressed(key: string): boolean \u2014 just pressed",
+        "isReleased": "Input.isReleased(key: string): boolean \u2014 just released",
+        "axis": "Input.axis(name: 'Horizontal' | 'Vertical' | string): number \u2014 -1 to 1",
         "onKeyDown": "Input.onKeyDown(key: string, fn: () => void): void",
         "rumble": "Input.rumble(gamepad: string, opts: { intensity: number, duration: number }): void",
         "vibrate": "Input.vibrate(ms: number): void"
@@ -296,7 +308,6 @@
       },
       "keyNames": "ArrowLeft ArrowRight ArrowUp ArrowDown Space Enter Escape KeyA-Z Digit0-9 gamepad0/A gamepad0/B gamepad0/X gamepad0/Y gamepad0/L1 gamepad0/R1 gamepad0/L2 gamepad0/R2 gamepad0/DPadLeft gamepad0/DPadRight gamepad0/DPadUp gamepad0/DPadDown gamepad0/Start gamepad0/Select"
     },
-
     "Audio": {
       "import": "import { Audio } from '@emptysock/engine'",
       "methods": {
@@ -309,15 +320,14 @@
         "unmute": "Audio.unmute(group?: string): void"
       },
       "PlayOptions": {
-        "volume": "number 0–1",
+        "volume": "number 0\u20131",
         "loop": "boolean",
         "spatial": "boolean",
         "position": "{ x: number, y: number }",
-        "fade": "number — fade-in seconds",
-        "rate": "number — playback speed multiplier"
+        "fade": "number \u2014 fade-in seconds",
+        "rate": "number \u2014 playback speed multiplier"
       }
     },
-
     "Camera": {
       "import": "import { Camera } from '@emptysock/engine'",
       "methods": {
@@ -333,13 +343,12 @@
         "pillarbox": "Camera.pillarbox(opts: { ratio: string }): void"
       },
       "FollowOptions": {
-        "lerp": "number 0–1",
+        "lerp": "number 0\u20131",
         "deadzone": "{ x: number, y: number }",
         "lookahead": "{ x: number, y: number }",
         "bounds": "{ x: number, y: number, width: number, height: number }"
       }
     },
-
     "Timer": {
       "import": "import { Timer } from '@emptysock/engine'",
       "methods": {
@@ -350,7 +359,6 @@
         "cancel": "handle.cancel(): void"
       }
     },
-
     "coroutines": {
       "import": "import { waitSeconds, waitFrames, waitUntil, waitForEvent, waitForAnimation, waitForDialogue, waitForPath } from '@emptysock/engine'",
       "usage": "entity.startCoroutine(function* name() { yield helper })",
@@ -364,7 +372,6 @@
         "waitForPath": "yield waitForPath(entity: Entity)"
       }
     },
-
     "Tween": {
       "import": "import { Tween } from '@emptysock/engine'",
       "methods": {
@@ -373,16 +380,31 @@
         "sequence": "Tween.sequence(tweens: TweenHandle[]): TweenHandle"
       },
       "TweenOptions": {
-        "duration": "number — seconds",
-        "ease": "string — see easings list",
-        "delay": "number — seconds",
+        "duration": "number \u2014 seconds",
+        "ease": "string \u2014 see easings list",
+        "delay": "number \u2014 seconds",
         "loop": "boolean",
         "yoyo": "boolean",
         "onComplete": "() => void"
       },
-      "easings": ["linear","sineIn","sineOut","sineInOut","quadIn","quadOut","quadInOut","cubicIn","cubicOut","cubicInOut","bounceOut","bounceIn","elasticOut","backOut","backIn"]
+      "easings": [
+        "linear",
+        "sineIn",
+        "sineOut",
+        "sineInOut",
+        "quadIn",
+        "quadOut",
+        "quadInOut",
+        "cubicIn",
+        "cubicOut",
+        "cubicInOut",
+        "bounceOut",
+        "bounceIn",
+        "elasticOut",
+        "backOut",
+        "backIn"
+      ]
     },
-
     "SaveSystem": {
       "import": "import { SaveSystem } from '@emptysock/engine'",
       "methods": {
@@ -395,9 +417,9 @@
       },
       "SaveSlot": {
         "slot": "string",
-        "data": "unknown — ALWAYS parse through Zod before use",
+        "data": "unknown \u2014 ALWAYS parse through Zod before use",
         "timestamp": "number",
-        "playtime": "number — seconds",
+        "playtime": "number \u2014 seconds",
         "scene": "string"
       },
       "settings": {
@@ -405,7 +427,6 @@
         "set": "SaveSystem.settings.set(key: string, value: unknown): Promise<void>"
       }
     },
-
     "LocalisationSystem": {
       "import": "import { t, LocalisationSystem } from '@emptysock/engine'",
       "methods": {
@@ -417,10 +438,13 @@
       },
       "translationFileFormat": {
         "location": "assets/i18n/[locale].json",
-        "example": { "menu.start": "Start Game", "hud.score": "Score: {{score}}", "hud.lives": "{{count}} lives" }
+        "example": {
+          "menu.start": "Start Game",
+          "hud.score": "Score: {{score}}",
+          "hud.lives": "{{count}} lives"
+        }
       }
     },
-
     "PathfindingSystem": {
       "import": "import { PathfindingSystem } from '@emptysock/engine'",
       "methods": {
@@ -429,7 +453,6 @@
         "debugDraw": "PathfindingSystem.debugDraw(enabled: boolean): void"
       }
     },
-
     "TilemapSystem": {
       "import": "import { TilemapSystem } from '@emptysock/engine'",
       "methods": {
@@ -437,19 +460,18 @@
       },
       "TilemapInstance": {
         "getLayer": "map.getLayer(name: string): TilemapLayer",
-        "width": "number — tiles",
-        "height": "number — tiles",
-        "tileWidth": "number — pixels",
-        "tileHeight": "number — pixels"
+        "width": "number \u2014 tiles",
+        "height": "number \u2014 tiles",
+        "tileWidth": "number \u2014 pixels",
+        "tileHeight": "number \u2014 pixels"
       },
       "TilemapLayer": {
         "enablePhysics": "layer.enablePhysics(): void",
-        "entities": "Entity[] — object layer placements",
+        "entities": "Entity[] \u2014 object layer placements",
         "getTile": "layer.getTile(x: number, y: number): Tile | null",
-        "asGrid": "layer.asGrid(): Grid — for A* pathfinding"
+        "asGrid": "layer.asGrid(): Grid \u2014 for A* pathfinding"
       }
     },
-
     "ObjectPool": {
       "import": "import { ObjectPool } from '@emptysock/engine'",
       "constructor": "new ObjectPool<T>(EntityClass: new() => T, opts: { size: number })",
@@ -460,7 +482,6 @@
         "available": "pool.available: number"
       }
     },
-
     "Profiler": {
       "import": "import { Profiler } from '@emptysock/engine'",
       "methods": {
@@ -470,20 +491,50 @@
       },
       "ProfileStats": {
         "fps": "number",
-        "frameTime": "number — ms",
+        "frameTime": "number \u2014 ms",
         "drawCalls": "number",
         "entityCount": "number",
-        "physicsTime": "number — ms",
-        "renderTime": "number — ms",
-        "scriptTime": "number — ms",
+        "physicsTime": "number \u2014 ms",
+        "renderTime": "number \u2014 ms",
+        "scriptTime": "number \u2014 ms",
         "memoryMB": "number"
       }
+    },
+    "ParticleEmitter": {
+      "import": "import { ParticleEmitter } from '@emptysock/engine'",
+      "description": "Component that spawns and animates short-lived visual particles. Attach to an entity, configure options, then call start() or burst().",
+      "constructorOptions": {
+        "rate": "number \u2014 particles emitted per second in continuous mode",
+        "lifetime": "number \u2014 seconds each particle lives",
+        "speed": "number \u2014 initial speed in world units/second",
+        "spread": "number \u2014 emission cone half-angle in degrees (0 = straight line, 360 = sphere)",
+        "count": "number (1\u20132000) \u2014 maximum simultaneous live particles",
+        "textureName": "string (optional) \u2014 asset name for sprite-sheet particles; omit for default white square"
+      },
+      "methods": {
+        "start": "emitter.start(): void \u2014 begin continuous emission at the configured rate",
+        "stop": "emitter.stop(): void \u2014 stop emitting new particles; existing particles finish their lifetime",
+        "burst": "emitter.burst(count: number): void \u2014 fire exactly count particles immediately, ignoring rate"
+      },
+      "properties": {
+        "rate": "number \u2014 read/write, effective before start() is called",
+        "lifetime": "number \u2014 read/write",
+        "speed": "number \u2014 read/write",
+        "spread": "number \u2014 read/write",
+        "count": "number \u2014 read/write",
+        "textureName": "string | undefined \u2014 read/write"
+      },
+      "notes": [
+        "Call stop() in onDestroy before the entity is destroyed.",
+        "burst() does not require start() to have been called first.",
+        "Particles sharing the same textureName are batched into one draw call.",
+        "count should be kept as low as visually acceptable \u2014 all particles update every frame."
+      ]
     }
   },
-
   "fileExtensions": {
-    ".esscene": "Scene — entities, components, properties (JSON)",
-    ".esmap": "Tilemap — layers, tiles, collision, objects (JSON)",
+    ".esscene": "Scene \u2014 entities, components, properties (JSON)",
+    ".esmap": "Tilemap \u2014 layers, tiles, collision, objects (JSON)",
     ".esanim": "Spritesheet animation clips (JSON)",
     ".esprefab": "Reusable entity template (JSON)",
     ".esvn": "Visual novel dialogue tree (JSON)",
@@ -491,25 +542,75 @@
     ".esui": "UI layout panel (JSON)",
     ".esdata": "Game data file (validated JSON)"
   },
-
   "postProcessEffects": [
-    "bloom", "chromatic-aberration", "vignette", "scanlines",
-    "pixelate", "colour-grade", "blur", "outline", "shockwave", "noise"
+    "bloom",
+    "chromatic-aberration",
+    "vignette",
+    "scanlines",
+    "pixelate",
+    "colour-grade",
+    "blur",
+    "outline",
+    "shockwave",
+    "noise"
   ],
-
   "gpuTiers": {
-    "potato": { "examples": "Pi Zero, Pi 1, Mali-G51", "maxParticles": 100, "maxLights": 1, "postFx": false, "targetFPS": 30 },
-    "low":    { "examples": "Pi 4 4GB, S9+ (Mali-G72), 2013 laptop iGPU", "maxParticles": 500, "maxLights": 4, "postFx": "1 pass", "targetFPS": 60 },
-    "mid":    { "examples": "2015 laptop iGPU, GTX 750", "maxParticles": 2000, "maxLights": 8, "postFx": "2 passes", "targetFPS": 60 },
-    "high":   { "examples": "GTX 1060, RX 580, M1", "maxParticles": 5000, "maxLights": 16, "postFx": "full", "targetFPS": 60 },
-    "ultra":  { "examples": "RTX 30+, RX 6000+, M2+", "maxParticles": 10000, "maxLights": 32, "postFx": "full", "targetFPS": "unlocked" }
+    "potato": {
+      "examples": "Pi Zero, Pi 1, Mali-G51",
+      "maxParticles": 100,
+      "maxLights": 1,
+      "postFx": false,
+      "targetFPS": 30
+    },
+    "low": {
+      "examples": "Pi 4 4GB, S9+ (Mali-G72), 2013 laptop iGPU",
+      "maxParticles": 500,
+      "maxLights": 4,
+      "postFx": "1 pass",
+      "targetFPS": 60
+    },
+    "mid": {
+      "examples": "2015 laptop iGPU, GTX 750",
+      "maxParticles": 2000,
+      "maxLights": 8,
+      "postFx": "2 passes",
+      "targetFPS": 60
+    },
+    "high": {
+      "examples": "GTX 1060, RX 580, M1",
+      "maxParticles": 5000,
+      "maxLights": 16,
+      "postFx": "full",
+      "targetFPS": 60
+    },
+    "ultra": {
+      "examples": "RTX 30+, RX 6000+, M2+",
+      "maxParticles": 10000,
+      "maxLights": 32,
+      "postFx": "full",
+      "targetFPS": "unlocked"
+    }
   },
-
-  "exportTargets": ["web", "windows", "macos", "linux", "android", "ios", "raspi"],
-
+  "exportTargets": [
+    "web",
+    "windows",
+    "macos",
+    "linux",
+    "android",
+    "ios",
+    "raspi"
+  ],
   "commitConvention": {
     "format": "type(scope): description",
-    "types": ["feat", "fix", "refactor", "perf", "chore", "docs", "test"],
+    "types": [
+      "feat",
+      "fix",
+      "refactor",
+      "perf",
+      "chore",
+      "docs",
+      "test"
+    ],
     "examples": [
       "feat(player): add double jump",
       "fix(physics): character clips through thin floor at high speed",
