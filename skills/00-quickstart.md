@@ -253,6 +253,37 @@ SceneManager.pop()
 
 ---
 
+## Story Graph (VNSystem)
+
+```typescript
+import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'
+
+// In onLoad:
+const vn = new VNSystem()
+await vn.loadScript('assets/story/chapter1.vnscript')   // exported from Story Graph panel
+
+vn.onNode((node: VNNode) => {
+  if (node.type === 'dialogue') {
+    const d = node as VNDialogueNode
+    showText(d.speaker, d.text)
+  } else if (node.type === 'choice') {
+    const c = node as VNChoiceNode
+    showChoiceButtons(c.options.map((o) => o.label))
+  }
+})
+
+vn.play()
+vn.advance()          // move past a dialogue node
+vn.choose(0)          // select first choice option
+vn.setVariable('flag', true)
+vn.jumpToNode('id')   // resume from a saved node id
+vn.destroy()          // in onDestroy
+```
+
+Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.vnscript` JSON.
+
+---
+
 ## Rules — never break these
 
 | Wrong | Right |
