@@ -52,6 +52,9 @@ emptysock-agent-pack/
     20-performance.md          ← GPU tiers, draw calls, Pi4, mobile
     21-typescript.md           ← Strict TS rules, Zod, banned patterns
     10-window-system.md        ← WindowSystem, window modes, compile-time constants
+    11-ui-system.md            ← UISystem, animations, hover effects, render pass
+    12-vn-textbox.md           ← VNTextbox, VNScriptConvert round-trip
+    13-variable-store.md       ← VariableStore, named variables and switches
 
   docs/
     getting-started.md         ← Install EmptySock, first project, first game
