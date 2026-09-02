@@ -39,6 +39,7 @@ emptysock-agent-pack/
     08-tilemaps.md             ← Loading, layers, collision, auto-tile
     09-particles.md            ← Emitters, parameters, performance
     10-ui.md                   ← Components, layout, anchors, accessibility
+    08-story-graph.md          ← Story Graph panel, VNSystem, save/resume, localisation
     11-visual-novel.md         ← Dialogue trees, branching, auto-advance
     12-pathfinding.md          ← A* grid, navmesh, path following
     13-save-system.md          ← Slots, auto-save, settings persistence
@@ -50,6 +51,7 @@ emptysock-agent-pack/
     19-export.md               ← All platforms, build pipeline, icons
     20-performance.md          ← GPU tiers, draw calls, Pi4, mobile
     21-typescript.md           ← Strict TS rules, Zod, banned patterns
+    10-window-system.md        ← WindowSystem, window modes, compile-time constants
 
   docs/
     getting-started.md         ← Install EmptySock, first project, first game

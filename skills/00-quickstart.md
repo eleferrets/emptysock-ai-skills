@@ -164,6 +164,24 @@ override onUpdate(dt: number): void {
 
 ---
 
+## Particles
+
+```typescript
+import { ParticleEmitter } from '@emptysock/engine'
+
+const entity = scene.createEntity('sparks')
+const emitter = entity.addComponent(ParticleEmitter, {
+  rate: 30, lifetime: 1.5, speed: 120, spread: 45, count: 100,
+  textureName: 'fx/spark.png',   // optional, defaults to white square
+})
+emitter.start()           // continuous emission
+emitter.burst(24)         // one-shot, ignores rate
+emitter.stop()            // stop new particles; existing ones finish
+// in onDestroy: emitter.stop()
+```
+
+---
+
 ## Audio
 
 ```typescript
@@ -253,6 +271,58 @@ SceneManager.pop()
 
 ---
 
+## Story Graph (VNSystem)
+
+```typescript
+import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'
+
+// In onLoad:
+const vn = new VNSystem()
+await vn.loadScript('assets/story/chapter1.vnscript')   // exported from Story Graph panel
+
+vn.onNode((node: VNNode) => {
+  if (node.type === 'dialogue') {
+    const d = node as VNDialogueNode
+    showText(d.speaker, d.text)
+  } else if (node.type === 'choice') {
+    const c = node as VNChoiceNode
+    showChoiceButtons(c.options.map((o) => o.label))
+  }
+})
+
+vn.play()
+vn.advance()          // move past a dialogue node
+vn.choose(0)          // select first choice option
+vn.setVariable('flag', true)
+vn.jumpToNode('id')   // resume from a saved node id
+vn.destroy()          // in onDestroy
+```
+
+Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.vnscript` JSON.
+
+---
+
+## Window management
+
+```typescript
+import { windowSystem } from '@emptysock/engine'
+
+// Apply from project settings on startup:
+await windowSystem.apply({ mode: 'windowed', width: GAME_WIDTH, height: GAME_HEIGHT, title: PROJECT_TITLE })
+
+// Runtime changes:
+await windowSystem.setMode('fullscreen')   // 'windowed' | 'fullscreen' | 'borderless'
+await windowSystem.setTitle('New Title')
+await windowSystem.setSize(1920, 1080)
+await windowSystem.setResizable(false)
+await windowSystem.center()
+```
+
+`GAME_WIDTH`, `GAME_HEIGHT`, `PROJECT_TITLE`, `PROJECT_NAME`, and `DEBUG` are compile-time constants
+injected from project settings — use them freely, no import needed.
+
+---
+
 ## Rules — never break these
 
 | Wrong | Right |
@@ -266,3 +336,5 @@ SceneManager.pop()
 | Forgetting `entity.destroy()` | Always destroy when done |
 | Forgetting `handle.cancel()` | Always cancel timers in `onDestroy` |
 | Skip `physics3d.destroy()` | Always call in `onDestroy` — leaks WASM |
+| Engine-owned loading screen | Not a thing — build one as a scene if needed |
+| Engine-owned splash screen | Not a thing — build one as a scene if needed |
