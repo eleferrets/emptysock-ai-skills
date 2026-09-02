@@ -336,3 +336,5 @@ injected from project settings — use them freely, no import needed.
 | Forgetting `entity.destroy()` | Always destroy when done |
 | Forgetting `handle.cancel()` | Always cancel timers in `onDestroy` |
 | Skip `physics3d.destroy()` | Always call in `onDestroy` — leaks WASM |
+| Engine-owned loading screen | Not a thing — build one as a scene if needed |
+| Engine-owned splash screen | Not a thing — build one as a scene if needed |
