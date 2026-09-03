@@ -689,5 +689,114 @@
         "source": "true in debug build, false in release"
       }
     }
+  },
+  "AutoTileSystem": {
+    "import": "import { AutoTileSystem } from '@emptysock/engine'",
+    "description": "Selects tile variants based on 8-neighbour bitmask rules.",
+    "methods": {
+      "addRuleSet": { "signature": "(ruleSet: AutoTileRuleSet): void" },
+      "removeRuleSet": { "signature": "(baseTileIndex: number): void" },
+      "getRuleSet": { "signature": "(baseTileIndex: number): AutoTileRuleSet | undefined" },
+      "resolve": {
+        "signature": "(col: number, row: number, baseTileIndex: number, tileAt: (col: number, row: number) => number): number",
+        "description": "Returns the tile index to paint at (col, row) given neighbour occupancy."
+      }
+    }
+  },
+  "VariableStore": {
+    "import": "import { VariableStore } from '@emptysock/engine'",
+    "description": "Indexed integer variables (1-1000) and boolean switches (1-1000) with localStorage persistence.",
+    "methods": {
+      "getVar": { "signature": "(index: number): number" },
+      "setVar": { "signature": "(index: number, value: number): void" },
+      "getVarName": { "signature": "(index: number): string" },
+      "setVarName": { "signature": "(index: number, name: string): void" },
+      "getSwitch": { "signature": "(index: number): boolean" },
+      "setSwitch": { "signature": "(index: number, value: boolean): void" },
+      "getSwitchName": { "signature": "(index: number): string" },
+      "setSwitchName": { "signature": "(index: number, name: string): void" },
+      "save": { "signature": "(): void", "description": "Persist to localStorage." },
+      "load": { "signature": "(): void", "description": "Restore from localStorage." },
+      "snapshot": { "signature": "(): VariableStoreData" },
+      "restore": { "signature": "(data: VariableStoreData): void" }
+    }
+  },
+  "MapEventSystem": {
+    "import": "import { MapEventSystem } from '@emptysock/engine'",
+    "description": "Tile-aligned event system with autorun, player-touch, action-button, and parallel trigger types.",
+    "methods": {
+      "addEvent": { "signature": "(event: MapEvent): void" },
+      "removeEvent": { "signature": "(id: string): void" },
+      "loadEvents": { "signature": "(events: MapEvent[]): void" },
+      "setHandler": { "signature": "(handler: EventCommandHandler): void" },
+      "update": { "signature": "(playerTileX: number, playerTileY: number, actionPressed: boolean): void" }
+    }
+  },
+  "GridMovementBehavior": {
+    "import": "import { GridMovementBehavior } from '@emptysock/engine'",
+    "description": "Smooth 4-directional tile-aligned movement behavior. Attach to an entity via addBehavior().",
+    "constructor": "new GridMovementBehavior({ tileSize?, speed?, input, isSolid? })",
+    "properties": {
+      "tileSize": "number",
+      "speed": "number — tiles per second"
+    }
+  },
+  "CharacterStage": {
+    "import": "import { CharacterStage } from '@emptysock/engine'",
+    "description": "Renders character sprites at left/center/right stage positions with fade transitions.",
+    "constructor": "new CharacterStage({ canvasWidth, canvasHeight, baselineY?, maxHeightFraction? })",
+    "methods": {
+      "show": { "signature": "(slot: StageSlot, imagePath: string, opts?: { expression?, fadeDuration? }): void" },
+      "hide": { "signature": "(slot: StageSlot, fadeDuration?: number): void" },
+      "update": { "signature": "(dt: number): void" },
+      "render": { "signature": "(ctx: CanvasRenderingContext2D): void" }
+    }
+  },
+  "VNBackgroundLayer": {
+    "import": "import { VNBackgroundLayer } from '@emptysock/engine'",
+    "description": "Manages a background image and full-screen CG overlay with cross-fade transitions.",
+    "constructor": "new VNBackgroundLayer({ canvasWidth, canvasHeight, fadeDuration? })",
+    "methods": {
+      "setBackground": { "signature": "(imagePath: string, opts?: { fadeDuration?, fit? }): void" },
+      "clearBackground": { "signature": "(fadeDuration?: number): void" },
+      "showCG": { "signature": "(imagePath: string, opts?: { fadeDuration?, fit? }): void" },
+      "clearCG": { "signature": "(fadeDuration?: number): void" },
+      "update": { "signature": "(dt: number): void" },
+      "render": { "signature": "(ctx: CanvasRenderingContext2D): void" }
+    }
+  },
+  "VNTextbox": {
+    "import": "import { VNTextbox } from '@emptysock/engine'",
+    "description": "Pre-built dialogue box rendered by UISystem. Bind to a VNSystem instance to auto-update.",
+    "constructor": "new VNTextbox({ canvasWidth, canvasHeight, height?, namePlateHeight?, paddingX?, panelColor?, namePlateColor?, textColor?, fontSize? })",
+    "methods": {
+      "bind": { "signature": "(vn: VNSystem): void" },
+      "unbind": { "signature": "(): void" }
+    }
+  },
+  "VNScriptConvert": {
+    "import": "import { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from '@emptysock/engine'",
+    "description": "Converts between Story Graph (visual-editor JSON) and VNSystem DialogueTree (.vnscript JSON).",
+    "functions": {
+      "storyGraphToDialogueTree": { "signature": "(graph: StoryGraph): DialogueTree" },
+      "dialogueTreeToStoryGraph": { "signature": "(tree: DialogueTree): StoryGraph" }
+    }
+  },
+  "CGGallery": {
+    "import": "import { CGGallery } from '@emptysock/engine'",
+    "description": "Tracks CG image unlock state, persisted via SaveSystem.",
+    "constructor": "new CGGallery({ entries: CGEntry[], saveSystem?, saveSlot? })",
+    "methods": {
+      "load": { "signature": "(): void" },
+      "unlock": { "signature": "(id: string): void" },
+      "unlockFromNode": { "signature": "(cgId: string): void" },
+      "isUnlocked": { "signature": "(id: string): boolean" }
+    },
+    "properties": {
+      "entries": "ReadonlyArray<CGEntry>",
+      "unlockedEntries": "CGEntry[]",
+      "totalCount": "number",
+      "unlockedCount": "number"
+    }
   }
 }
