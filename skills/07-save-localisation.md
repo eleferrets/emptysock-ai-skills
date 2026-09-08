@@ -46,33 +46,35 @@ await SaveSystem.delete('slot-1')
 
 ---
 
-## Localisation (i18n)
+## Localisation
 
 ```typescript
-import { i18n } from '@emptysock/engine'
-
-// Load locale bundles in onLoad:
-await i18n.load('en', () => import('./locales/en.json'))
-await i18n.load('fr', () => import('./locales/fr.json'))
-await i18n.load('de', () => import('./locales/de.json'))
+import { t, LocalisationSystem } from '@emptysock/engine'
 
 // Switch locale at runtime (e.g., from settings screen):
-i18n.setLocale('fr')
+LocalisationSystem.setLocale('fr')
 
 // Translate a key:
-i18n.t('menu.start')                // → "Commencer"
-i18n.t('hud.score', { n: 1234 })   // → "Score : 1 234" (template substitution)
-i18n.t('missing.key')              // → 'missing.key' (returns key, never throws)
+t('menu.start')                           // → "Commencer"
+t('hud.score', { score: 1234 })          // → "Score : 1 234" (template substitution)
+t('missing.key')                          // → 'missing.key' (returns key, never throws)
+
+// Query available locales:
+const locales = LocalisationSystem.availableLocales  // string[]
+const current = LocalisationSystem.getLocale()        // string
+const exists  = LocalisationSystem.hasKey('menu.start') // boolean
 ```
 
 ### Locale JSON format
+
+Place files at `assets/i18n/[locale].json`. The engine loads them automatically.
 
 ```json
 {
   "menu.start": "Start Game",
   "menu.quit": "Quit",
-  "hud.score": "Score: {{n}}",
-  "hud.lives": "{{n}} lives remaining"
+  "hud.score": "Score: {{score}}",
+  "hud.lives": "{{count}} lives remaining"
 }
 ```
 
@@ -86,9 +88,9 @@ The IDE's LocalisationEditor panel manages these files visually:
 - Import CSV (header: `key,en,fr,...`)
 - Export CSV for spreadsheet editing or version control
 
-Export from the panel, place the JSON files in `src/locales/`, then import them in `onLoad` as shown above.
+Export from the panel and place the JSON files in `assets/i18n/`.
 
 ### Notes
-- `i18n.t()` falls back to returning the key itself when a translation is missing — it never throws. This means typos in key names are silent at runtime; use the LocalisationEditor's filter to catch missing translations before shipping.
-- Locale bundles are loaded lazily. Only load the locales the user might select at startup — don't load all languages upfront.
+- `t()` falls back to returning the key itself when a translation is missing — it never throws. This means typos in key names are silent at runtime; use the LocalisationEditor's filter to catch missing translations before shipping.
 - Template tokens use `{{name}}` syntax. Pass them as `{ name: value }` in the second argument.
+- `LocalisationSystem.setLocale()` takes an IETF language tag string (`'en'`, `'fr'`, `'ja'`). The locale must correspond to an existing `assets/i18n/[locale].json` file.

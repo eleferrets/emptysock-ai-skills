@@ -277,6 +277,7 @@
       },
       "VNController": {
         "import": "import { VNController } from '@emptysock/engine'",
+        "description": "Entity component for simple VN playback. Attach to an entity, set dialogueTree to a .esvn file path, and drive it via advance()/jump(). For programmatic control, callback registration, or VNTextbox binding, use VNSystem instead.",
         "props": {
           "dialogueTree": "string \u2014 .esvn file",
           "onChoice": "(index: number, text: string) => void",
@@ -718,7 +719,8 @@
       "save": { "signature": "(): void", "description": "Persist to localStorage." },
       "load": { "signature": "(): void", "description": "Restore from localStorage." },
       "snapshot": { "signature": "(): VariableStoreData" },
-      "restore": { "signature": "(data: VariableStoreData): void" }
+      "restore": { "signature": "(data: VariableStoreData): void" },
+      "reset": { "signature": "(): void", "description": "Clear all variables to 0 and all switches to false in memory. Does not persist — call save() afterwards if the reset should survive a reload." }
     }
   },
   "MapEventSystem": {
@@ -764,6 +766,31 @@
       "update": { "signature": "(dt: number): void" },
       "render": { "signature": "(ctx: CanvasRenderingContext2D): void" }
     }
+  },
+  "VNSystem": {
+    "import": "import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'",
+    "description": "Standalone visual novel runtime. Plays exported .vnscript files. Used by VNTextbox as its data source. For simple entity-based playback, see VNController instead.",
+    "constructor": "new VNSystem()",
+    "methods": {
+      "loadScript": { "signature": "(path: string): Promise<void>", "description": "Load a .vnscript JSON file exported from the Story Graph panel." },
+      "onNode": { "signature": "(fn: (node: VNNode) => void): void", "description": "Register a callback invoked whenever the active node changes. Register before calling play()." },
+      "play": { "signature": "(): void", "description": "Begin playback from the start node." },
+      "advance": { "signature": "(): void", "description": "Move past the current dialogue node." },
+      "choose": { "signature": "(index: number): void", "description": "Select a choice option by zero-based index." },
+      "skip": { "signature": "(): void", "description": "Skip any active auto-advance delay." },
+      "jumpToNode": { "signature": "(nodeId: string): void", "description": "Jump to a node by id (used for save/resume)." },
+      "setVariable": { "signature": "(key: string, value: string | number | boolean): void" },
+      "getVariable": { "signature": "(key: string): string | number | boolean | undefined" },
+      "getVariables": { "signature": "(): Record<string, string | number | boolean>" },
+      "isFinished": { "signature": "(): boolean" },
+      "destroy": { "signature": "(): void", "description": "Required in onDestroy()." }
+    },
+    "notes": [
+      "Call destroy() in onDestroy().",
+      "Do not call advance() or choose() before play() — the state machine is not ready.",
+      "onNode fires once per node including after jumpToNode(). Register before play().",
+      "Condition nodes are evaluated and routed automatically — onNode is never called for them."
+    ]
   },
   "VNTextbox": {
     "import": "import { VNTextbox } from '@emptysock/engine'",

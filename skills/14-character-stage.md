@@ -15,8 +15,8 @@ class NarrativeScene extends Scene {
   private _stage!: CharacterStage
   private _textbox!: VNTextbox
 
-  async onLoad() {
-    await this._vn.load({ startNode: 'intro', nodes: { /* ... */ } })
+  async onLoad(): Promise<void> {
+    await this._vn.loadScript('assets/story/chapter1.vnscript')
 
     this._bg = new VNBackgroundLayer({ canvasWidth: 800, canvasHeight: 600 })
     this._bg.setBackground('assets/rooms/forest.jpg')
@@ -92,7 +92,7 @@ new VNBackgroundLayer(opts: VNBackgroundLayerOptions)
 bg.setBackground(imagePath: string, opts?: { fadeDuration?: number; fit?: 'cover' | 'contain' | 'stretch' }): void
 bg.clearBackground(fadeDuration?: number): void
 bg.showCG(imagePath: string, opts?: { fadeDuration?: number; fit?: 'cover' | 'contain' | 'stretch' }): void
-bg.hideCG(fadeDuration?: number): void
+bg.clearCG(fadeDuration?: number): void
 bg.update(dt: number): void
 bg.render(ctx: CanvasRenderingContext2D): void
 ```

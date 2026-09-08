@@ -133,17 +133,17 @@ async function tryResume(vn: VNSystem): Promise<void> {
 
 ## Localisation pattern
 
-Story text keys can be i18n keys resolved at display time:
+Story text keys can be localisation keys resolved at display time:
 
 ```typescript
-import { i18n } from '@emptysock/engine'
+import { t } from '@emptysock/engine'
 
 // In onNode callback for dialogue:
-const text = i18n.t(node.text)   // returns key verbatim if missing — never throws
+const text = t(node.text)   // returns key verbatim if missing — never throws
 showText(node.speaker, text)
 ```
 
-Use the LocalisationEditor panel to manage keys. Export JSON locale files to `src/locales/` and load them in `onLoad` with `i18n.load()`.
+Use the LocalisationEditor panel to manage keys. Export JSON locale files to `assets/i18n/` (see `skills/07-save-localisation.md` for format and `LocalisationSystem` API).
 
 ---
 
