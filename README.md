@@ -57,6 +57,7 @@ emptysock-agent-pack/
     13-variable-store.md       ← VariableStore, named variables and switches
     14-character-stage.md      ← CharacterStage, VNBackgroundLayer, VN render order
     15-map-events.md           ← MapEventSystem, tile triggers, command runner
+    16-battle-system.md        ← Turn-based battle system, party vs enemies, status effects
 
   docs/
     getting-started.md         ← Install EmptySock, first project, first game

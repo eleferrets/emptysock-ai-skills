@@ -798,5 +798,44 @@
       "totalCount": "number",
       "unlockedCount": "number"
     }
+  },
+  "BattleSystem": {
+    "import": "import { BattleSystem, type BattlePhase, type BattleStats, type StatusEffect, type Combatant, type SkillTargetType, type DamageFormulaId, type SkillDef, type StatusEffectDef, type BattleDatabase, type BattleAction, type BattleEvent, type BattleSystemOptions } from '@emptysock/engine'",
+    "description": "Opt-in turn-based RPG battle module. Handles turn order (speed desc), damage resolution, status effects, and event emission. Tree-shaken from bundles that do not import it. Enemies act automatically (attack lowest-HP party member); party members require submitAction().",
+    "constructor": "new BattleSystem(options?: BattleSystemOptions)",
+    "BattleSystemOptions": {
+      "db": "BattleDatabase — optional, can also be loaded via loadDatabase()",
+      "critChance": "number — default 0.0625",
+      "critMultiplier": "number — default 1.5",
+      "fleeChance": "number — default 0.5"
+    },
+    "methods": {
+      "addPartyMember": { "signature": "(combatant: Combatant): void" },
+      "addEnemy": { "signature": "(combatant: Combatant): void" },
+      "loadDatabase": { "signature": "(db: BattleDatabase): void" },
+      "setDamageFormula": { "signature": "(fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number) => number): void" },
+      "onEvent": { "signature": "(handler: (event: BattleEvent) => void): () => void", "description": "Subscribe to battle events. Returns an unsubscribe function." },
+      "start": { "signature": "(): void", "description": "Begin the battle. Fires battle-start, round-start, then action-needed for the first party member." },
+      "submitAction": { "signature": "(combatantId: string, action: BattleAction): void", "description": "Submit a party member's action. Only valid when getPhase() === 'input'." },
+      "getPhase": { "signature": "(): BattlePhase" },
+      "getCombatant": { "signature": "(id: string): Combatant | undefined" },
+      "getParty": { "signature": "(): readonly Combatant[]" },
+      "getEnemies": { "signature": "(): readonly Combatant[]" },
+      "getRound": { "signature": "(): number" },
+      "destroy": { "signature": "(): void", "description": "Required in onDestroy()." }
+    },
+    "types": {
+      "BattlePhase": "'idle' | 'input' | 'resolving' | 'victory' | 'defeat'",
+      "BattleStats": "{ hp, maxHp, mp, maxMp, attack, defense, speed, luck: number }",
+      "StatusEffect": "{ id: string; name: string; turnsRemaining: number } — turnsRemaining -1 = permanent",
+      "Combatant": "{ id: string; name: string; stats: BattleStats; statusEffects: readonly StatusEffect[]; isParty: boolean }",
+      "SkillTargetType": "'single-enemy' | 'all-enemies' | 'single-ally' | 'all-allies' | 'self'",
+      "DamageFormulaId": "'physical' | 'magical' | 'fixed' | 'percent-max-hp'",
+      "SkillDef": "{ id, name, mpCost, targetType: SkillTargetType, formula: DamageFormulaId, power: number, isHeal?: boolean, statusEffect?: { effectId: string; chance: number } }",
+      "StatusEffectDef": "{ id, name, hpDrainPercentPerTurn?: number, attackMultiplier?: number, defenseMultiplier?: number }",
+      "BattleDatabase": "{ skills: SkillDef[]; statusEffects: StatusEffectDef[] }",
+      "BattleAction": "{ type: 'attack'; targetId: string } | { type: 'skill'; skillId: string; targetId: string } | { type: 'flee' }",
+      "BattleEvent": "{ kind: 'battle-start' } | { kind: 'round-start'; round: number } | { kind: 'action-needed'; combatantId: string } | { kind: 'damage'; sourceId: string; targetId: string; amount: number; isCrit: boolean } | { kind: 'heal'; sourceId: string; targetId: string; amount: number } | { kind: 'mp-cost'; combatantId: string; amount: number } | { kind: 'status-applied'; combatantId: string; effectId: string; name: string } | { kind: 'status-expired'; combatantId: string; effectId: string } | { kind: 'combatant-defeated'; combatantId: string } | { kind: 'victory' } | { kind: 'defeat' } | { kind: 'fled' }"
+    }
   }
 }
