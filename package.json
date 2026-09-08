@@ -1,0 +1,14 @@
+{
+  "name": "@emptysock/agent-pack",
+  "version": "0.1.0",
+  "description": "AI agent skills, API reference, and docs for the EmptySock game engine",
+  "keywords": ["emptysock", "game-engine", "claude-code", "ai-skills", "agent"],
+  "repository": { "type": "git", "url": "https://github.com/eleferrets/emptysock-ai-skills" },
+  "license": "MIT",
+  "files": ["ai", "skills", "docs"],
+  "exports": {
+    "./skills/*": "./skills/*",
+    "./ai/*": "./ai/*",
+    "./docs/*": "./docs/*"
+  }
+}
