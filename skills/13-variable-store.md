@@ -58,15 +58,21 @@ variableStore.reset(): void    // clear all variables and switches
 ### Save file integration
 
 ```typescript
-// Include in a SaveSystem slot
-const data = variableStore.snapshot()
-saveSystem.save('slot1', { scene: 'Map01', data: { vars: data }, timestamp: Date.now(), playtime: 0 })
+import { SaveSystem, variableStore } from '@emptysock/engine'
+import { z } from 'zod'
 
-// Restore on load
-const slot = saveSystem.load('slot1')
-if (slot !== null) {
-  variableStore.restore(slot.data['vars'] as VariableStoreData)
-}
+const VariableStoreDataSchema = z.object({
+  vars:     z.record(z.number()),
+  switches: z.record(z.boolean()),
+})
+
+// Include in a SaveSystem slot:
+await SaveSystem.save('slot1', { scene: 'Map01', vars: variableStore.snapshot() })
+
+// Restore on load — always validate with Zod:
+const raw  = await SaveSystem.load('slot1')
+const data = z.object({ scene: z.string(), vars: VariableStoreDataSchema }).parse(raw.data)
+variableStore.restore(data.vars)
 ```
 
 ---

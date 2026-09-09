@@ -18,8 +18,6 @@ The engine itself is private. This repo is public and versioned in lockstep with
 ```
 emptysock-agent-pack/
   README.md                    ← You are here
-  CHANGELOG.md                 ← What changed per version
-  CONTRIBUTING.md              ← How to report issues, request docs
 
   ai/
     CLAUDE.md                  ← Drop in game project root for Claude Code
@@ -28,45 +26,43 @@ emptysock-agent-pack/
     api-reference.json         ← Machine-readable full API
 
   skills/
-    00-quickstart.md           ← Start here. Common patterns in one page.
-    01-project-setup.md        ← New project, manifest, folder layout
-    02-scenes.md               ← Scenes, lifecycle, navigation
-    03-entities.md             ← Entities, components, ECS, prefabs, pools
-    04-rendering.md            ← Sprites, animation, camera, lighting
-    05-physics.md              ← Bodies, character controller, sensors, joints
-    06-input.md                ← Keyboard, mouse, touch, gamepad, rumble
-    07-audio.md                ← Playback, groups, spatial, sprites
-    08-tilemaps.md             ← Loading, layers, collision, auto-tile
-    09-particles.md            ← Emitters, parameters, performance
-    10-ui.md                   ← Components, layout, anchors, accessibility
-    08-story-graph.md          ← Story Graph panel, VNSystem, save/resume, localisation
-    11-visual-novel.md         ← Dialogue trees, branching, auto-advance
-    12-pathfinding.md          ← A* grid, navmesh, path following
-    13-save-system.md          ← Slots, auto-save, settings persistence
-    14-localisation.md         ← Translations, RTL, plural rules
-    15-post-processing.md      ← Transitions, effects, colour grading
-    16-coroutines.md           ← Generator-based async game logic
-    17-tweens-timers.md        ← Tweens, timers, easing functions
-    18-3d.md                   ← Hybrid 2D/3D scenes, Three.js layer
-    19-export.md               ← All platforms, build pipeline, icons
-    20-performance.md          ← GPU tiers, draw calls, Pi4, mobile
-    21-typescript.md           ← Strict TS rules, Zod, banned patterns
-    10-window-system.md        ← WindowSystem, window modes, compile-time constants
-    11-ui-system.md            ← UISystem, animations, hover effects, render pass
-    12-vn-textbox.md           ← VNTextbox, VNScriptConvert round-trip
-    13-variable-store.md       ← VariableStore, named variables and switches
-    14-character-stage.md      ← CharacterStage, VNBackgroundLayer, VN render order
-    15-map-events.md           ← MapEventSystem, tile triggers, command runner
-    16-battle-system.md        ← Turn-based battle system, party vs enemies, status effects
+    (see Skills table below)
 
   docs/
     getting-started.md         ← Install EmptySock, first project, first game
     core-concepts.md           ← ECS, scene graph, game loop explained
-    templates.md               ← Built-in templates and what they contain
-    troubleshooting.md         ← Common errors and how to fix them
-    migration.md               ← Upgrading between versions
-    faq.md                     ← Frequently asked questions
 ```
+
+---
+
+## Skills
+
+| File | Description |
+|------|-------------|
+| `skills/00-quickstart.md` | Common patterns in one page — start here |
+| `skills/01-actor-model.md` | Actor, ActorSystem, message-driven logic |
+| `skills/02-navmesh.md` | PathfindingSystem: grid A*, NavMesh, PathFollower |
+| `skills/03-physics-3d.md` | PhysicsSystem3D (Rapier3D WASM): init, bodies, destroy |
+| `skills/04-plugin-system.md` | PluginSystem singleton, inject, plugin lifecycle |
+| `skills/05-touch-input.md` | Touch and pointer input via the static Input class |
+| `skills/06-ide-panels.md` | IDE panel editors: Story Graph, Tilemap, Profiler, etc. |
+| `skills/07-save-localisation.md` | SaveSystem slots and LocalisationSystem / t() API |
+| `skills/08-story-graph.md` | Story Graph panel, VNSystem runtime, save/resume |
+| `skills/09-particles.md` | ParticleEmitter: continuous and burst modes |
+| `skills/10-window-system.md` | windowSystem: modes, size, title, compile-time constants |
+| `skills/11-ui-system.md` | UISystem: animations, hover effects, render pass |
+| `skills/12-vn-textbox.md` | VNTextbox and VNScriptConvert round-trip |
+| `skills/13-variable-store.md` | VariableStore: named integer variables and boolean switches |
+| `skills/14-character-stage.md` | CharacterStage, VNBackgroundLayer, VN render order |
+| `skills/15-map-events.md` | MapEventSystem: tile triggers and command runner |
+| `skills/16-battle-system.md` | Turn-based BattleSystem: party vs enemies, status effects |
+| `skills/17-auto-tile.md` | AutoTileSystem: 8-neighbour bitmask rule sets |
+| `skills/18-cg-gallery.md` | CGGallery: CG unlock tracking and display |
+| `skills/19-tweens.md` | Tween: creation, chaining, easing, cancellation |
+| `skills/20-ui-widgets.md` | UISystem widgets: panels, labels, buttons, progress bars, sliders, checkboxes, animations |
+| `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
+| `skills/layer-system.md` | LayerSystem: layer ordering and management |
+| `skills/visual-script.md` | VisualScriptComponent: visual scripting in the IDE |
 
 ---
 
@@ -90,9 +86,6 @@ Current stable: **v1.0.0**
 - [Getting started →](docs/getting-started.md)
 - [API reference →](ai/api-reference.json)
 - [Agent quickstart →](skills/00-quickstart.md)
-- [Export guide →](skills/19-export.md)
-- [Performance guide →](skills/20-performance.md)
-- [Changelog →](CHANGELOG.md)
 
 ---
 
@@ -108,7 +101,7 @@ Current stable: **v1.0.0**
 
 For deeper context on a specific task, pass the relevant skill file to the agent:
 
-> *"Read the contents of skills/05-physics.md then implement a platformer character with coyote time."*
+> *"Read the contents of skills/02-navmesh.md then implement a grid pathfinding enemy."*
 
 ---
 

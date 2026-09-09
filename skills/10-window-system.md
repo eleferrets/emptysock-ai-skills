@@ -19,9 +19,8 @@ These identifiers are replaced with literal values at build time. No import need
 ```typescript
 // Use in any game file without imports:
 windowSystem.setTitle(`${PROJECT_TITLE} — Wave ${this.wave}`)
-const canvas = document.getElementById('game-canvas') as HTMLCanvasElement
-canvas.width  = GAME_WIDTH
-canvas.height = GAME_HEIGHT
+// GAME_WIDTH and GAME_HEIGHT hold the configured canvas dimensions:
+await windowSystem.setSize(GAME_WIDTH, GAME_HEIGHT)
 if (DEBUG) console.log('dev build')
 ```
 

@@ -109,9 +109,14 @@ physics.destroy()
 ```typescript
 import { Actor, ActorSystem, type Message } from '@emptysock/engine'
 
+// Define a typed message union for this actor:
+type TakeDamageMsg = { type: 'TAKE_DAMAGE'; amount: number }
+type EnemyMsg = TakeDamageMsg   // extend with more variants as needed
+
 class EnemyActor extends Actor {
   receive(msg: Message): void {
-    if ((msg as any).type === 'TAKE_DAMAGE') { /* handle */ }
+    const m = msg as EnemyMsg
+    if (m.type === 'TAKE_DAMAGE') { /* handle m.amount */ }
   }
   update(dt: number): void { /* per-frame AI */ }
 }
@@ -228,13 +233,14 @@ const data = Schema.parse(raw.data) // always validate — throws on corrupt
 ## Localisation
 
 ```typescript
-import { i18n } from '@emptysock/engine'
+import { t, LocalisationSystem } from '@emptysock/engine'
 
-await i18n.load('en', () => import('./locales/en.json'))
-i18n.setLocale('en')
-i18n.t('greeting')           // → "Hello"
-i18n.t('score', { n: 42 })  // → "Score: 42"
+LocalisationSystem.setLocale('en')     // select locale
+t('greeting')                          // → "Hello"
+t('hud.score', { score: 42 })         // → "Score: 42"
 ```
+
+Locale JSON files live at `assets/i18n/[locale].json`. See `skills/07-save-localisation.md` for the full format.
 
 ---
 

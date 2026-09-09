@@ -101,13 +101,15 @@ Animation types: `fadeIn(duration)` · `fadeOut(duration)` · `slideIn('left'|'r
 ## Hover style
 
 ```typescript
+import { UISystem, SceneManager } from '@emptysock/engine'
+
 const btn = UISystem.create('button', {
   width: 120, height: 36,
   text: 'Play',
   style: { backgroundColor: 0x3c2d6e },
 })
 btn.setHoverStyle({ backgroundColor: 0x5c4da0 })
-btn.onClick(() => scene.loadScene('GameScene'))
+btn.onClick(() => SceneManager.load('GameScene'))
 ```
 
 The hover style is merged over the base style while the pointer is over the component. It is cleared automatically on pointer-leave. Requires `UISystem.handlePointerMove()` or `UISystem.update(dt, px, py, w, h)` to receive pointer position.

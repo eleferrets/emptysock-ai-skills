@@ -84,7 +84,7 @@ Replace shim calls with idiomatic TypeScript as each object stabilises. The shim
 | Sounds | Manual — use `AudioSystem.play` |
 | Tilesets / Tilemaps | Manual — use TilemapEditor panel |
 | Sequences | Manual — use Sequence Editor panel |
-| Paths | Manual — use `NavMeshSystem` |
+| Paths | Manual — use `PathfindingSystem` |
 | Shaders | Manual — port to `PostProcessSystem` custom effect |
 
 ---

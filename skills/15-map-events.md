@@ -7,7 +7,7 @@
 ## Quick start
 
 ```typescript
-import { MapEventSystem, variableStore, VNSystem } from '@emptysock/engine'
+import { MapEventSystem, variableStore, VNSystem, SceneManager, Input } from '@emptysock/engine'
 
 const events = new MapEventSystem()
 const vn = new VNSystem()
@@ -45,12 +45,12 @@ events.setHandler(async (cmd) => {
     variableStore.setSwitch(cmd.index, cmd.value)
     variableStore.save()
   } else if (cmd.type === 'transition-scene') {
-    SceneManager.loadScene(cmd.scene)
+    SceneManager.load(cmd.scene)
   }
 })
 
 // In onUpdate — pass player tile coordinates and whether action was pressed this frame
-events.update(playerTileX, playerTileY, input.isJustPressed('KeyZ'))
+events.update(playerTileX, playerTileY, Input.isPressed('KeyZ'))
 ```
 
 ---
@@ -65,7 +65,6 @@ events.removeEvent(id: string): void
 events.loadEvents(events: MapEvent[]): void
 events.setHandler(handler: EventCommandHandler): void
 events.update(playerTileX: number, playerTileY: number, actionPressed: boolean): void
-events.toJSON(): MapEvent[]
 ```
 
 ---
@@ -115,12 +114,21 @@ The handler may be async. The system awaits it before executing the next command
 
 ## Persisting events
 
-```typescript
-// Serialise (include in save slot)
-const saved = events.toJSON()
+To save and restore map event state across sessions, snapshot the events list yourself and pass it back to `loadEvents()`:
 
-// Restore
-events.loadEvents(saved)
+```typescript
+import { z } from 'zod'
+
+// Capture the current event definitions (they are plain data — no toJSON needed):
+const saved = myEventDefinitions   // the same MapEvent[] you passed to loadEvents()
+
+// Include in a save slot:
+await SaveSystem.save('slot-1', { scene: 'Map01', events: saved })
+
+// Restore on load (always validate with Zod before use):
+const raw  = await SaveSystem.load('slot-1')
+const data = MySaveSchema.parse(raw.data)
+events.loadEvents(data.events)
 ```
 
 ---

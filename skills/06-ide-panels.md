@@ -15,10 +15,10 @@ Live PixiJS preview alongside emitter property controls.
 **Properties:** emission rate, speed (min/max), lifetime (min/max), gravity, start/end scale, start/end color (gradient picker), emission shape (point/circle/rect)  
 **Usage:** Tweak values live; export settings as JSON for use with the engine's ParticleSystem.
 
-## VNEditor (Visual Novel Node Graph)
-SVG-based node graph for branching dialogue.
+## Story Graph
+SVG-based node graph for branching dialogue. Open via **Module → Story Graph**.
 
-**Node types:** Dialogue (speaker + text), Choice (fan of option edges)  
+**Node types:** Dialogue (speaker + text), Choice (fan of option edges), Condition (variable branch)  
 **Interactions:** drag to move nodes, drag port to port to connect, double-click to edit text  
 **Export:** JSON graph compatible with `VNSystem.loadScript()`.
 
@@ -42,7 +42,7 @@ Spreadsheet-like table for managing translation strings.
 **Columns:** key + one column per locale (e.g., en, fr, de, ja)  
 **Editing:** inline click-to-edit cells  
 **Import/Export:** CSV with header row `key,en,fr,...`  
-**Usage:** Keys are looked up at runtime via `i18n.t('key')` (bring your own i18n library).
+**Usage:** Keys are looked up at runtime via `t('key')` from `@emptysock/engine` — see `skills/07-save-localisation.md`.
 
 ## GitPanel
 Built-in lightweight Git commit helper.

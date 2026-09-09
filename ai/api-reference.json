@@ -31,8 +31,8 @@
       "await inside onUpdate()",
       "document.querySelector",
       "document.getElementById",
-      "JSON.parse(x) as T \u2014 always use Zod",
-      "window.localStorage \u2014 use SaveSystem"
+      "JSON.parse(x) as T — always use Zod",
+      "window.localStorage — use SaveSystem"
     ],
     "required_patterns": [
       "explicit return types on all functions",
@@ -50,41 +50,44 @@
         "create": {
           "signature": "Engine.create(config: EngineConfig): Promise<Engine>",
           "config": {
-            "scenes": "Record<string, typeof Scene> \u2014 all scene classes",
-            "startScene": "string \u2014 name of first scene to load",
-            "gameSpeed": "number \u2014 target FPS, default 60",
-            "rendererType": "'auto' | 'webgpu' | 'webgl2' \u2014 default 'auto'",
-            "splash": "boolean \u2014 show splash on boot, default false"
+            "scenes": "Record<string, typeof Scene> — all scene classes",
+            "startScene": "string — name of first scene to load",
+            "gameSpeed": "number — target FPS, default 60",
+            "rendererType": "'auto' | 'webgpu' | 'webgl2' — default 'auto'",
+            "splash": "boolean — show splash on boot, default false"
           }
         },
         "start": "engine.start(): Promise<void>",
-        "stop": "engine.stop(): void"
+        "stop": "engine.stop(): void",
+        "pushScene": "Engine.pushScene(scene: Scene): void — push a scene on the stack (mirrors SceneManager.pushScene; use this.engine.pushScene() from inside a Scene)",
+        "popScene": "Engine.popScene(): void — pop the top scene (use this.engine.popScene() from inside a Scene)",
+        "loadScene": "Engine.loadScene(name: string): void — load a named scene, replacing the active scene (use this.engine.loadScene() from inside a Scene)"
       },
       "properties": {
-        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' \u2014 read-only"
+        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' — read-only"
       }
     },
     "Scene": {
       "import": "import { Scene, type SceneConfig } from '@emptysock/engine'",
       "description": "Base class. Extend for every game scene.",
       "static": {
-        "config": "SceneConfig \u2014 declare as static readonly on each subclass"
+        "config": "SceneConfig — declare as static readonly on each subclass"
       },
       "SceneConfig": {
         "renderMode": "'2d' | '3d' | 'hybrid'",
-        "gameSpeed": "number \u2014 overrides engine default for this scene",
-        "physics": "boolean \u2014 enable Rapier world, default true",
-        "lighting": "boolean \u2014 enable 2D lighting pass, default false",
-        "backgroundColor": "number \u2014 hex colour"
+        "gameSpeed": "number — overrides engine default for this scene",
+        "physics": "boolean — enable Rapier world, default true",
+        "lighting": "boolean — enable 2D lighting pass, default false",
+        "backgroundColor": "number — hex colour"
       },
       "lifecycle": {
-        "onLoad": "async onLoad(): Promise<void> \u2014 awaited before scene renders",
-        "onStart": "onStart(): void \u2014 called once after onLoad",
-        "onUpdate": "onUpdate(dt: number): void \u2014 every frame, dt = seconds",
-        "onFixedUpdate": "onFixedUpdate(dt: number): void \u2014 fixed 1/60s timestep",
-        "onDestroy": "onDestroy(): void \u2014 before scene unloads",
-        "onPause": "onPause(): void \u2014 when scene is pushed under another",
-        "onResume": "onResume(): void \u2014 when scene returns to top"
+        "onLoad": "async onLoad(): Promise<void> — awaited before scene renders",
+        "onStart": "onStart(): void — called once after onLoad",
+        "onUpdate": "onUpdate(dt: number): void — every frame, dt = seconds",
+        "onFixedUpdate": "onFixedUpdate(dt: number): void — fixed 1/60s timestep",
+        "onDestroy": "onDestroy(): void — before scene unloads",
+        "onPause": "onPause(): void — when scene is pushed under another",
+        "onResume": "onResume(): void — when scene returns to top"
       },
       "methods": {
         "createEntity": "scene.createEntity(name: string, opts?: { position?: Point, rotation?: number, scale?: Point }): Entity",
@@ -96,7 +99,7 @@
       },
       "properties": {
         "lighting.ambientColour": "number (hex)",
-        "lighting.ambientIntensity": "number (0\u20131)",
+        "lighting.ambientIntensity": "number (0–1)",
         "postProcess": {
           "add": "scene.postProcess.add(effect: PostEffect, opts?: object): void",
           "remove": "scene.postProcess.remove(effect: PostEffect): void",
@@ -111,10 +114,13 @@
         "transition": "SceneManager.transition(name: string, opts: TransitionOptions): Promise<void>",
         "push": "SceneManager.push(name: string): Promise<void>",
         "pop": "SceneManager.pop(): Promise<void>",
-        "preload": "SceneManager.preload(name: string): Promise<void>"
+        "preload": "SceneManager.preload(name: string): Promise<void>",
+        "pushScene": "SceneManager.pushScene(scene: Scene): void — push a scene instance on top of the stack; active scene is paused",
+        "popScene": "SceneManager.popScene(): void — pop top scene; scene underneath resumes"
       },
       "properties": {
-        "currentScene": "string \u2014 name of active scene"
+        "currentScene": "string — name of active scene",
+        "stackDepth": "number — current scene stack depth"
       },
       "TransitionOptions": {
         "effect": "'fade' | 'wipe' | 'iris' | 'slide' | 'zoom' | 'dissolve' | 'flash' | 'custom'",
@@ -129,8 +135,8 @@
       "properties": {
         "name": "string",
         "position": "{ x: number, y: number }",
-        "globalPosition": "{ x: number, y: number } \u2014 world-space",
-        "rotation": "number \u2014 radians",
+        "globalPosition": "{ x: number, y: number } — world-space",
+        "rotation": "number — radians",
         "rotationDegrees": "number",
         "scale": "{ x: number, y: number }",
         "active": "boolean",
@@ -168,23 +174,23 @@
       "Sprite": {
         "import": "import { Sprite } from '@emptysock/engine'",
         "props": {
-          "texture": "string \u2014 filename in assets/sprites/",
-          "frame": "string \u2014 atlas frame name (optional)",
-          "anchor": "{ x: number, y: number } \u2014 0\u20131, default { x: 0.5, y: 0.5 }",
-          "tint": "number \u2014 hex, default 0xffffff",
-          "alpha": "number \u2014 0\u20131",
+          "texture": "string — filename in assets/sprites/",
+          "frame": "string — atlas frame name (optional)",
+          "anchor": "{ x: number, y: number } — 0–1, default { x: 0.5, y: 0.5 }",
+          "tint": "number — hex, default 0xffffff",
+          "alpha": "number — 0–1",
           "blendMode": "'normal' | 'add' | 'multiply' | 'screen'",
           "flipX": "boolean",
           "flipY": "boolean",
-          "normalMap": "string \u2014 filename for 2D lighting normal map (optional)"
+          "normalMap": "string — filename for 2D lighting normal map (optional)"
         }
       },
       "Animator": {
         "import": "import { Animator } from '@emptysock/engine'",
         "props": {
-          "spritesheet": "string \u2014 .esanim file",
-          "defaultClip": "string \u2014 animation name to play on attach",
-          "speed": "number \u2014 playback multiplier, default 1"
+          "spritesheet": "string — .esanim file",
+          "defaultClip": "string — animation name to play on attach",
+          "speed": "number — playback multiplier, default 1"
         },
         "methods": {
           "play": "animator.play(clip: string, opts?: { loop?: boolean, onComplete?: () => void }): void",
@@ -204,11 +210,11 @@
           "shape": "'cuboid' | 'ball' | 'capsule' | 'polygon' | 'compound'",
           "bodyType": "'fixed' | 'dynamic' | 'kinematicPosition' | 'kinematicVelocity'",
           "mass": "number",
-          "friction": "number \u2014 0\u20131",
-          "restitution": "number \u2014 0\u20131 (bounciness)",
-          "ccd": "boolean \u2014 continuous collision detection, for fast objects",
-          "sensor": "boolean \u2014 trigger volume, no physical response",
-          "collisionGroups": "string[] \u2014 named group labels"
+          "friction": "number — 0–1",
+          "restitution": "number — 0–1 (bounciness)",
+          "ccd": "boolean — continuous collision detection, for fast objects",
+          "sensor": "boolean — trigger volume, no physical response",
+          "collisionGroups": "string[] — named group labels"
         },
         "methods": {
           "applyImpulse": "body.applyImpulse(force: Vector2): void",
@@ -220,9 +226,9 @@
       "CharacterController": {
         "import": "import { CharacterController } from '@emptysock/engine'",
         "props": {
-          "slopeAngle": "number \u2014 max walkable slope degrees",
-          "snapToGround": "number \u2014 snap distance (0 = off)",
-          "offset": "number \u2014 collision skin width, default 0.01"
+          "slopeAngle": "number — max walkable slope degrees",
+          "snapToGround": "number — snap distance (0 = off)",
+          "offset": "number — collision skin width, default 0.01"
         },
         "methods": {
           "moveAndSlide": "controller.moveAndSlide(velocity: Vector2): void",
@@ -235,9 +241,9 @@
         "import": "import { PointLight } from '@emptysock/engine'",
         "note": "Requires scene config lighting: true",
         "props": {
-          "colour": "number \u2014 hex",
+          "colour": "number — hex",
           "intensity": "number",
-          "radius": "number \u2014 pixels",
+          "radius": "number — pixels",
           "castShadows": "boolean"
         }
       },
@@ -246,7 +252,7 @@
         "props": {
           "colour": "number",
           "intensity": "number",
-          "angle": "number \u2014 radians",
+          "angle": "number — radians",
           "castShadows": "boolean"
         }
       },
@@ -266,7 +272,7 @@
         "props": {
           "path": "Path",
           "speed": "number",
-          "onComplete": "() => void \u2014 optional"
+          "onComplete": "() => void — optional"
         },
         "methods": {
           "setPath": "follower.setPath(path: Path): void",
@@ -277,8 +283,9 @@
       },
       "VNController": {
         "import": "import { VNController } from '@emptysock/engine'",
+        "description": "Entity component for simple VN playback. Attach to an entity, set dialogueTree to a .esvn file path, and drive it via advance()/jump(). For programmatic control, callback registration, or VNTextbox binding, use VNSystem instead.",
         "props": {
-          "dialogueTree": "string \u2014 .esvn file",
+          "dialogueTree": "string — .esvn file",
           "onChoice": "(index: number, text: string) => void",
           "onEvent": "(name: string, data: unknown) => void"
         },
@@ -292,10 +299,10 @@
     "Input": {
       "import": "import { Input } from '@emptysock/engine'",
       "methods": {
-        "isDown": "Input.isDown(key: string): boolean \u2014 held",
-        "isPressed": "Input.isPressed(key: string): boolean \u2014 just pressed",
-        "isReleased": "Input.isReleased(key: string): boolean \u2014 just released",
-        "axis": "Input.axis(name: 'Horizontal' | 'Vertical' | string): number \u2014 -1 to 1",
+        "isDown": "Input.isDown(key: string): boolean — held",
+        "isPressed": "Input.isPressed(key: string): boolean — just pressed",
+        "isReleased": "Input.isReleased(key: string): boolean — just released",
+        "axis": "Input.axis(name: 'Horizontal' | 'Vertical' | string): number — -1 to 1",
         "onKeyDown": "Input.onKeyDown(key: string, fn: () => void): void",
         "rumble": "Input.rumble(gamepad: string, opts: { intensity: number, duration: number }): void",
         "vibrate": "Input.vibrate(ms: number): void"
@@ -320,12 +327,12 @@
         "unmute": "Audio.unmute(group?: string): void"
       },
       "PlayOptions": {
-        "volume": "number 0\u20131",
+        "volume": "number 0–1",
         "loop": "boolean",
         "spatial": "boolean",
         "position": "{ x: number, y: number }",
-        "fade": "number \u2014 fade-in seconds",
-        "rate": "number \u2014 playback speed multiplier"
+        "fade": "number — fade-in seconds",
+        "rate": "number — playback speed multiplier"
       }
     },
     "Camera": {
@@ -343,7 +350,7 @@
         "pillarbox": "Camera.pillarbox(opts: { ratio: string }): void"
       },
       "FollowOptions": {
-        "lerp": "number 0\u20131",
+        "lerp": "number 0–1",
         "deadzone": "{ x: number, y: number }",
         "lookahead": "{ x: number, y: number }",
         "bounds": "{ x: number, y: number, width: number, height: number }"
@@ -380,9 +387,9 @@
         "sequence": "Tween.sequence(tweens: TweenHandle[]): TweenHandle"
       },
       "TweenOptions": {
-        "duration": "number \u2014 seconds",
-        "ease": "string \u2014 see easings list",
-        "delay": "number \u2014 seconds",
+        "duration": "number — seconds",
+        "ease": "string — see easings list",
+        "delay": "number — seconds",
         "loop": "boolean",
         "yoyo": "boolean",
         "onComplete": "() => void"
@@ -417,9 +424,9 @@
       },
       "SaveSlot": {
         "slot": "string",
-        "data": "unknown \u2014 ALWAYS parse through Zod before use",
+        "data": "unknown — ALWAYS parse through Zod before use",
         "timestamp": "number",
-        "playtime": "number \u2014 seconds",
+        "playtime": "number — seconds",
         "scene": "string"
       },
       "settings": {
@@ -460,16 +467,16 @@
       },
       "TilemapInstance": {
         "getLayer": "map.getLayer(name: string): TilemapLayer",
-        "width": "number \u2014 tiles",
-        "height": "number \u2014 tiles",
-        "tileWidth": "number \u2014 pixels",
-        "tileHeight": "number \u2014 pixels"
+        "width": "number — tiles",
+        "height": "number — tiles",
+        "tileWidth": "number — pixels",
+        "tileHeight": "number — pixels"
       },
       "TilemapLayer": {
         "enablePhysics": "layer.enablePhysics(): void",
-        "entities": "Entity[] \u2014 object layer placements",
+        "entities": "Entity[] — object layer placements",
         "getTile": "layer.getTile(x: number, y: number): Tile | null",
-        "asGrid": "layer.asGrid(): Grid \u2014 for A* pathfinding"
+        "asGrid": "layer.asGrid(): Grid — for A* pathfinding"
       }
     },
     "ObjectPool": {
@@ -491,12 +498,12 @@
       },
       "ProfileStats": {
         "fps": "number",
-        "frameTime": "number \u2014 ms",
+        "frameTime": "number — ms",
         "drawCalls": "number",
         "entityCount": "number",
-        "physicsTime": "number \u2014 ms",
-        "renderTime": "number \u2014 ms",
-        "scriptTime": "number \u2014 ms",
+        "physicsTime": "number — ms",
+        "renderTime": "number — ms",
+        "scriptTime": "number — ms",
         "memoryMB": "number"
       }
     },
@@ -504,31 +511,31 @@
       "import": "import { ParticleEmitter } from '@emptysock/engine'",
       "description": "Component that spawns and animates short-lived visual particles. Attach to an entity, configure options, then call start() or burst().",
       "constructorOptions": {
-        "rate": "number \u2014 particles emitted per second in continuous mode",
-        "lifetime": "number \u2014 seconds each particle lives",
-        "speed": "number \u2014 initial speed in world units/second",
-        "spread": "number \u2014 emission cone half-angle in degrees (0 = straight line, 360 = sphere)",
-        "count": "number (1\u20132000) \u2014 maximum simultaneous live particles",
-        "textureName": "string (optional) \u2014 asset name for sprite-sheet particles; omit for default white square"
+        "rate": "number — particles emitted per second in continuous mode",
+        "lifetime": "number — seconds each particle lives",
+        "speed": "number — initial speed in world units/second",
+        "spread": "number — emission cone half-angle in degrees (0 = straight line, 360 = sphere)",
+        "count": "number (1–2000) — maximum simultaneous live particles",
+        "textureName": "string (optional) — asset name for sprite-sheet particles; omit for default white square"
       },
       "methods": {
-        "start": "emitter.start(): void \u2014 begin continuous emission at the configured rate",
-        "stop": "emitter.stop(): void \u2014 stop emitting new particles; existing particles finish their lifetime",
-        "burst": "emitter.burst(count: number): void \u2014 fire exactly count particles immediately, ignoring rate"
+        "start": "emitter.start(): void — begin continuous emission at the configured rate",
+        "stop": "emitter.stop(): void — stop emitting new particles; existing particles finish their lifetime",
+        "burst": "emitter.burst(count: number): void — fire exactly count particles immediately, ignoring rate"
       },
       "properties": {
-        "rate": "number \u2014 read/write, effective before start() is called",
-        "lifetime": "number \u2014 read/write",
-        "speed": "number \u2014 read/write",
-        "spread": "number \u2014 read/write",
-        "count": "number \u2014 read/write",
-        "textureName": "string | undefined \u2014 read/write"
+        "rate": "number — read/write, effective before start() is called",
+        "lifetime": "number — read/write",
+        "speed": "number — read/write",
+        "spread": "number — read/write",
+        "count": "number — read/write",
+        "textureName": "string | undefined — read/write"
       },
       "notes": [
         "Call stop() in onDestroy before the entity is destroyed.",
         "burst() does not require start() to have been called first.",
         "Particles sharing the same textureName are batched into one draw call.",
-        "count should be kept as low as visually acceptable \u2014 all particles update every frame."
+        "count should be kept as low as visually acceptable — all particles update every frame."
       ]
     },
     "WindowSystem": {
@@ -573,14 +580,62 @@
         }
       },
       "properties": {
-        "currentMode": "WindowMode \u2014 current window mode",
-        "currentConfig": "Readonly<WindowConfig> \u2014 full current config snapshot"
+        "currentMode": "WindowMode — current window mode",
+        "currentConfig": "Readonly<WindowConfig> — full current config snapshot"
       }
+    },
+    "UISystem": {
+      "import": "import { UISystem, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
+      "description": "Canvas 2D overlay for screen-space UI (menus, HUD, dialogue boxes). Renders on top of the PixiJS scene. Access via this.uiSystem inside any Scene subclass.",
+      "singleton": "UISystem — module-level singleton, shared across all scenes",
+      "methods": {
+        "add": "UISystem.add(widget: Widget): void — add a root widget to the overlay",
+        "removeWidget": "UISystem.removeWidget(widget: Widget): void — remove a root widget",
+        "clear": "UISystem.clear(): void — remove all widgets and UIComponents",
+        "clearWidgets": "UISystem.clearWidgets(): void — remove only Widget-API roots (not legacy UIComponents)",
+        "setImageLoader": "UISystem.setImageLoader(loader: ImageLoader): void — override the default fetch-based loader",
+        "update": "UISystem.update(dt: number, pointerX?, pointerY?, cw?, ch?): void — tick animations + hover state",
+        "render": "UISystem.render(ctx: IUIRenderer, cw: number, ch: number): void — draw all components and widgets",
+        "handleClick": "UISystem.handleClick(x, y, cw, ch): boolean — hit-test and dispatch click",
+        "handlePointerMove": "UISystem.handlePointerMove(x, y, cw, ch): void — update hover state"
+      },
+      "note": "UISystem constructs a default ImageLoader internally (fetch + createImageBitmap). No setup needed for the common case."
+    },
+    "Widget": {
+      "import": "import { Widget, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
+      "description": "Base class and 7 concrete widget types for building screen-space UI. Use uiSystem.add(widget) to render, uiSystem.removeWidget(widget) to remove.",
+      "baseProperties": {
+        "x": "number — pixel offset from anchor",
+        "y": "number — pixel offset from anchor",
+        "width": "number",
+        "height": "number",
+        "anchor": "WidgetAnchor — 'top-left'|'top'|'top-right'|'left'|'center'|'right'|'bottom-left'|'bottom'|'bottom-right'",
+        "visible": "boolean",
+        "alpha": "number (0–1)",
+        "children": "Widget[] — mutable; add children with panel.children.push(child)"
+      },
+      "baseMethods": {
+        "on": "widget.on(event: WidgetEvent, handler): void — events: 'click'|'hover'|'hoverOut'|'change'|'animEnd'",
+        "off": "widget.off(event, handler): void",
+        "animate": "widget.animate(name: AnimationName, opts?): void — names: 'fadeIn'|'fadeOut'|'slideIn'|'slideOut'|'pop'|'shake'; opts: { duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }",
+        "triggerClick": "widget.triggerClick(): void",
+        "contains": "widget.contains(px, py, cw, ch): boolean"
+      },
+      "widgets": {
+        "LabelWidget": "new LabelWidget({ text?, font?, fontSize?, color?, align?, ...baseOpts })",
+        "ImageWidget": "new ImageWidget({ src?, scaleMode?: \"fit\"|\"fill\"|\"stretch\"|\"none\", tint?, ...baseOpts })",
+        "ButtonWidget": "new ButtonWidget({ label?, icon?, color?, background?, hoverBackground?, pressedBackground?, borderRadius?, fontSize?, font?, disabled?, animateOnHover?, ...baseOpts }) — state: \"normal\"|\"hover\"|\"pressed\"|\"disabled\"",
+        "PanelWidget": "new PanelWidget({ background?, border?, borderWidth?, cornerRadius?, ...baseOpts })",
+        "ProgressBarWidget": "new ProgressBarWidget({ value?, min?, max?, fillColor?, trackColor?, direction?: \"h\"|\"v\", ...baseOpts }) — .normalised: number",
+        "SliderWidget": "new SliderWidget({ value?, min?, max?, step?, trackColor?, thumbColor?, onChange?, ...baseOpts }) — .normalised: number",
+        "CheckboxWidget": "new CheckboxWidget({ checked?, label?, color?, background?, borderColor?, fontSize?, font?, onChange?, ...baseOpts })"
+      },
+      "example": "const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });\nconst btn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });\nbtn.on('click', () => this.engine.popScene());\npanel.children.push(btn);\nthis.uiSystem.add(panel);\npanel.animate('fadeIn');"
     }
   },
   "fileExtensions": {
-    ".esscene": "Scene \u2014 entities, components, properties (JSON)",
-    ".esmap": "Tilemap \u2014 layers, tiles, collision, objects (JSON)",
+    ".esscene": "Scene — entities, components, properties (JSON)",
+    ".esmap": "Tilemap — layers, tiles, collision, objects (JSON)",
     ".esanim": "Spritesheet animation clips (JSON)",
     ".esprefab": "Reusable entity template (JSON)",
     ".esvn": "Visual novel dialogue tree (JSON)",
@@ -666,7 +721,7 @@
     ]
   },
   "builtins": {
-    "description": "Compile-time constants injected by the EmptySock build pipeline. Replace with literal values at build time \u2014 no runtime lookup. Available in all game files without import.",
+    "description": "Compile-time constants injected by the EmptySock build pipeline. Replace with literal values at build time — no runtime lookup. Available in all game files without import.",
     "constants": {
       "PROJECT_TITLE": {
         "type": "string",
@@ -694,9 +749,15 @@
     "import": "import { AutoTileSystem } from '@emptysock/engine'",
     "description": "Selects tile variants based on 8-neighbour bitmask rules.",
     "methods": {
-      "addRuleSet": { "signature": "(ruleSet: AutoTileRuleSet): void" },
-      "removeRuleSet": { "signature": "(baseTileIndex: number): void" },
-      "getRuleSet": { "signature": "(baseTileIndex: number): AutoTileRuleSet | undefined" },
+      "addRuleSet": {
+        "signature": "(ruleSet: AutoTileRuleSet): void"
+      },
+      "removeRuleSet": {
+        "signature": "(baseTileIndex: number): void"
+      },
+      "getRuleSet": {
+        "signature": "(baseTileIndex: number): AutoTileRuleSet | undefined"
+      },
       "resolve": {
         "signature": "(col: number, row: number, baseTileIndex: number, tileAt: (col: number, row: number) => number): number",
         "description": "Returns the tile index to paint at (col, row) given neighbour occupancy."
@@ -707,29 +768,69 @@
     "import": "import { VariableStore } from '@emptysock/engine'",
     "description": "Indexed integer variables (1-1000) and boolean switches (1-1000) with localStorage persistence.",
     "methods": {
-      "getVar": { "signature": "(index: number): number" },
-      "setVar": { "signature": "(index: number, value: number): void" },
-      "getVarName": { "signature": "(index: number): string" },
-      "setVarName": { "signature": "(index: number, name: string): void" },
-      "getSwitch": { "signature": "(index: number): boolean" },
-      "setSwitch": { "signature": "(index: number, value: boolean): void" },
-      "getSwitchName": { "signature": "(index: number): string" },
-      "setSwitchName": { "signature": "(index: number, name: string): void" },
-      "save": { "signature": "(): void", "description": "Persist to localStorage." },
-      "load": { "signature": "(): void", "description": "Restore from localStorage." },
-      "snapshot": { "signature": "(): VariableStoreData" },
-      "restore": { "signature": "(data: VariableStoreData): void" }
+      "getVar": {
+        "signature": "(index: number): number"
+      },
+      "setVar": {
+        "signature": "(index: number, value: number): void"
+      },
+      "getVarName": {
+        "signature": "(index: number): string"
+      },
+      "setVarName": {
+        "signature": "(index: number, name: string): void"
+      },
+      "getSwitch": {
+        "signature": "(index: number): boolean"
+      },
+      "setSwitch": {
+        "signature": "(index: number, value: boolean): void"
+      },
+      "getSwitchName": {
+        "signature": "(index: number): string"
+      },
+      "setSwitchName": {
+        "signature": "(index: number, name: string): void"
+      },
+      "save": {
+        "signature": "(): void",
+        "description": "Persist to localStorage."
+      },
+      "load": {
+        "signature": "(): void",
+        "description": "Restore from localStorage."
+      },
+      "snapshot": {
+        "signature": "(): VariableStoreData"
+      },
+      "restore": {
+        "signature": "(data: VariableStoreData): void"
+      },
+      "reset": {
+        "signature": "(): void",
+        "description": "Clear all variables to 0 and all switches to false in memory. Does not persist — call save() afterwards if the reset should survive a reload."
+      }
     }
   },
   "MapEventSystem": {
     "import": "import { MapEventSystem } from '@emptysock/engine'",
     "description": "Tile-aligned event system with autorun, player-touch, action-button, and parallel trigger types.",
     "methods": {
-      "addEvent": { "signature": "(event: MapEvent): void" },
-      "removeEvent": { "signature": "(id: string): void" },
-      "loadEvents": { "signature": "(events: MapEvent[]): void" },
-      "setHandler": { "signature": "(handler: EventCommandHandler): void" },
-      "update": { "signature": "(playerTileX: number, playerTileY: number, actionPressed: boolean): void" }
+      "addEvent": {
+        "signature": "(event: MapEvent): void"
+      },
+      "removeEvent": {
+        "signature": "(id: string): void"
+      },
+      "loadEvents": {
+        "signature": "(events: MapEvent[]): void"
+      },
+      "setHandler": {
+        "signature": "(handler: EventCommandHandler): void"
+      },
+      "update": {
+        "signature": "(playerTileX: number, playerTileY: number, actionPressed: boolean): void"
+      }
     }
   },
   "GridMovementBehavior": {
@@ -746,10 +847,18 @@
     "description": "Renders character sprites at left/center/right stage positions with fade transitions.",
     "constructor": "new CharacterStage({ canvasWidth, canvasHeight, baselineY?, maxHeightFraction? })",
     "methods": {
-      "show": { "signature": "(slot: StageSlot, imagePath: string, opts?: { expression?, fadeDuration? }): void" },
-      "hide": { "signature": "(slot: StageSlot, fadeDuration?: number): void" },
-      "update": { "signature": "(dt: number): void" },
-      "render": { "signature": "(ctx: CanvasRenderingContext2D): void" }
+      "show": {
+        "signature": "(slot: StageSlot, imagePath: string, opts?: { expression?, fadeDuration? }): void"
+      },
+      "hide": {
+        "signature": "(slot: StageSlot, fadeDuration?: number): void"
+      },
+      "update": {
+        "signature": "(dt: number): void"
+      },
+      "render": {
+        "signature": "(ctx: CanvasRenderingContext2D): void"
+      }
     }
   },
   "VNBackgroundLayer": {
@@ -757,29 +866,106 @@
     "description": "Manages a background image and full-screen CG overlay with cross-fade transitions.",
     "constructor": "new VNBackgroundLayer({ canvasWidth, canvasHeight, fadeDuration? })",
     "methods": {
-      "setBackground": { "signature": "(imagePath: string, opts?: { fadeDuration?, fit? }): void" },
-      "clearBackground": { "signature": "(fadeDuration?: number): void" },
-      "showCG": { "signature": "(imagePath: string, opts?: { fadeDuration?, fit? }): void" },
-      "clearCG": { "signature": "(fadeDuration?: number): void" },
-      "update": { "signature": "(dt: number): void" },
-      "render": { "signature": "(ctx: CanvasRenderingContext2D): void" }
+      "setBackground": {
+        "signature": "(imagePath: string, opts?: { fadeDuration?, fit? }): void"
+      },
+      "clearBackground": {
+        "signature": "(fadeDuration?: number): void"
+      },
+      "showCG": {
+        "signature": "(imagePath: string, opts?: { fadeDuration?, fit? }): void"
+      },
+      "clearCG": {
+        "signature": "(fadeDuration?: number): void"
+      },
+      "update": {
+        "signature": "(dt: number): void"
+      },
+      "render": {
+        "signature": "(ctx: CanvasRenderingContext2D): void"
+      }
     }
+  },
+  "VNSystem": {
+    "import": "import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'",
+    "description": "Standalone visual novel runtime. Plays exported .vnscript files. Used by VNTextbox as its data source. For simple entity-based playback, see VNController instead.",
+    "constructor": "new VNSystem()",
+    "methods": {
+      "loadScript": {
+        "signature": "(path: string): Promise<void>",
+        "description": "Load a .vnscript JSON file exported from the Story Graph panel."
+      },
+      "onNode": {
+        "signature": "(fn: (node: VNNode) => void): void",
+        "description": "Register a callback invoked whenever the active node changes. Register before calling play()."
+      },
+      "play": {
+        "signature": "(): void",
+        "description": "Begin playback from the start node."
+      },
+      "advance": {
+        "signature": "(): void",
+        "description": "Move past the current dialogue node."
+      },
+      "choose": {
+        "signature": "(index: number): void",
+        "description": "Select a choice option by zero-based index."
+      },
+      "skip": {
+        "signature": "(): void",
+        "description": "Skip any active auto-advance delay."
+      },
+      "jumpToNode": {
+        "signature": "(nodeId: string): void",
+        "description": "Jump to a node by id (used for save/resume)."
+      },
+      "setVariable": {
+        "signature": "(key: string, value: string | number | boolean): void"
+      },
+      "getVariable": {
+        "signature": "(key: string): string | number | boolean | undefined"
+      },
+      "getVariables": {
+        "signature": "(): Record<string, string | number | boolean>"
+      },
+      "isFinished": {
+        "signature": "(): boolean"
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Required in onDestroy()."
+      }
+    },
+    "notes": [
+      "Call destroy() in onDestroy().",
+      "Do not call advance() or choose() before play() — the state machine is not ready.",
+      "onNode fires once per node including after jumpToNode(). Register before play().",
+      "Condition nodes are evaluated and routed automatically — onNode is never called for them."
+    ]
   },
   "VNTextbox": {
     "import": "import { VNTextbox } from '@emptysock/engine'",
     "description": "Pre-built dialogue box rendered by UISystem. Bind to a VNSystem instance to auto-update.",
     "constructor": "new VNTextbox({ canvasWidth, canvasHeight, height?, namePlateHeight?, paddingX?, panelColor?, namePlateColor?, textColor?, fontSize? })",
     "methods": {
-      "bind": { "signature": "(vn: VNSystem): void" },
-      "unbind": { "signature": "(): void" }
+      "bind": {
+        "signature": "(vn: VNSystem): void"
+      },
+      "unbind": {
+        "signature": "(): void"
+      }
     }
   },
   "VNScriptConvert": {
     "import": "import { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from '@emptysock/engine'",
     "description": "Converts between Story Graph (visual-editor JSON) and VNSystem DialogueTree (.vnscript JSON).",
     "functions": {
-      "storyGraphToDialogueTree": { "signature": "(graph: StoryGraph): DialogueTree" },
-      "dialogueTreeToStoryGraph": { "signature": "(tree: DialogueTree): StoryGraph" }
+      "storyGraphToDialogueTree": {
+        "signature": "(graph: StoryGraph): DialogueTree"
+      },
+      "dialogueTreeToStoryGraph": {
+        "signature": "(tree: DialogueTree): StoryGraph"
+      }
     }
   },
   "CGGallery": {
@@ -787,10 +973,18 @@
     "description": "Tracks CG image unlock state, persisted via SaveSystem.",
     "constructor": "new CGGallery({ entries: CGEntry[], saveSystem?, saveSlot? })",
     "methods": {
-      "load": { "signature": "(): void" },
-      "unlock": { "signature": "(id: string): void" },
-      "unlockFromNode": { "signature": "(cgId: string): void" },
-      "isUnlocked": { "signature": "(id: string): boolean" }
+      "load": {
+        "signature": "(): void"
+      },
+      "unlock": {
+        "signature": "(id: string): void"
+      },
+      "unlockFromNode": {
+        "signature": "(cgId: string): void"
+      },
+      "isUnlocked": {
+        "signature": "(id: string): boolean"
+      }
     },
     "properties": {
       "entries": "ReadonlyArray<CGEntry>",
@@ -810,19 +1004,49 @@
       "fleeChance": "number — default 0.5"
     },
     "methods": {
-      "addPartyMember": { "signature": "(combatant: Combatant): void" },
-      "addEnemy": { "signature": "(combatant: Combatant): void" },
-      "loadDatabase": { "signature": "(db: BattleDatabase): void" },
-      "setDamageFormula": { "signature": "(fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number) => number): void" },
-      "onEvent": { "signature": "(handler: (event: BattleEvent) => void): () => void", "description": "Subscribe to battle events. Returns an unsubscribe function." },
-      "start": { "signature": "(): void", "description": "Begin the battle. Fires battle-start, round-start, then action-needed for the first party member." },
-      "submitAction": { "signature": "(combatantId: string, action: BattleAction): void", "description": "Submit a party member's action. Only valid when getPhase() === 'input'." },
-      "getPhase": { "signature": "(): BattlePhase" },
-      "getCombatant": { "signature": "(id: string): Combatant | undefined" },
-      "getParty": { "signature": "(): readonly Combatant[]" },
-      "getEnemies": { "signature": "(): readonly Combatant[]" },
-      "getRound": { "signature": "(): number" },
-      "destroy": { "signature": "(): void", "description": "Required in onDestroy()." }
+      "addPartyMember": {
+        "signature": "(combatant: Combatant): void"
+      },
+      "addEnemy": {
+        "signature": "(combatant: Combatant): void"
+      },
+      "loadDatabase": {
+        "signature": "(db: BattleDatabase): void"
+      },
+      "setDamageFormula": {
+        "signature": "(fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number) => number): void"
+      },
+      "onEvent": {
+        "signature": "(handler: (event: BattleEvent) => void): () => void",
+        "description": "Subscribe to battle events. Returns an unsubscribe function."
+      },
+      "start": {
+        "signature": "(): void",
+        "description": "Begin the battle. Fires battle-start, round-start, then action-needed for the first party member."
+      },
+      "submitAction": {
+        "signature": "(combatantId: string, action: BattleAction): void",
+        "description": "Submit a party member's action. Only valid when getPhase() === 'input'."
+      },
+      "getPhase": {
+        "signature": "(): BattlePhase"
+      },
+      "getCombatant": {
+        "signature": "(id: string): Combatant | undefined"
+      },
+      "getParty": {
+        "signature": "(): readonly Combatant[]"
+      },
+      "getEnemies": {
+        "signature": "(): readonly Combatant[]"
+      },
+      "getRound": {
+        "signature": "(): number"
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Required in onDestroy()."
+      }
     },
     "types": {
       "BattlePhase": "'idle' | 'input' | 'resolving' | 'victory' | 'defeat'",
