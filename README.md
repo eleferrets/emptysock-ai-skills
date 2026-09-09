@@ -59,6 +59,7 @@ emptysock-agent-pack/
 | `skills/17-auto-tile.md` | AutoTileSystem: 8-neighbour bitmask rule sets |
 | `skills/18-cg-gallery.md` | CGGallery: CG unlock tracking and display |
 | `skills/19-tweens.md` | Tween: creation, chaining, easing, cancellation |
+| `skills/20-ui-widgets.md` | UISystem widgets: panels, labels, buttons, progress bars, sliders, checkboxes, animations |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | VisualScriptComponent: visual scripting in the IDE |
