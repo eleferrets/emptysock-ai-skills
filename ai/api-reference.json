@@ -996,7 +996,7 @@
     "methods": {
       "addLight": {
         "signature": "(config: Light): void",
-        "description": "Register a light. Use a unique `id` string so you can remove it later."
+        "description": "Register a light. Use a unique `id` string so you can remove it or mutate it via lights.get(id) later."
       },
       "removeLight": {
         "signature": "(id: string): boolean",
@@ -1005,29 +1005,42 @@
       "setAmbient": {
         "signature": "(colour: number, intensity: number): void",
         "description": "Set the scene-wide ambient light colour (hex) and intensity (0–1)."
+      },
+      "attachFilter": {
+        "signature": "(stage: Container, useNormalMap?: boolean, canvasWidth?: number, canvasHeight?: number): void",
+        "description": "Attach the GPU lighting shader to the scene stage. Call once in onLoad. Without this, lights are registered but not rendered."
+      },
+      "detachFilter": {
+        "signature": "(): void",
+        "description": "Remove the GPU filter from the stage. Call in onDestroy."
+      },
+      "update": {
+        "signature": "(dt: number): void",
+        "description": "Upload current light positions and colours to GPU uniforms. Call once per frame in onUpdate."
       }
     },
     "properties": {
-      "lights": "Map<string, Light> — read-only registry of all registered lights",
+      "lights": "Map<string, Light> — mutable registry; update light.x/light.y in-place to move lights without remove/re-add",
       "ambientColour": "number — current ambient colour (hex)",
       "ambientIntensity": "number — current ambient intensity (0–1)"
     },
     "Light": {
-      "id": "string — unique identifier",
+      "id": "string — unique identifier (required)",
       "type": "LightType — 'point' | 'directional' | 'spot' | 'ambient'",
-      "colour": "number — hex colour",
-      "intensity": "number — brightness multiplier",
+      "colour": "number — hex colour (mutable)",
+      "intensity": "number — brightness multiplier (mutable)",
       "radius": "number — falloff radius in world pixels (point/spot only)",
       "angle": "number — cone half-angle in radians (spot only)",
       "direction": "{ x: number, y: number } — world-space direction (directional only)",
       "castShadows": "boolean",
-      "x": "number — world-space x (point/spot; updated each frame)",
-      "y": "number — world-space y (point/spot; updated each frame)"
+      "x": "number — world-space x (point/spot; mutable — update each frame to follow entities)",
+      "y": "number — world-space y (point/spot; mutable)"
     },
     "notes": [
       "Requires scene config `lighting: true`.",
-      "Update x/y on point/spot lights each frame to follow moving entities.",
-      "Add a normal map to sprites via sprite.normalMap = 'hero_n.png' to get per-pixel lighting."
+      "Mutate light.x and light.y directly for moving lights — no need to remove/re-add each frame.",
+      "Normal maps: if hero_n.png exists alongside hero.png, pass useNormalMap: true to attachFilter.",
+      "Max 16 point lights and 4 directional lights per GPU uniform batch."
     ]
   },
   "NavMeshSystem": {
@@ -1042,6 +1055,10 @@
       "findPath": {
         "signature": "(from: Vec2, to: Vec2): Vec2[]",
         "description": "Find a path between two world-space points. Returns an array of waypoints; returns [] if no path exists. Synchronous."
+      },
+      "update": {
+        "signature": "(dt: number): void",
+        "description": "Reserved for dynamic obstacle updates. Call once per frame in onUpdate."
       }
     },
     "NavMeshData": {
@@ -1152,31 +1169,56 @@
   },
   "PostProcessSystem": {
     "import": "import { PostProcessSystem, type PostEffectType, type PostEffectOptions, type LayerFilterOptions } from '@emptysock/engine'",
-    "description": "Manages full-screen post-processing effects and per-layer CSS filters. Scene.postProcess is the singleton instance — use that rather than constructing your own.",
-    "usage": "scene.postProcess.add('bloom', { threshold: 0.7 })",
+    "description": "Instance-based post-processing pipeline. Create one per scene; call update(dt) each frame for transient effects to decay. Effects are composited in add order.",
+    "constructor": "new PostProcessSystem()",
     "methods": {
       "add": {
         "signature": "(type: PostEffectType, options?: PostEffectOptions): this",
-        "description": "Add or replace a full-screen effect. Adding the same type twice replaces it."
+        "description": "Add or replace a full-screen effect. Returns this for method chaining."
       },
       "remove": {
-        "signature": "(type: PostEffectType): void"
+        "signature": "(type: PostEffectType): void",
+        "description": "Remove a full-screen effect by type."
       },
       "has": {
-        "signature": "(type: PostEffectType): boolean"
+        "signature": "(type: PostEffectType): boolean",
+        "description": "Whether the effect is currently active."
+      },
+      "get": {
+        "signature": "(type: PostEffectType): ActiveEffect | undefined",
+        "description": "Read the current options for an active effect."
+      },
+      "flash": {
+        "signature": "(opts?: { colour?: number, duration?: number }): void",
+        "description": "Transient full-screen flash. colour is a hex number (default 0xffffff); duration in seconds (default 0.15)."
       },
       "setLayerFilter": {
         "signature": "(layerId: string, filter: LayerFilterOptions): void",
-        "description": "Apply a CSS filter to a specific named layer."
+        "description": "Apply a CSS filter to a named render layer."
       },
       "clearLayerFilter": {
-        "signature": "(layerId: string): void"
+        "signature": "(layerId: string): void",
+        "description": "Remove the filter from a layer."
       },
       "toggleLayerFilter": {
-        "signature": "(layerId: string, enabled: boolean): void"
+        "signature": "(layerId: string, enabled: boolean): void",
+        "description": "Enable or disable a layer's filter without removing it."
       },
       "getLayerFilter": {
-        "signature": "(layerId: string): LayerFilterOptions | undefined"
+        "signature": "(layerId: string): LayerFilterOptions | undefined",
+        "description": "Read the current layer filter."
+      },
+      "update": {
+        "signature": "(dt: number): void",
+        "description": "Decay transient effects (flash, shockwave). Call once per frame in onUpdate."
+      },
+      "clear": {
+        "signature": "(): void",
+        "description": "Remove all effects and reset scene transitions."
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Clear all effects and layer filters. Call in onDestroy."
       }
     },
     "PostEffectType": "'bloom' | 'chromatic-aberration' | 'vignette' | 'scanlines' | 'pixelate' | 'colour-grade' | 'blur' | 'outline' | 'shockwave' | 'noise'",

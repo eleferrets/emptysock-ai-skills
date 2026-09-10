@@ -1,14 +1,14 @@
 # LightingSystem
 
-`LightingSystem` manages dynamic lights in a scene. Enable lighting in the scene config first, then use `LightingSystem` to add, configure, and remove lights at runtime.
+`LightingSystem` manages a GPU-accelerated GLSL lighting pass (point lights, directional lights, optional normal maps). It is instance-based — create one per scene and call `update(dt)` each frame to upload light positions to the GPU.
 
 ## Import
 
 ```typescript
-import { LightingSystem, type Light } from '@emptysock/engine'
+import { LightingSystem, type Light, type LightType } from '@emptysock/engine'
 ```
 
-## Setup
+## Setup (in onLoad)
 
 Lighting requires `lighting: true` in `SceneConfig`:
 
@@ -19,96 +19,95 @@ export class DungeonScene extends Scene {
   static readonly config: SceneConfig = {
     renderMode: '2d',
     gameSpeed: 60,
-    lighting: true,   // required — lighting is off by default
+    lighting: true,   // required
+  }
+
+  private _lighting!: LightingSystem
+
+  override onLoad(): void {
+    this._lighting = new LightingSystem()
+    // Attach the GPU filter to the scene stage (provided by the engine):
+    this._lighting.attachFilter(this.stage)
+    this._lighting.setAmbient(0x111133, 0.08)
+  }
+
+  override onUpdate(dt: number): void {
+    this._lighting.update(dt)   // uploads light data to GPU uniforms each frame
   }
 }
 ```
 
-## Ambient light
-
-```typescript
-// Set the base ambient colour and intensity (applied to everything not lit):
-LightingSystem.setAmbient(0x111133, 0.08)
-
-// Read current values:
-const colour    = LightingSystem.ambientColour    // number (hex)
-const intensity = LightingSystem.ambientIntensity // number
-```
-
 ## Adding lights
 
+Lights are identified by a string `id` you supply. The `Light` object is stored in `lighting.lights` and can be mutated in-place to move lights without remove/re-add:
+
 ```typescript
-// Add a point light and get its assigned id:
-const torchId = LightingSystem.addLight({
+this._lighting.addLight({
+  id:          'torch-1',
   type:        'point',
   x:           300,
   y:           200,
   colour:      0xffaa44,
   intensity:   1.4,
   radius:      280,
-  castShadows: true,
+  castShadows: false,
 })
 
-// Add a spotlight:
-const spotId = LightingSystem.addLight({
-  type:      'spot',
-  x:         400,
-  y:         100,
-  colour:    0xffffff,
-  intensity: 1.0,
-  radius:    350,
-  angle:     45,           // cone width in degrees
-  direction: Math.PI / 2, // radians — pointing downward
+// Directional light:
+this._lighting.addLight({
+  id:        'sun',
+  type:      'directional',
+  colour:    0xfffbe6,
+  intensity: 0.8,
+  direction: { x: 0.5, y: -1 },
+  castShadows: false,
 })
 ```
 
 ## Moving a light
 
-There is no update method — remove and re-add with new position:
+Mutate the light's `x`/`y` directly — no need to remove and re-add:
 
 ```typescript
-LightingSystem.removeLight(torchId)
-const newId = LightingSystem.addLight({ type: 'point', x: newX, y: newY, colour: 0xffaa44, intensity: 1.4, radius: 280 })
-```
-
-For lights that follow an entity, remove and re-add each frame in `onUpdate`:
-
-```typescript
-private _torchId: string | null = null
-
 override onUpdate(dt: number): void {
-  if (this._torchId !== null) LightingSystem.removeLight(this._torchId)
-  this._torchId = LightingSystem.addLight({
-    type:      'point',
-    x:         this.entity.position.x,
-    y:         this.entity.position.y - 20,
-    colour:    0xffaa44,
-    intensity: 1.4,
-    radius:    280,
-  })
+  const torch = this._lighting.lights.get('torch-1')
+  if (torch !== undefined) {
+    torch.x = this._playerEntity.position.x
+    torch.y = this._playerEntity.position.y - 20
+  }
+  this._lighting.update(dt)
 }
 ```
 
 ## Removing lights
 
 ```typescript
-LightingSystem.removeLight(torchId)
+this._lighting.removeLight('torch-1') // returns boolean — true if found
 ```
 
-## Light type reference
+## Ambient light
 
 ```typescript
-// Light shape — all fields except type, x, y are optional:
-{
-  type:        'point' | 'spot' | 'directional',
-  x:           number,
-  y:           number,
-  colour?:     number,   // hex, default 0xffffff
-  intensity?:  number,   // default 1.0
-  radius?:     number,   // influence radius in pixels
-  angle?:      number,   // spot cone angle in degrees
-  direction?:  number,   // spot direction in radians
-  castShadows?: boolean, // default false
+this._lighting.setAmbient(0x111133, 0.08)
+
+const colour    = this._lighting.ambientColour    // number (hex)
+const intensity = this._lighting.ambientIntensity // number
+```
+
+## Light interface
+
+```typescript
+interface Light {
+  readonly id:         string;
+  readonly type:       'point' | 'directional' | 'spot' | 'ambient';
+  colour:              number;   // 0xRRGGBB — mutable
+  intensity:           number;   // 0..1+ — mutable
+  radius?:             number;   // point/spot falloff radius in world pixels
+  angle?:              number;   // spot: cone half-angle in radians
+  direction?:          { x: number; y: number };  // directional: world-space
+  castShadows:         boolean;
+  x?:                  number;   // world position — mutable
+  y?:                  number;   // world position — mutable
 }
 ```
 
@@ -116,15 +115,20 @@ LightingSystem.removeLight(torchId)
 
 | Method / Property | Signature | Notes |
 |---|---|---|
-| `LightingSystem.addLight` | `(config: Partial<Light> & { type: string, x: number, y: number }): string` | Returns the light's assigned id. |
-| `LightingSystem.removeLight` | `(id: string): void` | Remove a light by id. |
-| `LightingSystem.setAmbient` | `(colour: number, intensity: number): void` | Set scene-wide ambient light. |
-| `LightingSystem.ambientColour` | `number` (getter) | Current ambient colour. |
-| `LightingSystem.ambientIntensity` | `number` (getter) | Current ambient intensity. |
+| `addLight` | `(config: Light): void` | Register a light by id. Replaces if id already exists. |
+| `removeLight` | `(id: string): boolean` | Remove light by id. Returns true if found. |
+| `lights` | `Map<string, Light>` (readonly) | All registered lights — mutate to move/recolour without re-adding. |
+| `setAmbient` | `(colour: number, intensity: number): void` | Scene-wide ambient. |
+| `ambientColour` | `number` (getter) | Current ambient colour. |
+| `ambientIntensity` | `number` (getter) | Current ambient intensity. |
+| `attachFilter` | `(stage: Container, useNormalMap?: boolean, width?: number, height?: number): void` | Wire GPU filter to the scene stage. Call once in onLoad. |
+| `detachFilter` | `(): void` | Detach the GPU filter. Call in onDestroy. |
+| `update` | `(dt: number): void` | Upload all light data to GPU uniforms. Call every frame. |
 
 ## Notes
 
-- Lighting has a per-scene GPU cost. Limit shadow-casting lights: `castShadows: true` is expensive.
-- On `'potato'` and `'low'` GPU tiers (`Engine.gpuTier`), disable `castShadows` and cap dynamic lights at 1–4.
-- `LightingSystem` is static — it applies to the currently active scene's lighting pipeline.
-- Normal maps are resolved automatically: if `hero.png` is a sprite texture and `hero_n.png` exists alongside it, it is used as the normal map for dynamic lighting without any extra code.
+- `attachFilter()` must be called before lights affect rendering — without it, lights are registered but not drawn.
+- Normal maps: if `hero.png` exists and `hero_n.png` exists beside it, pass `useNormalMap: true` to `attachFilter` and the engine applies it automatically. The normal map must be a tangent-space normal map (blue-dominant).
+- Limit shadow-casting lights (`castShadows: true`) — each casts an extra GPU pass.
+- On `'potato'` and `'low'` GPU tiers (`Engine.gpuTier`), keep `castShadows: false` and use at most 1–4 point lights.
+- Up to 16 point lights and 4 directional lights per scene (GPU uniform array limits).
