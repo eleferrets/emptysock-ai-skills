@@ -123,8 +123,12 @@ map.getLayer('Collision').enablePhysics()
 entity.onCollisionEnter((other, contact) => {})
 entity.onSensorEnter((other) => {})
 
-// Tweens
-Tween.to(entity, { x: 200 }, { duration: 0.5, ease: 'bounceOut' })
+// Tweens (TweenManager — one per scene, must call update(dt) in onUpdate)
+const tweens = new TweenManager()                                         // in onLoad
+tweens.to(entity.position, { x: 200 }, { duration: 0.5, ease: 'bounceOut' })
+tweens.after(2.0, fn)     // scene-local one-shot timer
+tweens.every(5.0, fn)     // repeating timer; stops when scene unloads
+tweens.update(dt)          // in onUpdate — required
 
 // Profiler
 const stats = Profiler.getStats()  // fps, drawCalls, frameTime, memoryMB

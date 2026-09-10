@@ -41,7 +41,7 @@ emptysock-agent-pack/
 |------|-------------|
 | `skills/00-quickstart.md` | Common patterns in one page — start here |
 | `skills/01-actor-model.md` | Actor, ActorSystem, message-driven logic |
-| `skills/02-navmesh.md` | PathfindingSystem: grid A*, NavMesh, PathFollower |
+| `skills/02-navmesh.md` | PathfindingSystem (grid A*) and NavMeshSystem (polygon navmesh) |
 | `skills/03-physics-3d.md` | PhysicsSystem3D (Rapier3D WASM): init, bodies, destroy |
 | `skills/04-plugin-system.md` | PluginSystem singleton, inject, plugin lifecycle |
 | `skills/05-touch-input.md` | Touch and pointer input via the static Input class |
@@ -58,11 +58,11 @@ emptysock-agent-pack/
 | `skills/16-battle-system.md` | Turn-based BattleSystem: party vs enemies, status effects |
 | `skills/17-auto-tile.md` | AutoTileSystem: 8-neighbour bitmask rule sets |
 | `skills/18-cg-gallery.md` | CGGallery: CG unlock tracking and display |
-| `skills/19-tweens.md` | Tween: creation, chaining, easing, cancellation |
+| `skills/19-tweens.md` | TweenManager: tweening with easing, scene-local timers |
 | `skills/20-ui-widgets.md` | UISystem widgets: panels, labels, buttons, progress bars, sliders, checkboxes, animations |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
-| `skills/visual-script.md` | VisualScriptComponent: visual scripting in the IDE |
+| `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |
 
 ---
 
