@@ -408,39 +408,6 @@
         "waitForPath": "yield waitForPath(entity: Entity)"
       }
     },
-    "Tween": {
-      "import": "import { Tween } from '@emptysock/engine'",
-      "methods": {
-        "to": "Tween.to(target: object, props: object, opts: TweenOptions): TweenHandle",
-        "from": "Tween.from(target: object, props: object, opts: TweenOptions): TweenHandle",
-        "sequence": "Tween.sequence(tweens: TweenHandle[]): TweenHandle"
-      },
-      "TweenOptions": {
-        "duration": "number — seconds",
-        "ease": "string — see easings list",
-        "delay": "number — seconds",
-        "loop": "boolean",
-        "yoyo": "boolean",
-        "onComplete": "() => void"
-      },
-      "easings": [
-        "linear",
-        "sineIn",
-        "sineOut",
-        "sineInOut",
-        "quadIn",
-        "quadOut",
-        "quadInOut",
-        "cubicIn",
-        "cubicOut",
-        "cubicInOut",
-        "bounceOut",
-        "bounceIn",
-        "elasticOut",
-        "backOut",
-        "backIn"
-      ]
-    },
     "SaveSystem": {
       "import": "import { SaveSystem } from '@emptysock/engine'",
       "methods": {
