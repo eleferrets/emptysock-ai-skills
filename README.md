@@ -60,6 +60,8 @@ emptysock-agent-pack/
 | `skills/18-cg-gallery.md` | CGGallery: CG unlock tracking and display |
 | `skills/19-tweens.md` | TweenManager: tweening with easing, scene-local timers |
 | `skills/20-ui-widgets.md` | UISystem widgets: panels, labels, buttons, progress bars, sliders, checkboxes, animations |
+| `skills/21-post-process.md` | PostProcessSystem: full-screen effects and per-layer filters |
+| `skills/22-lighting-system.md` | LightingSystem: dynamic lights, ambient light, shadow casting |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |
