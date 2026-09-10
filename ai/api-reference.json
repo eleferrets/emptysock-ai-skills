@@ -1216,40 +1216,43 @@
     "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'none'"
   },
   "LayerSystem": {
-    "import": "import { LayerSystem, LAYER, type LayerConfig, type LayerSortKey } from '@emptysock/engine'",
-    "description": "Named rendering layers with explicit draw order and per-entity depth. Entities are assigned to a layer; RenderSystem draws layers in ascending index order. Call scene.setLayerSystem(layers) in onLoad.",
-    "constructor": "new LayerSystem() — pre-defines four built-in layers: background (-1000), default (0), foreground (100), ui (1000)",
+    "import": "import { LayerSystem } from '@emptysock/engine'",
+    "description": "Instance-based named render-layer manager. Entities are assigned to a layer; RenderSystem draws layers in ascending zOrder. Call scene.setLayerSystem(layers) in onLoad.",
+    "constructor": "new LayerSystem()",
     "methods": {
       "defineLayer": {
-        "signature": "(name: string, index: number): void",
-        "description": "Define or redefine a layer. Lower index = drawn first (further back)."
+        "signature": "(opts: { name: string, zOrder: number, parallax?: { x: number, y: number }, blendMode?: 'normal' | 'additive', fixed?: boolean }): void",
+        "description": "Register a named layer. zOrder determines draw order — lower renders further back. Use gaps (0, 10, 20) so layers can be inserted later without renumbering."
       },
-      "addEntity": {
-        "signature": "(entityId: number, layerName: string, depth?: number): void",
-        "description": "Assign an entity to a layer. depth controls draw order within the layer (lower = further back). Defaults to 0."
+      "addToLayer": {
+        "signature": "(name: string, entity: Entity): void",
+        "description": "Assign an entity to a named layer. The entity is not destroyed if later removed."
       },
-      "removeEntity": {
-        "signature": "(entityId: number): void"
+      "removeFromLayer": {
+        "signature": "(name: string, entity: Entity): void",
+        "description": "Remove an entity from a layer without destroying it."
       },
       "setVisible": {
         "signature": "(name: string, visible: boolean): void",
         "description": "Show or hide an entire layer. Cheaper than destroying/re-adding entities."
       },
-      "getSortKey": {
-        "signature": "(entityId: number): LayerSortKey",
-        "description": "Returns [layerIndex, depth] — used by RenderSystem to sort draw calls."
+      "setParallax": {
+        "signature": "(name: string, parallax: { x: number, y: number }): void",
+        "description": "Update the camera offset multiplier for a layer at runtime."
+      },
+      "sorted": {
+        "signature": "(): Layer[]",
+        "description": "Returns all defined layers in ascending zOrder."
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Release layer state. Call in onDestroy."
       }
-    },
-    "LAYER": {
-      "BACKGROUND": -1000,
-      "DEFAULT": 0,
-      "FOREGROUND": 100,
-      "UI": 1000
     },
     "notes": [
       "Call scene.setLayerSystem(layers) once in onLoad so RenderSystem uses it.",
-      "Use zOrder gaps (0, 10, 20, …) to leave room for later inserts.",
-      "Parallax and fixed-camera layers are handled by the skill-file variant — see skills/layer-system.md."
+      "fixed: true makes a layer ignore camera translation — use for HUD and UI layers.",
+      "blendMode: 'additive' on particle/glow layers avoids dark halos on transparent sprites."
     ]
   },
   "BattleSystem": {
