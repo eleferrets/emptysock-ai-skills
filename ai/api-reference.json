@@ -993,6 +993,236 @@
       "unlockedCount": "number"
     }
   },
+  "LightingSystem": {
+    "import": "import { LightingSystem } from '@emptysock/engine'",
+    "description": "2D normal-map lighting pass. Manages a registry of lights and blends them over the scene. Requires `lighting: true` in SceneConfig.",
+    "constructor": "new LightingSystem()",
+    "methods": {
+      "addLight": {
+        "signature": "(config: Light): void",
+        "description": "Register a light. Use a unique `id` string so you can remove it later."
+      },
+      "removeLight": {
+        "signature": "(id: string): boolean",
+        "description": "Unregister a light by id. Returns true if it was found."
+      },
+      "setAmbient": {
+        "signature": "(colour: number, intensity: number): void",
+        "description": "Set the scene-wide ambient light colour (hex) and intensity (0–1)."
+      }
+    },
+    "properties": {
+      "lights": "Map<string, Light> — read-only registry of all registered lights",
+      "ambientColour": "number — current ambient colour (hex)",
+      "ambientIntensity": "number — current ambient intensity (0–1)"
+    },
+    "Light": {
+      "id": "string — unique identifier",
+      "type": "LightType — 'point' | 'directional' | 'spot' | 'ambient'",
+      "colour": "number — hex colour",
+      "intensity": "number — brightness multiplier",
+      "radius": "number — falloff radius in world pixels (point/spot only)",
+      "angle": "number — cone half-angle in radians (spot only)",
+      "direction": "{ x: number, y: number } — world-space direction (directional only)",
+      "castShadows": "boolean",
+      "x": "number — world-space x (point/spot; updated each frame)",
+      "y": "number — world-space y (point/spot; updated each frame)"
+    },
+    "notes": [
+      "Requires scene config `lighting: true`.",
+      "Update x/y on point/spot lights each frame to follow moving entities.",
+      "Add a normal map to sprites via sprite.normalMap = 'hero_n.png' to get per-pixel lighting."
+    ]
+  },
+  "NavMeshSystem": {
+    "import": "import { NavMeshSystem, type NavMeshData, type NavPolygon, type Vec2 } from '@emptysock/engine'",
+    "description": "A* polygon navmesh for entity pathfinding. Accepts pre-built navmesh data (offline). Does not generate navmesh from tilemaps at runtime.",
+    "constructor": "new NavMeshSystem()",
+    "methods": {
+      "load": {
+        "signature": "(data: NavMeshData): void",
+        "description": "Load a pre-built polygon graph. Build this offline in the level editor and ship as a JSON asset."
+      },
+      "findPath": {
+        "signature": "(from: Vec2, to: Vec2): Vec2[]",
+        "description": "Find a path between two world-space points. Returns an array of waypoints; returns [] if no path exists. Synchronous."
+      }
+    },
+    "NavMeshData": {
+      "polygons": "ReadonlyArray<NavPolygon>"
+    },
+    "NavPolygon": {
+      "id": "number",
+      "vertices": "ReadonlyArray<Vec2> — convex polygon vertices in order",
+      "centroid": "Vec2",
+      "neighbours": "ReadonlyArray<number> — ids of adjacent walkable polygons"
+    },
+    "Vec2": {
+      "x": "number",
+      "y": "number"
+    },
+    "notes": [
+      "NavMesh data is offline — no runtime generation from tilemap data.",
+      "Use PathfindingSystem for grid-based A* on a TilemapLayer.asGrid().",
+      "NavMeshSystem uses polygon-graph A* and is suited for open-world navigation."
+    ]
+  },
+  "CoroutineSystem": {
+    "import": "import { CoroutineSystem, waitFrames, waitSeconds, waitUntil, type CoroutineGen } from '@emptysock/engine'",
+    "description": "Lightweight coroutine runner. Drives generator functions over time. Entity.startCoroutine() uses this internally; use CoroutineSystem directly when you need named coroutines outside of an entity context.",
+    "constructor": "new CoroutineSystem()",
+    "methods": {
+      "start": {
+        "signature": "(id: string, gen: CoroutineGen): void",
+        "description": "Start a named coroutine. If a coroutine with the same id is already running it is replaced."
+      },
+      "stop": {
+        "signature": "(id: string): void",
+        "description": "Stop a running coroutine by name."
+      },
+      "update": {
+        "signature": "(deltaTime: number): void",
+        "description": "Advance all running coroutines. Call once per frame."
+      }
+    },
+    "helpers": {
+      "waitFrames": "yield waitFrames(n: number) — pause for n frames",
+      "waitSeconds": "yield waitSeconds(t: number) — pause for t seconds",
+      "waitUntil": "yield waitUntil(fn: () => boolean) — pause until predicate returns true"
+    }
+  },
+  "GamepadSystem": {
+    "import": "import { GamepadSystem, type GamepadState, type DualRumbleOptions } from '@emptysock/engine'",
+    "description": "Low-level gamepad polling. Wraps the browser Gamepad API. For most input needs, use Input.axis() and Input.isPressed() instead — they read from GamepadSystem internally.",
+    "constructor": "new GamepadSystem()",
+    "methods": {
+      "update": {
+        "signature": "(): void",
+        "description": "Poll all connected gamepads. Call once per frame before reading state."
+      },
+      "getState": {
+        "signature": "(index: number): GamepadState | null",
+        "description": "Get the current state of gamepad at index (0-based). Returns null if not connected."
+      },
+      "rumble": {
+        "signature": "(index: number, intensity: number, duration: number): void",
+        "description": "Simple equal-magnitude rumble on both motors."
+      },
+      "rumbleDual": {
+        "signature": "(index: number, opts: DualRumbleOptions): void",
+        "description": "Independent weak and strong motor rumble."
+      }
+    },
+    "GamepadState": {
+      "connected": "boolean",
+      "buttons": "ReadonlyArray<boolean> — button pressed states",
+      "axes": "ReadonlyArray<number> — axis values (-1 to 1)"
+    },
+    "DualRumbleOptions": {
+      "weakMagnitude": "number — 0–1",
+      "strongMagnitude": "number — 0–1",
+      "duration": "number — milliseconds"
+    }
+  },
+  "TweenManager": {
+    "import": "import { TweenManager, type TweenOptions, type EasingName } from '@emptysock/engine'",
+    "description": "Interpolates numeric properties on objects over time. Also provides scene-local timers. Use one TweenManager per scene; call update(dt) each frame; destroy in onDestroy.",
+    "constructor": "new TweenManager()",
+    "methods": {
+      "to": {
+        "signature": "(target: Record<string, number>, props: Record<string, number>, options: TweenOptions): void",
+        "description": "Tween numeric properties of target from their current values to the values in props."
+      },
+      "after": {
+        "signature": "(seconds: number, fn: () => void): void",
+        "description": "Run fn once after seconds. Scene-local timer managed by this TweenManager."
+      },
+      "every": {
+        "signature": "(seconds: number, fn: () => void): void",
+        "description": "Run fn repeatedly every seconds. Continues until the TweenManager is destroyed."
+      },
+      "update": {
+        "signature": "(deltaTime: number): void",
+        "description": "Advance all active tweens and timers. Call once per frame in onUpdate(dt)."
+      }
+    },
+    "TweenOptions": {
+      "duration": "number — seconds",
+      "ease": "EasingName — default 'linear'",
+      "delay": "number — seconds before tween starts",
+      "onComplete": "() => void — optional callback"
+    },
+    "easings": ["linear", "sineIn", "sineOut", "sineInOut", "quadIn", "quadOut", "quadInOut", "cubicIn", "cubicOut", "cubicInOut", "bounceOut", "elasticOut"]
+  },
+  "PostProcessSystem": {
+    "import": "import { PostProcessSystem, type PostEffectType, type PostEffectOptions, type LayerFilterOptions } from '@emptysock/engine'",
+    "description": "Manages full-screen post-processing effects and per-layer CSS filters. Scene.postProcess is the singleton instance — use that rather than constructing your own.",
+    "usage": "scene.postProcess.add('bloom', { threshold: 0.7 })",
+    "methods": {
+      "add": {
+        "signature": "(type: PostEffectType, options?: PostEffectOptions): this",
+        "description": "Add or replace a full-screen effect. Adding the same type twice replaces it."
+      },
+      "remove": {
+        "signature": "(type: PostEffectType): void"
+      },
+      "has": {
+        "signature": "(type: PostEffectType): boolean"
+      },
+      "setLayerFilter": {
+        "signature": "(layerId: string, filter: LayerFilterOptions): void",
+        "description": "Apply a CSS filter to a specific named layer."
+      },
+      "clearLayerFilter": {
+        "signature": "(layerId: string): void"
+      },
+      "toggleLayerFilter": {
+        "signature": "(layerId: string, enabled: boolean): void"
+      },
+      "getLayerFilter": {
+        "signature": "(layerId: string): LayerFilterOptions | undefined"
+      }
+    },
+    "PostEffectType": "'bloom' | 'chromatic-aberration' | 'vignette' | 'scanlines' | 'pixelate' | 'colour-grade' | 'blur' | 'outline' | 'shockwave' | 'noise'",
+    "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'none'"
+  },
+  "LayerSystem": {
+    "import": "import { LayerSystem, LAYER, type LayerConfig, type LayerSortKey } from '@emptysock/engine'",
+    "description": "Named rendering layers with explicit draw order and per-entity depth. Entities are assigned to a layer; RenderSystem draws layers in ascending index order. Call scene.setLayerSystem(layers) in onLoad.",
+    "constructor": "new LayerSystem() — pre-defines four built-in layers: background (-1000), default (0), foreground (100), ui (1000)",
+    "methods": {
+      "defineLayer": {
+        "signature": "(name: string, index: number): void",
+        "description": "Define or redefine a layer. Lower index = drawn first (further back)."
+      },
+      "addEntity": {
+        "signature": "(entityId: number, layerName: string, depth?: number): void",
+        "description": "Assign an entity to a layer. depth controls draw order within the layer (lower = further back). Defaults to 0."
+      },
+      "removeEntity": {
+        "signature": "(entityId: number): void"
+      },
+      "setVisible": {
+        "signature": "(name: string, visible: boolean): void",
+        "description": "Show or hide an entire layer. Cheaper than destroying/re-adding entities."
+      },
+      "getSortKey": {
+        "signature": "(entityId: number): LayerSortKey",
+        "description": "Returns [layerIndex, depth] — used by RenderSystem to sort draw calls."
+      }
+    },
+    "LAYER": {
+      "BACKGROUND": -1000,
+      "DEFAULT": 0,
+      "FOREGROUND": 100,
+      "UI": 1000
+    },
+    "notes": [
+      "Call scene.setLayerSystem(layers) once in onLoad so RenderSystem uses it.",
+      "Use zOrder gaps (0, 10, 20, …) to leave room for later inserts.",
+      "Parallax and fixed-camera layers are handled by the skill-file variant — see skills/layer-system.md."
+    ]
+  },
   "BattleSystem": {
     "import": "import { BattleSystem, type BattlePhase, type BattleStats, type StatusEffect, type Combatant, type SkillTargetType, type DamageFormulaId, type SkillDef, type StatusEffectDef, type BattleDatabase, type BattleAction, type BattleEvent, type BattleSystemOptions } from '@emptysock/engine'",
     "description": "Opt-in turn-based RPG battle module. Handles turn order (speed desc), damage resolution, status effects, and event emission. Tree-shaken from bundles that do not import it. Enemies act automatically (attack lowest-HP party member); party members require submitAction().",
