@@ -268,23 +268,36 @@ entity.onSensorEnter((other) => {
 ### Dynamic lighting (requires `lighting: true` in SceneConfig)
 
 ```typescript
-import { PointLight } from '@emptysock/engine'
+import { LightingSystem } from '@emptysock/engine'
 
-scene.lighting.ambientColour    = 0x111133
-scene.lighting.ambientIntensity = 0.1
+private _lighting!: LightingSystem
 
-const torch = scene.createEntity('Torch')
-torch.setPosition(300, 200)
-torch.addComponent(PointLight, {
-  colour:       0xffaa44,
-  intensity:    1.4,
-  radius:       280,
-  castShadows:  true,
-})
+override onLoad(): void {
+  this._lighting = new LightingSystem()
+  this._lighting.attachFilter(this.stage)   // wire GPU filter — required
+  this._lighting.setAmbient(0x111133, 0.08)
 
-// Normal map (file must exist alongside sprite: hero_n.png)
-hero.getComponent(Sprite)!  // ← wrong: never use !
-hero.getComponent(Sprite)?.normalMap = 'hero_n.png'  // correct
+  this._lighting.addLight({
+    id:          'torch-1',
+    type:        'point',
+    x:           300,
+    y:           200,
+    colour:      0xffaa44,
+    intensity:   1.4,
+    radius:      280,
+    castShadows: false,
+  })
+}
+
+override onUpdate(dt: number): void {
+  // Mutate position in-place — no remove/re-add needed
+  const torch = this._lighting.lights.get('torch-1')
+  if (torch !== undefined) {
+    torch.x = this._player.position.x
+    torch.y = this._player.position.y - 20
+  }
+  this._lighting.update(dt)   // upload to GPU uniforms
+}
 ```
 
 ### Object pool (bullets, particles, enemies)
