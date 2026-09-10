@@ -281,6 +281,35 @@
           "isComplete": "follower.isComplete(): boolean"
         }
       },
+      "RigidJoint": {
+        "import": "import { RigidJoint } from '@emptysock/engine'",
+        "description": "Component that constrains two PhysicsBody entities with a Rapier joint. Attach to the entity that holds the first PhysicsBody; set bodyBEntityId to the second entity's numeric id.",
+        "constructor": "new RigidJoint({ jointType?, bodyBEntityId?, revolute?, prismatic?, spring? })",
+        "props": {
+          "jointType": "'fixed' | 'revolute' | 'prismatic' | 'spring' — default 'fixed'",
+          "bodyBEntityId": "number | null — entity id of the second body"
+        },
+        "RevoluteOptions": {
+          "anchorA": "{ x, y } — anchor on body A in local space",
+          "anchorB": "{ x, y } — anchor on body B in local space",
+          "minAngle": "number — minimum rotation in radians",
+          "maxAngle": "number — maximum rotation in radians"
+        },
+        "PrismaticOptions": {
+          "anchorA": "{ x, y }",
+          "anchorB": "{ x, y }",
+          "axis": "{ x, y } — slide axis in local space of body A",
+          "minDistance": "number",
+          "maxDistance": "number"
+        },
+        "SpringOptions": {
+          "anchorA": "{ x, y }",
+          "anchorB": "{ x, y }",
+          "restLength": "number",
+          "stiffness": "number",
+          "damping": "number"
+        }
+      },
       "VNController": {
         "import": "import { VNController } from '@emptysock/engine'",
         "description": "Entity component for simple VN playback. Attach to an entity, set dialogueTree to a .esvn file path, and drive it via advance()/jump(). For programmatic control, callback registration, or VNTextbox binding, use VNSystem instead.",

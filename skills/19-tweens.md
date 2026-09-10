@@ -1,74 +1,68 @@
-# Tween
+# TweenManager
 
-`Tween` animates object properties over time with easing curves. All methods are static — no instantiation needed.
+`TweenManager` animates numeric object properties over time with easing curves, and provides scene-local timers. Create one instance per scene, call `update(dt)` every frame, and it is garbage-collected with the scene — no explicit teardown needed.
 
 ## Import
 
 ```typescript
-import { Tween, type TweenOptions } from '@emptysock/engine'
+import { TweenManager, type TweenOptions, type EasingName } from '@emptysock/engine'
 ```
 
-## Basic tween
+## Setup (in onLoad)
 
 ```typescript
-import { Tween } from '@emptysock/engine'
+private _tweens!: TweenManager
 
-// Tween any plain object's numeric properties:
-const handle = Tween.to(entity.position, { x: 400, y: 200 }, {
+override onLoad(): void {
+  this._tweens = new TweenManager()
+}
+
+override onUpdate(dt: number): void {
+  this._tweens.update(dt)   // must be called every frame
+}
+```
+
+## Animate to a target value
+
+```typescript
+// Tween any plain object's numeric properties to new values:
+this._tweens.to(entity.position, { x: 400, y: 200 }, {
   duration: 1.0,
   ease:     'sineInOut',
 })
 ```
 
-## `Tween.from` — animate from a value to current
+## Tween with delay and completion callback
 
 ```typescript
-// Start the sprite at alpha 0 and fade in to its current alpha:
-Tween.from(sprite, { alpha: 0 }, { duration: 0.5, ease: 'sineOut' })
+this._tweens.to(entity.position, { x: 600 }, {
+  duration:   0.8,
+  ease:       'quadOut',
+  delay:      0.3,
+  onComplete: () => { entity.addTag('arrived') },
+})
 ```
 
-## Chaining with `Tween.sequence`
+## Scene-local timers
+
+`TweenManager` doubles as a scene-local timer — no handles to cancel, no memory leaks when the scene unloads:
 
 ```typescript
-// Run tweens one after another:
-const seq = Tween.sequence([
-  Tween.to(entity.position, { x: 200 }, { duration: 0.4, ease: 'quadOut' }),
-  Tween.to(entity.position, { y: 100 }, { duration: 0.3, ease: 'quadIn'  }),
-])
+// Run once after 2 seconds:
+this._tweens.after(2.0, () => { this.spawnWave() })
+
+// Run on a repeating interval:
+this._tweens.every(5.0, () => { this.spawnPowerUp() })
 ```
 
 ## Options
 
-| Option | Type | Default | Notes |
-|--------|------|---------|-------|
-| `duration` | `number` | required | Seconds |
-| `ease` | `string` | `'linear'` | See easings list below |
-| `delay` | `number` | `0` | Seconds before tween starts |
-| `loop` | `boolean` | `false` | Repeat indefinitely |
-| `yoyo` | `boolean` | `false` | Reverse on each alternate iteration (use with `loop`) |
-| `onComplete` | `() => void` | — | Called once when the tween finishes |
-
-## Cancellation
-
-```typescript
-const handle = Tween.to(entity.position, { x: 500 }, { duration: 2.0 })
-// Cancel before it finishes:
-handle.cancel()
-```
-
-Always cancel running tweens in `onDestroy()` if they reference scene objects:
-
-```typescript
-private _moveTween: TweenHandle | null = null
-
-override onLoad(): void {
-  this._moveTween = Tween.to(this.entity.position, { x: 600 }, { duration: 3.0, loop: true })
-}
-
-override onDestroy(): void {
-  this._moveTween?.cancel()
-}
-```
+| Option       | Type           | Default    | Notes                            |
+|-------------|----------------|------------|----------------------------------|
+| `duration`  | `number`       | required   | Seconds                          |
+| `ease`      | `EasingName`   | `'linear'` | See easings list below           |
+| `delay`     | `number`       | `0`        | Seconds before tween starts      |
+| `onComplete`| `() => void`   | —          | Called once when tween finishes  |
 
 ## Easings
 
@@ -78,21 +72,21 @@ override onDestroy(): void {
 | `sineIn` / `sineOut` / `sineInOut` | Gentle S-curve |
 | `quadIn` / `quadOut` / `quadInOut` | Moderate acceleration |
 | `cubicIn` / `cubicOut` / `cubicInOut` | Stronger acceleration |
-| `bounceOut` / `bounceIn` | Springy bounce at end/start |
+| `bounceOut` | Springy bounce at the end |
 | `elasticOut` | Overshoot and spring back |
-| `backOut` / `backIn` | Slight overshoot |
 
 ## API reference
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `Tween.to` | `(target: object, props: object, opts: TweenOptions): TweenHandle` | Animate `target` properties to the given values. |
-| `Tween.from` | `(target: object, props: object, opts: TweenOptions): TweenHandle` | Animate from the given values to the current values. |
-| `Tween.sequence` | `(tweens: TweenHandle[]): TweenHandle` | Run tweens in order; returns a handle for the whole sequence. |
+| `to` | `(target: Record<string, number>, props: Record<string, number>, opts: TweenOptions): void` | Animate target properties from current values to props. |
+| `after` | `(seconds: number, fn: () => void): void` | Run fn once after seconds. |
+| `every` | `(seconds: number, fn: () => void): void` | Run fn repeatedly every seconds until scene unloads. |
+| `update` | `(dt: number): void` | Advance all tweens and timers. Call once per frame in onUpdate. |
 
 ## Notes
 
-- `Tween` only animates **numeric** properties. String or boolean properties are ignored.
-- Do not call `Tween.to` inside `onUpdate()` every frame — call it once and store the handle.
-- `Tween.sequence` starts each tween as the previous one finishes; all tweens in the array must be created before passing to `sequence`.
-- For frame-rate-independent delays, prefer `Timer.after()` or coroutines (`yield waitSeconds(n)`) over the tween `delay` option.
+- `TweenManager` only animates **numeric** properties. Non-numeric properties are silently ignored.
+- Do not call `to()` inside `onUpdate()` every frame — call it once when you want to start a tween.
+- For complex sequences, use coroutines (`yield waitSeconds(n)`) — they express multi-step time logic more clearly than chained `onComplete` callbacks.
+- `after()` and `every()` timers are tied to this `TweenManager` instance; they stop automatically when the scene is done.
