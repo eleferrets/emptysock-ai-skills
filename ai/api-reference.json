@@ -883,72 +883,59 @@
     }
   },
   "VNSystem": {
-    "import": "import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'",
-    "description": "Standalone visual novel runtime. Plays exported .vnscript files. Used by VNTextbox as its data source. For simple entity-based playback, see VNController instead.",
+    "import": "import { VNSystem, type DialogueNode, type DialogueTree } from '@emptysock/engine'",
+    "description": "Standalone visual novel runtime. Loads a DialogueTree (converted from Story Graph JSON via storyGraphToDialogueTree). Used by VNTextbox as its data source.",
     "constructor": "new VNSystem()",
+    "DialogueNode": "type DialogueNode = { type: 'dialogue'; speaker: string; text: string; voice?: string; next?: string; cgPath?: string } | { type: 'choice'; text: string; options: Array<{ label: string; next: string }>; cgPath?: string } | { type: 'event'; eventName: string; data?: Record<string, unknown>; next?: string; cgPath?: string } | { type: 'jump'; target: string; cgPath?: string } | { type: 'variable-set'; variableKey: string; variableValue: unknown; next?: string; cgPath?: string }",
+    "DialogueTree": "interface DialogueTree { nodes: Record<string, DialogueNode>; startNode: string }",
     "methods": {
-      "loadScript": {
-        "signature": "(path: string): Promise<void>",
-        "description": "Load a .vnscript JSON file exported from the Story Graph panel."
-      },
-      "onNode": {
-        "signature": "(fn: (node: VNNode) => void): void",
-        "description": "Register a callback invoked whenever the active node changes. Register before calling play()."
-      },
-      "play": {
-        "signature": "(): void",
-        "description": "Begin playback from the start node."
+      "load": {
+        "signature": "(tree: DialogueTree): void",
+        "description": "Load a DialogueTree and begin processing from startNode. Fires onNode immediately for the first node. Not async — use storyGraphToDialogueTree() or JSON.parse() on a fetched file before calling."
       },
       "advance": {
         "signature": "(): void",
-        "description": "Move past the current dialogue node."
+        "description": "Advance past a dialogue, event, or variable-set node to its next. Has no effect on choice or jump nodes."
       },
-      "choose": {
-        "signature": "(index: number): void",
-        "description": "Select a choice option by zero-based index."
+      "selectOption": {
+        "signature": "(next: string): void",
+        "description": "Navigate to the target node by ID. Use the next field from the chosen option in a choice node."
       },
-      "skip": {
-        "signature": "(): void",
-        "description": "Skip any active auto-advance delay."
-      },
-      "jumpToNode": {
-        "signature": "(nodeId: string): void",
-        "description": "Jump to a node by id (used for save/resume)."
-      },
-      "setVariable": {
-        "signature": "(key: string, value: string | number | boolean): void"
-      },
-      "getVariable": {
-        "signature": "(key: string): string | number | boolean | undefined"
-      },
-      "getVariables": {
-        "signature": "(): Record<string, string | number | boolean>"
-      },
-      "isFinished": {
-        "signature": "(): boolean"
-      },
-      "destroy": {
-        "signature": "(): void",
-        "description": "Required in onDestroy()."
+      "currentNode": {
+        "signature": "DialogueNode | null (getter)",
+        "description": "The currently active node, or null if not loaded or finished."
       }
     },
+    "callbacks": {
+      "onNode": "((node: DialogueNode) => void) | null — fired on every node change including after selectOption()",
+      "onChoice": "((options: Array<{ label: string; next: string }>) => void) | null — fired for choice nodes",
+      "onEvent": "((eventName: string, data: Record<string, unknown>) => void) | null — fired for event nodes",
+      "onEnd": "(() => void) | null — fired when a dialogue node has no next",
+      "onCGNode": "((cgPath: string) => void) | null — fired for any node with a cgPath field"
+    },
     "notes": [
-      "Call destroy() in onDestroy().",
-      "Do not call advance() or choose() before play() — the state machine is not ready.",
-      "onNode fires once per node including after jumpToNode(). Register before play().",
-      "Condition nodes are evaluated and routed automatically — onNode is never called for them."
+      "Set callbacks before calling load(). onNode fires immediately on load().",
+      "jump nodes are resolved automatically — onNode is never called for them.",
+      "variable-set nodes are also resolved automatically (auto-advanced); read variableKey/variableValue inside onNode before calling advance().",
+      "No destroy() method — GC'd with the scene when the reference drops.",
+      "For save/resume: store the currentNode?.next or the chosen option's next field; call load() again with the full tree and navigate with selectOption() to restore position."
     ]
   },
   "VNTextbox": {
-    "import": "import { VNTextbox } from '@emptysock/engine'",
-    "description": "Pre-built dialogue box rendered by UISystem. Bind to a VNSystem instance to auto-update.",
+    "import": "import { VNTextbox, type VNTextboxOptions } from '@emptysock/engine'",
+    "description": "Pre-built dialogue box rendered by UISystem. Bind to a VNSystem instance to auto-update. Clicking the textbox automatically calls VNSystem.advance(). Call destroy() in onDestroy.",
     "constructor": "new VNTextbox({ canvasWidth, canvasHeight, height?, namePlateHeight?, paddingX?, panelColor?, namePlateColor?, textColor?, fontSize? })",
     "methods": {
       "bind": {
-        "signature": "(vn: VNSystem): void"
+        "signature": "(vn: VNSystem): void",
+        "description": "Wire to a VNSystem; immediately syncs to the current node."
       },
-      "unbind": {
-        "signature": "(): void"
+      "visible": {
+        "signature": "boolean (getter/setter)"
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Remove textbox from UISystem. Call in onDestroy."
       }
     }
   },
@@ -1225,43 +1212,74 @@
     "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'none'"
   },
   "LayerSystem": {
-    "import": "import { LayerSystem } from '@emptysock/engine'",
-    "description": "Instance-based named render-layer manager. Entities are assigned to a layer; RenderSystem draws layers in ascending zOrder. Call scene.setLayerSystem(layers) in onLoad.",
+    "import": "import { LayerSystem, LAYER, type LayerConfig, type LayerSortKey } from '@emptysock/engine'",
+    "description": "Instance-based named render-layer manager. Entities are assigned to a layer at an explicit depth; RenderSystem draws layers in ascending index order, then entities within a layer by ascending depth. Four built-in layers are pre-created by the constructor.",
     "constructor": "new LayerSystem()",
+    "LAYER": {
+      "BACKGROUND": -1000,
+      "DEFAULT": 0,
+      "FOREGROUND": 100,
+      "UI": 1000
+    },
+    "builtinLayers": ["background", "default", "foreground", "ui"],
     "methods": {
       "defineLayer": {
-        "signature": "(opts: { name: string, zOrder: number, parallax?: { x: number, y: number }, blendMode?: 'normal' | 'additive', fixed?: boolean }): void",
-        "description": "Register a named layer. zOrder determines draw order — lower renders further back. Use gaps (0, 10, 20) so layers can be inserted later without renumbering."
+        "signature": "(name: string, index: number): void",
+        "description": "Define or redefine a layer. Lower index = drawn behind. Use index gaps (0, 50, 80, 100) so layers can be inserted later without renumbering."
       },
-      "addToLayer": {
-        "signature": "(name: string, entity: Entity): void",
-        "description": "Assign an entity to a named layer. The entity is not destroyed if later removed."
+      "addEntity": {
+        "signature": "(entityId: number, layerName: string, depth?: number): void",
+        "description": "Assign an entity to a layer at an optional depth (default 0). Unknown layerName falls back to 'default' with a warning."
       },
-      "removeFromLayer": {
-        "signature": "(name: string, entity: Entity): void",
-        "description": "Remove an entity from a layer without destroying it."
+      "removeEntity": {
+        "signature": "(entityId: number): void",
+        "description": "Unregister an entity from the layer system. Entity is not destroyed."
+      },
+      "setDepth": {
+        "signature": "(entityId: number, depth: number): void",
+        "description": "Update an entity's depth within its current layer without changing the layer."
+      },
+      "getEntityLayer": {
+        "signature": "(entityId: number): string | null",
+        "description": "Returns the entity's current layer name, or null if unregistered."
+      },
+      "getEntityDepth": {
+        "signature": "(entityId: number): number",
+        "description": "Returns the entity's current depth, or 0 if unregistered."
+      },
+      "getSortKey": {
+        "signature": "(entityId: number): LayerSortKey",
+        "description": "Returns [layerIndex, depth] for use in a sort comparator. Unregistered entities get [LAYER.DEFAULT, 0]."
+      },
+      "getLayerIndex": {
+        "signature": "(name: string): number",
+        "description": "Returns the index of a named layer, or LAYER.DEFAULT if unknown."
       },
       "setVisible": {
         "signature": "(name: string, visible: boolean): void",
-        "description": "Show or hide an entire layer. Cheaper than destroying/re-adding entities."
+        "description": "Show or hide an entire layer."
       },
-      "setParallax": {
-        "signature": "(name: string, parallax: { x: number, y: number }): void",
-        "description": "Update the camera offset multiplier for a layer at runtime."
+      "isVisible": {
+        "signature": "(name: string): boolean",
+        "description": "Returns true if the layer is visible."
       },
-      "sorted": {
-        "signature": "(): Layer[]",
-        "description": "Returns all defined layers in ascending zOrder."
+      "getEntitiesOnLayer": {
+        "signature": "(layerName: string): Array<{ entityId: number; depth: number }>",
+        "description": "All entities on a layer, sorted by depth ascending."
+      },
+      "getLayersSorted": {
+        "signature": "(): LayerConfig[]",
+        "description": "All layer configs sorted by index ascending (render order). LayerConfig: { name, index, visible }."
       },
       "destroy": {
         "signature": "(): void",
-        "description": "Release layer state. Call in onDestroy."
+        "description": "Clear all placements and layers. Call in onDestroy."
       }
     },
     "notes": [
-      "Call scene.setLayerSystem(layers) once in onLoad so RenderSystem uses it.",
-      "fixed: true makes a layer ignore camera translation — use for HUD and UI layers.",
-      "blendMode: 'additive' on particle/glow layers avoids dark halos on transparent sprites."
+      "Use LAYER constants for the four built-in layer indices.",
+      "depth within a layer controls fine-grained draw order within the same layer.",
+      "Unregistered entities fallback to [LAYER.DEFAULT, 0] in getSortKey."
     ]
   },
   "BattleSystem": {

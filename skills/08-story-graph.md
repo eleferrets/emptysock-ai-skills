@@ -1,6 +1,6 @@
 # Story Graph / VNSystem
 
-The Story Graph is the EmptySock panel for authoring branching dialogue trees (visual novels, cutscenes, quest dialogue). Scripts are exported as `.vnscript` JSON and played at runtime by `VNSystem`.
+The Story Graph is the EmptySock IDE panel for authoring branching dialogue trees (visual novels, cutscenes, quest dialogue). Scripts are exported as `.storyGraph.json` (the editor format) and converted to `DialogueTree` at runtime by `storyGraphToDialogueTree()`, then played by `VNSystem`.
 
 ---
 
@@ -16,18 +16,17 @@ In the IDE menu bar: **Module → Story Graph**. The panel is an SVG node graph 
 |------|---------|-------|
 | `dialogue` | Speaker + text body | 1 input, 1 output |
 | `choice` | Array of options | 1 input, N outputs (one per option) |
-| `condition` | Branch on a variable value | 1 input, `true` output, `false` output |
 
 ---
 
 ## Authoring workflow
 
-1. Right-click the canvas → **Add Node → Dialogue / Choice / Condition**.
+1. Right-click the canvas → **Add Node → Dialogue / Choice**.
 2. Double-click a node to open its edit modal.
 3. Drag from an output port to an input port to connect nodes.
-4. Click **Export JSON** in the toolbar to save the graph as `story.vnscript`.
-5. Place the file under `apps/ide/public/assets/story/`.
-6. Load with `VNSystem.loadScript()` at runtime.
+4. Click **Export** in the toolbar to download the graph as JSON.
+5. Place the file under `assets/story/`.
+6. At runtime, fetch the file, convert, and pass to `VNSystem.load()`.
 
 **Canvas controls:**
 
@@ -47,127 +46,126 @@ In the IDE menu bar: **Module → Story Graph**. The panel is an SVG node graph 
 ```typescript
 import {
   VNSystem,
-  type VNNode,
-  type VNDialogueNode,
-  type VNChoiceNode,
+  storyGraphToDialogueTree,
+  type DialogueNode,
+  type DialogueTree,
+  type StoryGraph,
 } from '@emptysock/engine'
 
-// Create and load in onLoad:
-const vn = new VNSystem()
-await vn.loadScript('assets/story/chapter1.vnscript')
+// In onLoad — fetch the exported graph, convert, and load:
+override async onLoad(): Promise<void> {
+  const response = await fetch('assets/story/chapter1.storyGraph.json')
+  const graph: StoryGraph = await response.json() as StoryGraph
 
-// Register node callback — called whenever the active node changes:
-vn.onNode((node: VNNode) => {
-  if (node.type === 'dialogue') {
-    const d = node as VNDialogueNode
-    showText(d.speaker, d.text)
-  } else if (node.type === 'choice') {
-    const c = node as VNChoiceNode
-    showChoiceButtons(c.options.map((o) => o.label))
+  const tree: DialogueTree = storyGraphToDialogueTree(graph)
+
+  const vn = new VNSystem()
+
+  // Register callbacks BEFORE calling load():
+  vn.onNode = (node: DialogueNode) => {
+    if (node.type === 'dialogue') {
+      showText(node.speaker, node.text)
+    }
   }
-})
 
-// Begin playback:
-vn.play()
+  vn.onChoice = (options) => {
+    // options: Array<{ label: string; next: string }>
+    showChoiceButtons(options)
+  }
 
-// Advance a dialogue node:
+  vn.onEnd = () => {
+    hideDialogueBox()
+  }
+
+  vn.load(tree)   // synchronous — fires onNode for the first node immediately
+}
+```
+
+---
+
+## Advancing dialogue
+
+```typescript
+// Advance past a dialogue node to the next:
 vn.advance()
 
-// Select a choice (zero-indexed):
-vn.choose(0)
+// Select a choice — pass the target node ID from the option:
+// options come from onChoice callback: Array<{ label: string; next: string }>
+function onChoiceSelected(next: string): void {
+  vn.selectOption(next)
+}
+```
 
-// Skip auto-advance delay:
-vn.skip()
+---
 
-// Jump to a node by id (save/resume):
-vn.jumpToNode('some-node-id')
+## DialogueNode type
 
-// Variables (for Condition nodes):
-vn.setVariable('bossDefeated', true)
-const val = vn.getVariable('bossDefeated')       // boolean | string | number | undefined
-const all  = vn.getVariables()                    // Record<string, string | number | boolean>
+`DialogueNode` is a discriminated union — narrow by `node.type`:
 
-// Destroy with scene:
-vn.destroy()
+```typescript
+vn.onNode = (node: DialogueNode) => {
+  if (node.type === 'dialogue') {
+    // node.speaker: string
+    // node.text: string
+    // node.next?: string (next node id, or undefined if last)
+  } else if (node.type === 'choice') {
+    // node.text: string (prompt text shown above options)
+    // node.options: Array<{ label: string; next: string }>
+  } else if (node.type === 'event') {
+    // node.eventName: string — fire game logic
+    // node.data?: Record<string, unknown>
+    // auto-advanced by the engine after firing onEvent
+  } else if (node.type === 'variable-set') {
+    // node.variableKey: string
+    // node.variableValue: unknown
+    // auto-advanced by the engine after firing onNode
+  }
+  // 'jump' nodes are resolved automatically — onNode never fires for them
+}
 ```
 
 ---
 
 ## Save and resume pattern
 
+VNSystem has no internal save state. Store enough to recreate position yourself:
+
 ```typescript
-import { SaveSystem, VNSystem } from '@emptysock/engine'
+import { SaveSystem, VNSystem, storyGraphToDialogueTree } from '@emptysock/engine'
 import { z } from 'zod'
 
-const Schema = z.object({
-  nodeId:    z.string(),
-  variables: z.record(z.union([z.string(), z.number(), z.boolean()])),
-})
+const Schema = z.object({ nodeId: z.string() })
 
-// Save at each dialogue node:
-function saveProgress(vn: VNSystem, nodeId: string): void {
-  SaveSystem.save('vn-progress', {
-    nodeId,
-    variables: vn.getVariables(),
-  }).catch(() => undefined)
+// Save the current node id:
+function saveProgress(currentNodeId: string): void {
+  SaveSystem.save('vn-progress', { nodeId: currentNodeId }).catch(() => undefined)
 }
 
-// Resume on load:
-async function tryResume(vn: VNSystem): Promise<void> {
-  const slots = await SaveSystem.listSlots()
-  if (!slots.includes('vn-progress')) return
-  try {
-    const raw  = await SaveSystem.load('vn-progress')
-    const data = Schema.parse(raw.data)
-    for (const [k, v] of Object.entries(data.variables)) {
-      vn.setVariable(k, v)
-    }
-    vn.jumpToNode(data.nodeId)
-  } catch {
-    // corrupt save — start from beginning
-  }
-}
+// Resume: load the tree again and navigate to the saved node
+// by walking the graph until reaching it, or by using selectOption to jump.
+// The simplest pattern: call vn.load(tree), then advance/selectOption until
+// currentNode?.type is not 'jump' and the id matches.
 ```
 
 ---
 
-## Localisation pattern
-
-Story text keys can be localisation keys resolved at display time:
+## Story Graph ↔ DialogueTree round-trip
 
 ```typescript
-import { t } from '@emptysock/engine'
+import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/engine'
 
-// In onNode callback for dialogue:
-const text = t(node.text)   // returns key verbatim if missing — never throws
-showText(node.speaker, text)
-```
+// Editor format → runtime format:
+const tree: DialogueTree = storyGraphToDialogueTree(graph)
 
-Use the LocalisationEditor panel to manage keys. Export JSON locale files to `assets/i18n/` (see `skills/07-save-localisation.md` for format and `LocalisationSystem` API).
-
----
-
-## Swapping music on story branches
-
-Use a Condition node to set a variable, then read it in the node callback:
-
-```typescript
-vn.onNode((node) => {
-  const chapter = vn.getVariable('chapter')
-  if (chapter === 'inn') {
-    Audio.music('inn_music', { loop: true, fade: 1.0 })
-  } else if (chapter === 'forest') {
-    Audio.music('forest_music', { loop: true, fade: 1.0 })
-  }
-})
+// Runtime format → editor format (for re-import into the Story Graph panel):
+const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
 ```
 
 ---
 
 ## Rules
 
-- `VNSystem` must be destroyed in `onDestroy` with `vn.destroy()`.
-- Do not call `vn.advance()` or `vn.choose()` before `vn.play()` — the internal state machine is not ready.
-- `onNode` fires once per node, including after `jumpToNode()`. Register the callback before calling `play()`.
-- Condition nodes are evaluated and routed automatically — `onNode` is never called for them.
-- Never cast `raw.data as MySaveType` — always use Zod to validate save data.
+- Register all callbacks (`onNode`, `onChoice`, `onEvent`, `onEnd`) **before** calling `load()` — `onNode` fires immediately for the first node.
+- `jump` and `variable-set` nodes are resolved automatically — `onNode` is called for `variable-set` but the engine auto-advances it.
+- VNSystem has no `destroy()` — it is garbage-collected when the scene releases it.
+- Never cast loaded JSON directly as `StoryGraph` without validation — use Zod in production.

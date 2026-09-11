@@ -1,42 +1,50 @@
 # VNTextbox
 
-`VNTextbox` is a pre-built dialogue box component rendered by `UISystem`. It creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area, and wires itself to a `VNSystem` instance so no boilerplate is needed.
+`VNTextbox` is a pre-built dialogue box rendered by `UISystem`. It creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area. Call `bind(vn)` to wire it to a `VNSystem` instance — it updates automatically whenever the current node changes. Clicking the textbox calls `vn.advance()` automatically.
 
----
+## Import
+
+```typescript
+import { VNTextbox, VNSystem, UISystem, type VNTextboxOptions } from '@emptysock/engine'
+```
 
 ## Quick start
 
 ```typescript
-import { VNSystem, VNTextbox, UISystem } from '@emptysock/engine'
-
 class NarrativeScene extends Scene {
-  private _vn = new VNSystem()
+  private _vn!: VNSystem
   private _textbox!: VNTextbox
 
-  async onLoad(): Promise<void> {
-    await this._vn.loadScript('assets/story/chapter1.vnscript')
+  override async onLoad(): Promise<void> {
+    const response = await fetch('assets/story/chapter1.storyGraph.json')
+    const graph = await response.json()
+    const tree = storyGraphToDialogueTree(graph)
+
+    this._vn = new VNSystem()
 
     this._textbox = new VNTextbox({
       canvasWidth:  800,
       canvasHeight: 600,
     })
-    this._textbox.bind(this._vn)
-    this._vn.play()
+    this._textbox.bind(this._vn)   // sync immediately to current node
+
+    this._vn.onChoice = (options) => {
+      // choice selection is external — VNTextbox doesn't provide choice buttons
+      // wire your own buttons and call this._vn.selectOption(option.next)
+    }
+
+    this._vn.load(tree)   // fires onNode for the first node immediately
   }
 
-  onUpdate(dt: number): void {
+  override onUpdate(dt: number): void {
     UISystem.update(dt)
-    UISystem.render(ctx, 800, 600)
   }
 
-  onDestroy(): void {
-    this._textbox.unbind()
-    this._vn.destroy()
+  override onDestroy(): void {
+    this._textbox.destroy()   // removes UISystem components
   }
 }
 ```
-
----
 
 ## Constructor options
 
@@ -47,62 +55,57 @@ class NarrativeScene extends Scene {
 | `height` | `number` | `160` | Dialogue panel height in px |
 | `namePlateHeight` | `number` | `36` | Speaker name plate height in px |
 | `paddingX` | `number` | `24` | Horizontal padding inside the panel |
-| `panelColor` | `number` | `0x0d0d1a` | 0xRRGGBB panel fill |
+| `panelColor` | `number` | `0x0d0d1a` | 0xRRGGBB panel fill (80% opacity) |
 | `namePlateColor` | `number` | `0x3c2d6e` | 0xRRGGBB name plate fill |
 | `textColor` | `number` | `0xffffff` | Dialogue text colour |
 | `fontSize` | `number` | `16` | Dialogue text size in px |
 
----
-
 ## API
 
-```typescript
-textbox.bind(vn: VNSystem)   // Wire to a VNSystem; immediately syncs to current node
-textbox.unbind()             // Detach from VNSystem; call in onDestroy()
-textbox.visible              // get/set — show or hide the textbox
-```
+| Method / Property | Signature | Notes |
+|---|---|---|
+| `bind` | `(vn: VNSystem): void` | Wire to a VNSystem; immediately syncs to the current node. |
+| `visible` | `boolean` (getter/setter) | Show or hide the textbox. Auto-managed by node type. |
+| `destroy` | `(): void` | Remove components from UISystem. Call in onDestroy. |
 
----
+## Advancing and choosing
 
-## Advancing dialogue
-
-Clicking anywhere on the textbox advances the current dialogue node via `VNSystem.advance()` automatically. Choice nodes show numbered options as text — selection must be driven through `VNSystem.choose()`:
+Clicking anywhere on the textbox calls `vn.advance()` automatically for dialogue nodes. For choice nodes, the textbox renders options as numbered text (`1. Option A\n2. Option B`) — selection requires your own buttons:
 
 ```typescript
-// Choice node detected — options are displayed as "1. Option A\n2. Option B"
-// Wire choice buttons separately:
-choiceBtn1.onClick(() => {
-  this._vn.choose(0)   // select first option (zero-indexed)
-})
-choiceBtn2.onClick(() => {
-  this._vn.choose(1)   // select second option
-})
+// In onLoad, after binding:
+this._vn.onChoice = (options) => {
+  options.forEach((opt, i) => {
+    const btn = createChoiceButton(i + 1, opt.label)
+    btn.onClick(() => {
+      this._vn.selectOption(opt.next)   // opt.next is the target node ID
+      removeChoiceButtons()
+    })
+  })
+}
 ```
 
----
+## Visibility
 
-## .vnscript ↔ Story Graph round-trip
+VNTextbox sets `visible` automatically based on the current node:
+- `dialogue` or `choice` nodes → visible
+- `event`, `jump`, `variable-set`, or null → hidden
 
-The IDE's Story Graph editor can export and import `VNSystem` `DialogueTree` JSON using `storyGraphToDialogueTree()` and `dialogueTreeToStoryGraph()`:
+## .storyGraph ↔ DialogueTree round-trip
 
 ```typescript
-import { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from '@emptysock/engine'
+import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/engine'
 
-// Story Graph (IDE format) → DialogueTree (runtime format)
-const tree = storyGraphToDialogueTree({ nodes, edges, startNodeId: 'n1' })
-// load via a .vnscript file written from this tree
+// Story Graph JSON (editor format) → runtime format:
+const tree: DialogueTree = storyGraphToDialogueTree(graph)
+vn.load(tree)
 
-// DialogueTree → Story Graph (for re-importing into the editor)
-const graph = dialogueTreeToStoryGraph(tree)
-// graph.nodes and graph.edges can be imported into the Story Graph panel
+// Runtime format → Story Graph (re-import into the IDE editor):
+const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
 ```
-
-The IDE toolbar provides **Export .vnscript** and **Import .vnscript** buttons that perform this conversion automatically.
-
----
 
 ## Rules
 
-- Call `unbind()` in `onDestroy()` — VNTextbox registers root components in `UISystem` and they persist until removed.
-- Do not use `VNTextbox` without binding a `VNSystem` — calling `bind()` after creation is required for the box to update.
-- The textbox's `visible` property is managed automatically based on `VNSystem` current node type: event and null nodes hide it.
+- Call `destroy()` in `onDestroy()` — VNTextbox registers root components in `UISystem` and they persist until removed.
+- Bind before calling `vn.load()` if you want the textbox to show the first node immediately.
+- VNSystem has no `destroy()` — release the reference and it is garbage-collected.
