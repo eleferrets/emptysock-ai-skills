@@ -295,24 +295,33 @@
         }
       }
     },
-    "Input": {
-      "import": "import { Input } from '@emptysock/engine'",
-      "methods": {
-        "isDown": "Input.isDown(key: string): boolean — held",
-        "isPressed": "Input.isPressed(key: string): boolean — just pressed",
-        "isReleased": "Input.isReleased(key: string): boolean — just released",
-        "axis": "Input.axis(name: 'Horizontal' | 'Vertical' | string): number — -1 to 1",
-        "onKeyDown": "Input.onKeyDown(key: string, fn: () => void): void",
-        "rumble": "Input.rumble(gamepad: string, opts: { intensity: number, duration: number }): void",
-        "vibrate": "Input.vibrate(ms: number): void"
+    "InputSystem": {
+      "import": "import { InputSystem } from '@emptysock/engine'",
+      "description": "Instanced input system. Create in onLoad, call attach() to register event listeners. Call flush() once per frame before reading any state.",
+      "lifecycle": {
+        "attach": "input.attach(target?: EventTarget): void — register listeners (defaults to window)",
+        "detach": "input.detach(): void — remove listeners",
+        "flush": "input.flush(): void — call once per frame before reading state"
       },
-      "properties": {
-        "pointer.position": "{ x: number, y: number }",
-        "pointer.isDown": "boolean",
-        "pointer.isPressed": "boolean",
-        "touches": "Touch[]"
+      "keyMethods": {
+        "isKeyDown": "input.isKeyDown(code: string): boolean — held every frame",
+        "isKeyPressed": "input.isKeyPressed(code: string): boolean — true only on the frame the key went down",
+        "isKeyReleased": "input.isKeyReleased(code: string): boolean — true only on the frame the key came up"
       },
-      "keyNames": "ArrowLeft ArrowRight ArrowUp ArrowDown Space Enter Escape KeyA-Z Digit0-9 gamepad0/A gamepad0/B gamepad0/X gamepad0/Y gamepad0/L1 gamepad0/R1 gamepad0/L2 gamepad0/R2 gamepad0/DPadLeft gamepad0/DPadRight gamepad0/DPadUp gamepad0/DPadDown gamepad0/Start gamepad0/Select"
+      "mouseMethods": {
+        "mouseX": "input.mouseX: number",
+        "mouseY": "input.mouseY: number",
+        "isMouseDown": "input.isMouseDown(button?: number): boolean — default button 0 (left click)",
+        "isMousePressed": "input.isMousePressed(button?: number): boolean"
+      },
+      "touchMethods": {
+        "touchCount": "input.touchCount: number",
+        "touches": "input.touches: ReadonlyArray<TouchPoint> — {id, x, y, dx, dy}",
+        "primaryTouch": "input.primaryTouch: TouchPoint | undefined",
+        "isTouchStarted": "input.isTouchStarted(id?: number): boolean",
+        "isTouchEnded": "input.isTouchEnded(id?: number): boolean"
+      },
+      "keyCodes": "KeyboardEvent.code values: 'ArrowLeft' 'ArrowRight' 'ArrowUp' 'ArrowDown' 'Space' 'Enter' 'Escape' 'KeyA'-'KeyZ' 'Digit0'-'Digit9'"
     },
     "Audio": {
       "import": "import { Audio } from '@emptysock/engine'",
@@ -401,13 +410,13 @@
       }
     },
     "LocalisationSystem": {
-      "import": "import { t, LocalisationSystem } from '@emptysock/engine'",
+      "import": "import { LocalisationSystem } from '@emptysock/engine'",
+      "description": "Instanced localisation class. Create one instance; call addTranslations() to register locale data before switching locale.",
       "methods": {
-        "t": "t(key: string, vars?: Record<string, string | number>): string",
-        "setLocale": "LocalisationSystem.setLocale(code: string): void",
-        "getLocale": "LocalisationSystem.getLocale(): string",
-        "hasKey": "LocalisationSystem.hasKey(key: string): boolean",
-        "availableLocales": "LocalisationSystem.availableLocales: string[]"
+        "setLocale": "instance.setLocale(locale: string): void — switch the active locale",
+        "addTranslations": "instance.addTranslations(locale: string, map: Record<string, string>): void — register translations for a locale",
+        "t": "instance.t(key: string, vars?: Record<string, string | number>): string — translate key; returns key itself if not found",
+        "currentLocale": "instance.currentLocale: string — read-only getter for the active locale"
       },
       "translationFileFormat": {
         "location": "assets/i18n/[locale].json",

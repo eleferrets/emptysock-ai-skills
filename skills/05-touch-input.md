@@ -1,40 +1,75 @@
-# Touch Input
+# Touch & Pointer Input
 
-Touch events are exposed through the static `Input` class alongside keyboard and pointer input. No setup or attach call needed — the engine registers touch listeners automatically.
+Touch events, pointer (mouse/first-touch) state, and keyboard input are all handled by `InputSystem`. Create one instance in `onLoad`, call `attach()`, and call `flush()` at the start of each `onUpdate` before reading state.
 
-## Import
-
-```typescript
-import { Input } from '@emptysock/engine'
-```
-
-## Reading touch state (in onUpdate)
+## Import and setup
 
 ```typescript
-// All active touches:
-const touches = Input.touches   // Touch[]
+import { InputSystem, type TouchPoint } from '@emptysock/engine'
 
-if (touches.length > 0) {
-  const primary = touches[0]
-  console.log(primary.x, primary.y)
+class GameScene extends Scene {
+  private _input: InputSystem | null = null
+
+  override onLoad(): void {
+    const input = new InputSystem()
+    input.attach()   // register listeners on window
+    this._input = input
+  }
+
+  override onUpdate(dt: number): void {
+    const input = this._input
+    if (input === null) return
+    input.flush()   // must be called before reading any state
+
+    // ... read input state here
+  }
+
+  override onDestroy(): void {
+    this._input?.detach()
+    this._input = null
+  }
 }
-
-// Pointer (mouse or first touch — works for both):
-const pos      = Input.pointer.position   // { x: number, y: number }
-const isHeld   = Input.pointer.isDown     // true while finger is down
-const tapped   = Input.pointer.isPressed  // true on the frame a tap starts
 ```
 
-## Virtual buttons via pointer
-
-Map screen regions to game actions using the pointer position:
+## Reading touch state
 
 ```typescript
 override onUpdate(dt: number): void {
-  // Simple left/right virtual d-pad split at screen centre:
+  const input = this._input
+  if (input === null) return
+  input.flush()
+
+  // All active touches:
+  const touches: ReadonlyArray<TouchPoint> = input.touches
+
+  if (touches.length > 0) {
+    const primary = input.primaryTouch   // lowest-id touch, or undefined
+    if (primary !== undefined) {
+      console.log(primary.x, primary.y)  // canvas coordinates
+    }
+  }
+
+  // Mouse pointer (also covers single-touch primary position):
+  const x = input.mouseX
+  const y = input.mouseY
+  const held    = input.isMouseDown(0)     // left button held
+  const clicked = input.isMousePressed(0)  // fired once on click/tap
+}
+```
+
+## Virtual buttons via pointer position
+
+Map screen regions to game actions using mouse coordinates:
+
+```typescript
+override onUpdate(dt: number): void {
+  const input = this._input
+  if (input === null) return
+  input.flush()
+
   const HALF = GAME_WIDTH / 2
-  const movingLeft  = Input.pointer.isDown && Input.pointer.position.x < HALF
-  const movingRight = Input.pointer.isDown && Input.pointer.position.x >= HALF
+  const movingLeft  = input.isMouseDown(0) && input.mouseX < HALF
+  const movingRight = input.isMouseDown(0) && input.mouseX >= HALF
 
   if (movingLeft)  { /* move left */ }
   if (movingRight) { /* move right */ }
@@ -45,10 +80,18 @@ override onUpdate(dt: number): void {
 
 ```typescript
 override onUpdate(dt: number): void {
-  for (const touch of Input.touches) {
-    // Each touch has .x and .y in canvas coordinates.
-    // Use their positions to drive virtual joysticks, buttons, etc.
+  const input = this._input
+  if (input === null) return
+  input.flush()
+
+  for (const touch of input.touches) {
+    // Each TouchPoint has: id, x, y, dx (delta from last frame), dy
+    console.log(touch.id, touch.x, touch.y)
   }
+
+  // Detect a new touch this frame:
+  if (input.isTouchStarted()) { /* finger just landed */ }
+  if (input.isTouchEnded())   { /* finger just lifted */ }
 }
 ```
 
@@ -56,14 +99,22 @@ override onUpdate(dt: number): void {
 
 | Member | Type | Description |
 |--------|------|-------------|
-| `Input.touches` | `Touch[]` | All currently active touch points. |
-| `Input.pointer.position` | `{ x: number, y: number }` | Mouse cursor or first touch position. |
-| `Input.pointer.isDown` | `boolean` | True while the primary pointer button or finger is held. |
-| `Input.pointer.isPressed` | `boolean` | True on the single frame a tap or click begins. |
+| `input.attach(target?)` | `void` | Register listeners. Defaults to `window`. |
+| `input.detach()` | `void` | Remove listeners. Call in `onDestroy`. |
+| `input.flush()` | `void` | Advance frame state. Call once before reading. |
+| `input.mouseX` | `number` | Mouse cursor X in client coordinates. |
+| `input.mouseY` | `number` | Mouse cursor Y in client coordinates. |
+| `input.isMouseDown(btn?)` | `boolean` | True while left button (0) or specified button is held. |
+| `input.isMousePressed(btn?)` | `boolean` | True on the single frame a click begins. |
+| `input.touches` | `ReadonlyArray<TouchPoint>` | All currently active touch points. |
+| `input.primaryTouch` | `TouchPoint \| undefined` | Lowest-id active touch, or undefined. |
+| `input.touchCount` | `number` | Number of active touches. |
+| `input.isTouchStarted(id?)` | `boolean` | True if a touch started this frame (optionally by id). |
+| `input.isTouchEnded(id?)` | `boolean` | True if a touch ended this frame (optionally by id). |
 
 ## Notes
 
-- `Input` is a static class — never instantiate it.
-- `Input.pointer` unifies mouse and first touch into one property. For most games this is all you need.
-- Use `Input.touches` only when you need multi-touch (two-finger gestures, multi-touch controls).
-- Reading `Input.touches.length` is safe when there are no touches — it returns an empty array, not null.
+- Always call `input.flush()` at the start of `onUpdate` — without it, `isMousePressed` and `isKeyPressed` will fire on every frame instead of just once.
+- `input.mouseX/mouseY` report the most recent mouse position in `clientX/clientY` space — transform to canvas coordinates if your canvas is scaled.
+- For keyboard input, see `input.isKeyDown(code)`, `input.isKeyPressed(code)`, `input.isKeyReleased(code)` — they take `KeyboardEvent.code` values (`'Space'`, `'ArrowLeft'`, `'KeyA'`, etc.).
+- For gamepad axis and button input, use `GamepadSystem` alongside `InputSystem`.

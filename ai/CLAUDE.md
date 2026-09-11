@@ -110,32 +110,42 @@ player.destroy()
 ### Input
 
 ```typescript
-import { Input } from '@emptysock/engine'
+import { InputSystem } from '@emptysock/engine'
 
-// In onUpdate(dt):
-if (Input.isDown('ArrowRight'))  { /* held every frame */ }
-if (Input.isPressed('Space'))    { /* fired once on press */ }
-if (Input.isReleased('Space'))   { /* fired once on release */ }
+// In onLoad — create and attach:
+private _input = new InputSystem()
+this._input.attach()   // registers listeners on window
 
-const h = Input.axis('Horizontal') // -1 to 1 (keyboard or gamepad)
-const p = Input.pointer.position   // { x, y } — mouse or first touch
+// In onUpdate(dt) — call flush() first, then read state:
+this._input.flush()
+if (this._input.isKeyDown('ArrowRight'))   { /* held every frame */ }
+if (this._input.isKeyPressed('Space'))     { /* fired once on key-down */ }
+if (this._input.isKeyReleased('Space'))    { /* fired once on key-up */ }
+
+const x = this._input.mouseX   // mouse / pointer X
+const y = this._input.mouseY   // mouse / pointer Y
+
+// In onDestroy:
+this._input.detach()
 ```
 
 ### Character movement (platformer)
 
 ```typescript
 // In a custom Component's onUpdate(dt):
+// Assumes this._input is an InputSystem instance attached in onLoad.
 private vy = 0
 
 override onUpdate(dt: number): void {
+  this._input.flush()
   const ctrl  = this.entity.requireComponent(CharacterController)
   const anim  = this.entity.requireComponent(Animator)
-  const h     = Input.axis('Horizontal')
+  const h = (this._input.isKeyDown('ArrowRight') ? 1 : this._input.isKeyDown('ArrowLeft') ? -1 : 0)
 
   if (!ctrl.isGrounded()) this.vy += 980 * dt  // gravity
   else                    this.vy  = 0
 
-  if (Input.isPressed('Space') && ctrl.isGrounded()) this.vy = -600
+  if (this._input.isKeyPressed('Space') && ctrl.isGrounded()) this.vy = -600
 
   ctrl.moveAndSlide({ x: h * 200 * dt, y: this.vy * dt })
   anim.play(Math.abs(h) > 0.1 ? 'run' : ctrl.isGrounded() ? 'idle' : 'fall')
@@ -237,11 +247,20 @@ async function load(slot: string): Promise<SaveData> {
 ### Localisation
 
 ```typescript
-import { t, LocalisationSystem } from '@emptysock/engine'
+import { LocalisationSystem } from '@emptysock/engine'
+import { z } from 'zod'
 
-LocalisationSystem.setLocale('fr')
-const label = t('menu.start')                    // "Jouer"
-const text  = t('hud.score', { score: 1200 })   // "Score : 1200"
+// In onLoad — create instance and load locale files:
+const localisation = new LocalisationSystem()
+const TranslationMapSchema = z.record(z.string())
+const enRaw = await (await fetch('assets/i18n/en.json')).json()
+localisation.addTranslations('en', TranslationMapSchema.parse(enRaw))
+localisation.setLocale('en')
+
+// Translate:
+const label = localisation.t('menu.start')                   // "Start Game"
+const text  = localisation.t('hud.score', { score: 1200 })  // "Score: 1200"
+const lang  = localisation.currentLocale                     // 'en'
 ```
 
 ### Tilemap
@@ -270,7 +289,7 @@ entity.onSensorEnter((other) => {
 ```typescript
 import { LightingSystem } from '@emptysock/engine'
 
-private _lighting!: LightingSystem
+private _lighting: LightingSystem | null = null
 
 override onLoad(): void {
   this._lighting = new LightingSystem()
@@ -290,6 +309,7 @@ override onLoad(): void {
 }
 
 override onUpdate(dt: number): void {
+  if (this._lighting === null) return
   // Mutate position in-place — no remove/re-add needed
   const torch = this._lighting.lights.get('torch-1')
   if (torch !== undefined) {
@@ -323,14 +343,20 @@ if (this.isOffscreen()) pool.release(this)
 | Wrong | Right |
 |---|---|
 | `import * as PIXI from 'pixi.js'` | Use `@emptysock/engine` only |
+| `import { Input } from '@emptysock/engine'` | `import { InputSystem } from '@emptysock/engine'` (instanced) |
+| `Input.isPressed('Space')` | `input.isKeyPressed('Space')` on an `InputSystem` instance |
+| `import { t, LocalisationSystem }` | `import { LocalisationSystem }` (no standalone `t` export) |
+| `LocalisationSystem.setLocale('fr')` | `localisation.setLocale('fr')` on an instance |
 | `setTimeout(() => spawnEnemy(), 2000)` | `Timer.after(2.0, () => spawnEnemy())` |
 | `async onUpdate() { await fetch(...) }` | Preload in `onLoad()`, or use a coroutine |
 | `entity.getComponent(Sprite)!` | `entity.getComponent(Sprite)?.prop` |
+| `private _x!: SomeType` | `private _x: SomeType \| null = null` |
 | `JSON.parse(raw) as MyType` | `MySchema.parse(JSON.parse(raw))` |
 | `let x: any = getStuff()` | `let x: unknown = getStuff()` then narrow |
 | `document.getElementById('canvas')` | EmptySock UI / canvas system |
 | Forgetting `entity.destroy()` | Always destroy when done |
 | Forgetting timer cleanup in `onDestroy` | Always cancel stored `TimerHandle`s |
+| Forgetting `input.detach()` in `onDestroy` | Always detach `InputSystem` when done |
 
 ---
 
