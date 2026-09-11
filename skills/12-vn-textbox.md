@@ -12,8 +12,8 @@ import { VNTextbox, VNSystem, UISystem, type VNTextboxOptions } from '@emptysock
 
 ```typescript
 class NarrativeScene extends Scene {
-  private _vn!: VNSystem
-  private _textbox!: VNTextbox
+  private _vn: VNSystem | null = null
+  private _textbox: VNTextbox | null = null
 
   override async onLoad(): Promise<void> {
     const response = await fetch('assets/story/chapter1.storyGraph.json')
@@ -41,7 +41,7 @@ class NarrativeScene extends Scene {
   }
 
   override onDestroy(): void {
-    this._textbox.destroy()   // removes UISystem components
+    this._textbox?.destroy()   // removes UISystem components
   }
 }
 ```

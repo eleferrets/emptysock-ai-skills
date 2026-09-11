@@ -22,7 +22,7 @@ The constructor pre-registers layers named `'background'`, `'default'`, `'foregr
 ## Setup (in onLoad)
 
 ```typescript
-private _layers!: LayerSystem
+private _layers: LayerSystem | null = null
 
 override onLoad(): void {
   this._layers = new LayerSystem()
@@ -33,7 +33,7 @@ override onLoad(): void {
 }
 
 override onDestroy(): void {
-  this._layers.destroy()
+  this._layers?.destroy()
 }
 ```
 

@@ -18,10 +18,10 @@ import {
 } from '@emptysock/engine'
 
 class NarrativeScene extends Scene {
-  private _vn!: VNSystem
-  private _bg!: VNBackgroundLayer
-  private _stage!: CharacterStage
-  private _textbox!: VNTextbox
+  private _vn: VNSystem | null = null
+  private _bg: VNBackgroundLayer | null = null
+  private _stage: CharacterStage | null = null
+  private _textbox: VNTextbox | null = null
 
   override async onLoad(): Promise<void> {
     const response = await fetch('assets/story/chapter1.storyGraph.json')
@@ -43,6 +43,7 @@ class NarrativeScene extends Scene {
   }
 
   onUpdate(dt: number) {
+    if (this._bg === null || this._stage === null) return
     this._bg.update(dt)
     this._stage.update(dt)
     UISystem.update(dt)
@@ -55,8 +56,8 @@ class NarrativeScene extends Scene {
   }
 
   onDestroy() {
-    this._textbox.destroy()
-    this._stage.clear()
+    this._textbox?.destroy()
+    this._stage?.clear()
   }
 }
 ```

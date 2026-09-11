@@ -16,18 +16,18 @@ import {
 ## Setup (in onLoad)
 
 ```typescript
-private _post!: PostProcessSystem
+private _post: PostProcessSystem | null = null
 
 override onLoad(): void {
   this._post = new PostProcessSystem()
 }
 
 override onUpdate(dt: number): void {
-  this._post.update(dt)   // drives transient effect (flash, shockwave) decay
+  this._post?.update(dt)   // drives transient effect (flash, shockwave) decay
 }
 
 override onDestroy(): void {
-  this._post.destroy()
+  this._post?.destroy()
 }
 ```
 

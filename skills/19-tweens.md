@@ -11,14 +11,14 @@ import { TweenManager, type TweenOptions, type EasingName } from '@emptysock/eng
 ## Setup (in onLoad)
 
 ```typescript
-private _tweens!: TweenManager
+private _tweens: TweenManager | null = null
 
 override onLoad(): void {
   this._tweens = new TweenManager()
 }
 
 override onUpdate(dt: number): void {
-  this._tweens.update(dt)   // must be called every frame
+  this._tweens?.update(dt)   // must be called every frame
 }
 ```
 

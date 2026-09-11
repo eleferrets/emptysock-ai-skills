@@ -22,7 +22,7 @@ export class DungeonScene extends Scene {
     lighting: true,   // required
   }
 
-  private _lighting!: LightingSystem
+  private _lighting: LightingSystem | null = null
 
   override onLoad(): void {
     this._lighting = new LightingSystem()
@@ -32,7 +32,7 @@ export class DungeonScene extends Scene {
   }
 
   override onUpdate(dt: number): void {
-    this._lighting.update(dt)   // uploads light data to GPU uniforms each frame
+    this._lighting?.update(dt)   // uploads light data to GPU uniforms each frame
   }
 }
 ```
