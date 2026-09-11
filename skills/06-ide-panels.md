@@ -20,7 +20,7 @@ SVG-based node graph for branching dialogue. Open via **Module → Story Graph**
 
 **Node types:** Dialogue (speaker + text), Choice (fan of option edges), Condition (variable branch)  
 **Interactions:** drag to move nodes, drag port to port to connect, double-click to edit text  
-**Export:** JSON graph compatible with `VNSystem.loadScript()`.
+**Export:** `.storyGraph.json` — load at runtime with `storyGraphToDialogueTree(graph)` then `vn.load(tree)`.
 
 ## AudioMixer
 Volume faders and mute/solo per audio bus group.

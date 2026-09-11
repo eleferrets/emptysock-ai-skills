@@ -237,36 +237,6 @@
           "isTouchingWall": "controller.isTouchingWall(): 'left' | 'right' | null"
         }
       },
-      "PointLight": {
-        "import": "import { PointLight } from '@emptysock/engine'",
-        "note": "Requires scene config lighting: true",
-        "props": {
-          "colour": "number — hex",
-          "intensity": "number",
-          "radius": "number — pixels",
-          "castShadows": "boolean"
-        }
-      },
-      "DirectionalLight": {
-        "import": "import { DirectionalLight } from '@emptysock/engine'",
-        "props": {
-          "colour": "number",
-          "intensity": "number",
-          "angle": "number — radians",
-          "castShadows": "boolean"
-        }
-      },
-      "SpotLight": {
-        "import": "import { SpotLight } from '@emptysock/engine'",
-        "props": {
-          "colour": "number",
-          "intensity": "number",
-          "radius": "number",
-          "innerAngle": "number",
-          "outerAngle": "number",
-          "castShadows": "boolean"
-        }
-      },
       "PathFollower": {
         "import": "import { PathFollower } from '@emptysock/engine'",
         "props": {
@@ -941,7 +911,7 @@
   },
   "VNScriptConvert": {
     "import": "import { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from '@emptysock/engine'",
-    "description": "Converts between Story Graph (visual-editor JSON) and VNSystem DialogueTree (.vnscript JSON).",
+    "description": "Converts between Story Graph (.storyGraph.json, visual-editor format) and the DialogueTree format consumed by VNSystem.load().",
     "functions": {
       "storyGraphToDialogueTree": {
         "signature": "(graph: StoryGraph): DialogueTree"
