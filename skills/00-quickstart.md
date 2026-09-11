@@ -280,31 +280,36 @@ SceneManager.pop()
 ## Story Graph (VNSystem)
 
 ```typescript
-import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'
+import {
+  VNSystem,
+  storyGraphToDialogueTree,
+  type DialogueNode,
+  type StoryGraph,
+} from '@emptysock/engine'
 
-// In onLoad:
+// In onLoad (register callbacks BEFORE load):
+const response = await fetch('assets/story/chapter1.storyGraph.json')
+const graph: StoryGraph = await response.json() as StoryGraph
+const tree = storyGraphToDialogueTree(graph)
+
 const vn = new VNSystem()
-await vn.loadScript('assets/story/chapter1.vnscript')   // exported from Story Graph panel
 
-vn.onNode((node: VNNode) => {
+vn.onNode = (node: DialogueNode) => {
   if (node.type === 'dialogue') {
-    const d = node as VNDialogueNode
-    showText(d.speaker, d.text)
+    showText(node.speaker, node.text)
   } else if (node.type === 'choice') {
-    const c = node as VNChoiceNode
-    showChoiceButtons(c.options.map((o) => o.label))
+    showChoiceButtons(node.options)   // options: Array<{ label, next }>
   }
-})
+}
+vn.onEnd = () => { hideDialogueBox() }
 
-vn.play()
-vn.advance()          // move past a dialogue node
-vn.choose(0)          // select first choice option
-vn.setVariable('flag', true)
-vn.jumpToNode('id')   // resume from a saved node id
-vn.destroy()          // in onDestroy
+vn.load(tree)        // synchronous — fires onNode for first node immediately
+vn.advance()         // move past a dialogue node
+vn.selectOption(id)  // select a choice — id comes from option.next
+// VNSystem has no destroy() — garbage-collected when released
 ```
 
-Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.vnscript` JSON.
+Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.storyGraph.json`.
 
 ---
 
