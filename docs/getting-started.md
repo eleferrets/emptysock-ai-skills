@@ -329,3 +329,17 @@ You have a moving box. Here's where to go from here:
 - **`skills/00-quickstart.md`** — the most common code patterns on one page
 - **`skills/`** — topic files for physics, audio, saves, NavMesh, and more
 - **`ai/CLAUDE.md`** — drop this into your project root so an AI assistant understands the engine rules
+
+---
+
+## Engine documentation
+
+The engine docs use a Unity/Unreal-style layout. Everything below lives in the engine
+repository alongside the source:
+
+| Section | Path in engine repo | What's there |
+|---|---|---|
+| Install and first project | `docs/getting-started/` | Node/Rust/platform SDKs, install, first run |
+| How-to guides | `docs/guides/` | Physics, NavMesh, multiplayer, exports, and more |
+| Full API reference | `docs/reference/` | Every class, method, property, and type |
+| Step-by-step tutorials | `docs/tutorials/` | Complete games built from scratch |

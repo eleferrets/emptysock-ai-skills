@@ -392,3 +392,12 @@ Full API, all systems, all methods:
 
 Detailed skill guides per system:
 → `skills/` directory (in this same repository)
+
+Engine documentation (Unity/Unreal-style layout, lives in the engine repository):
+
+| Path | Contents |
+|---|---|
+| `docs/getting-started/` | Install, first project, first run |
+| `docs/guides/` | Physics, NavMesh, multiplayer, exports, and more |
+| `docs/reference/` | Every class, method, property, and type |
+| `docs/tutorials/` | Complete games built from scratch |

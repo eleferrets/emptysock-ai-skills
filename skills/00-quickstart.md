@@ -70,12 +70,15 @@ import { PhysicsBody, CharacterController } from '@emptysock/engine'
 player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
 player.addComponent(CharacterController, { slopeAngle: 45 })
 
+// Declare in the class body: private _vy = 0
 // In onUpdate (assuming this.input is an InputSystem attached in onLoad):
 this.input.flush()
 const ctrl = player.requireComponent(CharacterController)
-if (ctrl.isGrounded() && this.input.isKeyPressed('Space')) ctrl.jump(600)
+if (!ctrl.isGrounded()) this._vy += 980 * dt
+else this._vy = 0
+if (ctrl.isGrounded() && this.input.isKeyPressed('Space')) this._vy = -600
 const h = this.input.isKeyDown('ArrowRight') ? 1 : this.input.isKeyDown('ArrowLeft') ? -1 : 0
-ctrl.moveAndSlide({ x: h * 200 * dt, y: 0 })
+ctrl.moveAndSlide({ x: h * 200 * dt, y: this._vy * dt })
 ```
 
 ---

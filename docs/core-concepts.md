@@ -256,3 +256,17 @@ Red errors in the console after hitting Play are runtime errors — something we
 **How do I make something appear on screen?**
 
 The quickest way is to create a canvas in `onLoad` and draw to it with the 2D canvas API — no assets required. See the example in `docs/getting-started.md`. Once you're comfortable, move to using `Sprite` components with texture files for anything you want to stay in your game long-term.
+
+---
+
+## Further reading
+
+The companion skill files in `skills/` cover each system in depth. For the engine's own
+full documentation, see the engine repository. It uses a Unity/Unreal-style layout:
+
+| Section | Path in engine repo |
+|---|---|
+| Install and first project | `docs/getting-started/` |
+| How-to guides (physics, NavMesh, exports…) | `docs/guides/` |
+| Full API reference | `docs/reference/` |
+| Step-by-step tutorials | `docs/tutorials/` |

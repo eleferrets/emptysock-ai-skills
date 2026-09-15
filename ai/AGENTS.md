@@ -194,5 +194,14 @@ window.localStorage.setItem(...)     // use SaveSystem
 This file is intentionally concise. For full documentation see:
 
 - **skills/** — one file per system, full patterns and options
-- **docs/** — getting started, core concepts, tutorials
+- **docs/** — getting started, core concepts, tutorials (this companion repo)
 - **ai/api-reference.json** — machine-readable full API for programmatic agent use
+
+The engine's own documentation uses a Unity/Unreal-style layout in the engine repository:
+
+| Path | Contents |
+|---|---|
+| `docs/getting-started/` | Install, first project, first run |
+| `docs/guides/` | Physics, NavMesh, multiplayer, exports, and more |
+| `docs/reference/` | Every class, method, property, and type |
+| `docs/tutorials/` | Complete games built from scratch |

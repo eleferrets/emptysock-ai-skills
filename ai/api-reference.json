@@ -1261,6 +1261,137 @@
       "Unregistered entities fallback to [LAYER.DEFAULT, 0] in getSortKey."
     ]
   },
+  "ActorSystem": {
+    "import": "import { Actor, ActorSystem, NetworkActor, type Message, type ActorId, type Transport, type TransportMessage } from '@emptysock/engine'",
+    "description": "Mailbox-based Actor Model for decoupled game logic. Actors communicate only via messages — no shared mutable state. Create one ActorSystem per scene; destroy it in onDestroy.",
+    "Actor": {
+      "description": "Base class for all actors. Extend it and implement receive() and update().",
+      "constructor": "new MyActor(id: string)",
+      "methods": {
+        "receive": "(msg: Message): void — handle an incoming message",
+        "update": "(dt: number): void — called every frame after all mailboxes are flushed"
+      }
+    },
+    "ActorSystem": {
+      "description": "Manages a set of actors; drains every actor's inbox before calling update() on any actor. Create in onLoad, call update(dt) in onUpdate, call destroy() in onDestroy.",
+      "constructor": "new ActorSystem()",
+      "methods": {
+        "register": "(actor: Actor): void — register an actor with the system",
+        "unregister": "(id: string): void — remove an actor; triggers its onStop() if defined",
+        "send": "(id: string, msg: Message): void — enqueue a message to a specific actor",
+        "broadcast": "(msg: Message): void — enqueue a message to all registered actors (O(n))",
+        "update": "(dt: number): void — flush all mailboxes then call update(dt) on every actor",
+        "destroy": "(): void — unregister all actors and free resources. Call in onDestroy."
+      }
+    },
+    "NetworkActor": {
+      "description": "Opt-in base class for actors that send or receive messages over a network Transport. Extends Actor.",
+      "methods": {
+        "setTransport": "(transport: Transport): void — wire a Transport implementation",
+        "sendRemote": "(channel: string, msg: Message): void — forward a message through the Transport"
+      }
+    },
+    "Transport": {
+      "description": "Interface. The engine ships no concrete Transport. Implement it in game code and inject at runtime.",
+      "methods": {
+        "connect": "(): Promise<void>",
+        "disconnect": "(): void",
+        "send": "(actorId: string, msg: Record<string, unknown>): void",
+        "onReceive": "(handler: (p: TransportMessage) => void): void"
+      }
+    },
+    "notes": [
+      "Messages sent inside an actor's receive() are processed in the same flush pass — not deferred to the next frame.",
+      "An actor that always re-enqueues a message to itself in receive() creates an infinite flush loop.",
+      "Use targeted send() for high-frequency messages; broadcast() is O(n).",
+      "Create a new ActorSystem in onLoad and destroy it in onDestroy to avoid stale-actor bugs across scene transitions."
+    ]
+  },
+  "PhysicsSystem3D": {
+    "import": "import { PhysicsSystem3D } from '@emptysock/engine'",
+    "description": "Full Rapier3D integration for 3D physics. WASM-based — must call await physics.init() before adding bodies. Always call physics.destroy() in onDestroy to free WASM memory.",
+    "constructor": "new PhysicsSystem3D()",
+    "methods": {
+      "init": {
+        "signature": "(gravity: { x: number, y: number, z: number }): Promise<void>",
+        "description": "Initialise the Rapier3D WASM world with the given gravity vector. Must be awaited before calling addBody."
+      },
+      "addBody": {
+        "signature": "(opts: Body3DOptions): Body3DHandle",
+        "description": "Add a rigid body to the simulation. Returns a handle for reading position/rotation and applying forces."
+      },
+      "removeBody": {
+        "signature": "(bodyIndex: number): void",
+        "description": "Remove a body from the simulation by its bodyIndex."
+      },
+      "update": {
+        "signature": "(dt: number): void",
+        "description": "Step the physics simulation. Call once per frame in onUpdate."
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Free all WASM-allocated physics memory. Required in onDestroy — the GC cannot see WASM memory."
+      }
+    },
+    "Body3DOptions": {
+      "bodyType": "'dynamic' | 'static' | 'kinematic'",
+      "shape": "'box' | 'sphere' | 'capsule' | 'cylinder' | 'cone'",
+      "halfExtents": "{ x, y, z } — for box shape",
+      "radius": "number — for sphere, capsule, cylinder, cone",
+      "halfHeight": "number — for capsule, cylinder, cone",
+      "position": "{ x, y, z }",
+      "density": "number (optional)",
+      "restitution": "number (optional)",
+      "isSensor": "boolean (optional) — detect overlaps without generating forces"
+    },
+    "Body3DHandle": {
+      "bodyIndex": "number — use with removeBody()",
+      "getPosition": "(): { x: number, y: number, z: number }",
+      "getRotation": "(): { x: number, y: number, z: number, w: number }",
+      "applyImpulse": "(impulse: { x: number, y: number, z: number }): void"
+    },
+    "notes": [
+      "Always await physics.init() before adding bodies — Rapier WASM must initialise first.",
+      "Always call physics.destroy() in onDestroy — WASM memory is outside the JS heap and the GC cannot free it.",
+      "Sensor bodies (isSensor: true) detect overlaps without generating physical response forces."
+    ]
+  },
+  "PluginSystem": {
+    "import": "import { pluginSystem, type Plugin, type PluginContext } from '@emptysock/engine'",
+    "description": "Module-level singleton for registering process-global engine extensions. Plugins install optional services (analytics, ads, platform achievements) once for the app lifetime. The singleton is shared across all scenes — no per-scene construction needed.",
+    "singleton": "pluginSystem — import and use directly; do not construct a new PluginSystem",
+    "methods": {
+      "register": {
+        "signature": "(plugin: Plugin): Promise<void>",
+        "description": "Register a plugin and call its install() method. Throws if a plugin with the same name is already registered."
+      },
+      "unregister": {
+        "signature": "(name: string): Promise<void>",
+        "description": "Call the plugin's uninstall() method and remove it from the registry."
+      },
+      "inject": {
+        "signature": "<T>(key: string): T | undefined",
+        "description": "Retrieve a value provided by a plugin via ctx.provide(). Returns undefined if no plugin provided the key."
+      }
+    },
+    "properties": {
+      "registeredPlugins": "readonly string[] — names of all currently registered plugins"
+    },
+    "Plugin": {
+      "name": "string — unique plugin name; duplicate registration throws",
+      "version": "string",
+      "install": "(ctx: PluginContext): void | Promise<void>",
+      "uninstall": "(): void | Promise<void>"
+    },
+    "PluginContext": {
+      "provide": "(key: string, value: unknown): void — expose a value for pluginSystem.inject()"
+    },
+    "notes": [
+      "pluginSystem is a module-level singleton — do not construct one per scene.",
+      "install() may be async; await pluginSystem.register() to ensure it has completed.",
+      "The singleton makes inject() callable from anywhere without passing a reference."
+    ]
+  },
   "BattleSystem": {
     "import": "import { BattleSystem, type BattlePhase, type BattleStats, type StatusEffect, type Combatant, type SkillTargetType, type DamageFormulaId, type SkillDef, type StatusEffectDef, type BattleDatabase, type BattleAction, type BattleEvent, type BattleSystemOptions } from '@emptysock/engine'",
     "description": "Opt-in turn-based RPG battle module. Handles turn order (speed desc), damage resolution, status effects, and event emission. Tree-shaken from bundles that do not import it. Enemies act automatically (attack lowest-HP party member); party members require submitAction().",
