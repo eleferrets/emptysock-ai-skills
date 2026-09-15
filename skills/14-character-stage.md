@@ -7,16 +7,29 @@
 ## Quick start
 
 ```typescript
-import { CharacterStage, VNBackgroundLayer, VNSystem, VNTextbox, UISystem } from '@emptysock/engine'
+import {
+  CharacterStage,
+  VNBackgroundLayer,
+  VNSystem,
+  VNTextbox,
+  UISystem,
+  storyGraphToDialogueTree,
+  type StoryGraph,
+} from '@emptysock/engine'
 
 class NarrativeScene extends Scene {
-  private _vn = new VNSystem()
-  private _bg!: VNBackgroundLayer
-  private _stage!: CharacterStage
-  private _textbox!: VNTextbox
+  private _vn: VNSystem | null = null
+  private _bg: VNBackgroundLayer | null = null
+  private _stage: CharacterStage | null = null
+  private _textbox: VNTextbox | null = null
 
-  async onLoad(): Promise<void> {
-    await this._vn.loadScript('assets/story/chapter1.vnscript')
+  override async onLoad(): Promise<void> {
+    const response = await fetch('assets/story/chapter1.storyGraph.json')
+    const graph: StoryGraph = await response.json() as StoryGraph
+    const tree = storyGraphToDialogueTree(graph)
+
+    this._vn = new VNSystem()
+    this._vn.load(tree)
 
     this._bg = new VNBackgroundLayer({ canvasWidth: 800, canvasHeight: 600 })
     this._bg.setBackground('assets/rooms/forest.jpg')
@@ -30,6 +43,7 @@ class NarrativeScene extends Scene {
   }
 
   onUpdate(dt: number) {
+    if (this._bg === null || this._stage === null) return
     this._bg.update(dt)
     this._stage.update(dt)
     UISystem.update(dt)
@@ -42,8 +56,8 @@ class NarrativeScene extends Scene {
   }
 
   onDestroy() {
-    this._textbox.destroy()
-    this._stage.clear()
+    this._textbox?.destroy()
+    this._stage?.clear()
   }
 }
 ```

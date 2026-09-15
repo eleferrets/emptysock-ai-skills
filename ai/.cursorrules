@@ -33,11 +33,12 @@ entity.requireComponent(Type)      → T | throws
 entity.hasTag(tag)                 → boolean
 entity.destroy()
 
-Input.isDown(key)          — held
-Input.isPressed(key)       — just pressed this frame
-Input.isReleased(key)      — just released this frame
-Input.axis('Horizontal')   — -1 to 1
-Input.pointer.position     — { x, y }
+InputSystem (instanced — new InputSystem(); input.attach() in onLoad; input.detach() in onDestroy)
+input.flush()              — call once per frame before reading any state
+input.isKeyDown(key)       — held
+input.isKeyPressed(key)    — just pressed this frame
+input.isKeyReleased(key)   — just released this frame
+input.mouseX / input.mouseY — pointer position
 
 Audio.play(id, opts?)
 Audio.music(id, opts?)
@@ -65,13 +66,15 @@ entity.startCoroutine(function* () {
 SaveSystem.save(slot, data)
 SaveSystem.load(slot)       → { data: unknown } — always Zod parse before use
 
-t(key, vars?)               — localisation lookup
-LocalisationSystem.setLocale(code)
+LocalisationSystem (instanced — new LocalisationSystem(); addTranslations(); setLocale())
+localisation.t(key, vars?)  — translate key; returns key if not found
+localisation.setLocale(code) / localisation.currentLocale
 
 TilemapSystem.load(file)    → map
 map.getLayer(name).enablePhysics()
 
-Tween.to(target, props, { duration, ease })
+TweenManager (instanced — new TweenManager(); tweens.update(dt) in onUpdate)
+tweens.to(target, props, { duration, ease })
 Profiler.getStats()         → { fps, drawCalls, frameTime, memoryMB }
 Engine.gpuTier              → 'potato' | 'low' | 'mid' | 'high' | 'ultra'
 

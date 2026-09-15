@@ -48,26 +48,48 @@ await SaveSystem.delete('slot-1')
 
 ## Localisation
 
-```typescript
-import { t, LocalisationSystem } from '@emptysock/engine'
+`LocalisationSystem` is instanced — create one in `onLoad` and keep a reference. Load locale data via `addTranslations()` before calling `setLocale()`.
 
-// Switch locale at runtime (e.g., from settings screen):
-LocalisationSystem.setLocale('fr')
+```typescript
+import { LocalisationSystem } from '@emptysock/engine'
+import { z } from 'zod'
+
+const TranslationMapSchema = z.record(z.string())
+
+class GameScene extends Scene {
+  private _localisation: LocalisationSystem | null = null
+
+  override async onLoad(): Promise<void> {
+    const localisation = new LocalisationSystem()
+
+    // Load and validate each locale file before registering:
+    const enRaw = await (await fetch('assets/i18n/en.json')).json()
+    const frRaw = await (await fetch('assets/i18n/fr.json')).json()
+    localisation.addTranslations('en', TranslationMapSchema.parse(enRaw))
+    localisation.addTranslations('fr', TranslationMapSchema.parse(frRaw))
+
+    localisation.setLocale('en')
+    this._localisation = localisation
+  }
+
+  // Switch locale at runtime (e.g., from settings screen):
+  setLanguage(code: string): void {
+    this._localisation?.setLocale(code)
+  }
+}
 
 // Translate a key:
-t('menu.start')                           // → "Commencer"
-t('hud.score', { score: 1234 })          // → "Score : 1 234" (template substitution)
-t('missing.key')                          // → 'missing.key' (returns key, never throws)
+localisation.t('menu.start')                          // → "Start Game"
+localisation.t('hud.score', { score: 1234 })         // → "Score: 1234" (template substitution)
+localisation.t('missing.key')                         // → 'missing.key' (returns key, never throws)
 
-// Query available locales:
-const locales = LocalisationSystem.availableLocales  // string[]
-const current = LocalisationSystem.getLocale()        // string
-const exists  = LocalisationSystem.hasKey('menu.start') // boolean
+// Read current locale:
+const current = localisation.currentLocale            // string
 ```
 
 ### Locale JSON format
 
-Place files at `assets/i18n/[locale].json`. The engine loads them automatically.
+Place files at `assets/i18n/[locale].json` and fetch them in `onLoad`.
 
 ```json
 {
@@ -91,6 +113,7 @@ The IDE's LocalisationEditor panel manages these files visually:
 Export from the panel and place the JSON files in `assets/i18n/`.
 
 ### Notes
-- `t()` falls back to returning the key itself when a translation is missing — it never throws. This means typos in key names are silent at runtime; use the LocalisationEditor's filter to catch missing translations before shipping.
+- `localisation.t()` falls back to returning the key itself when a translation is missing — it never throws. Typos in key names are silent at runtime; use the LocalisationEditor's filter to catch missing translations before shipping.
 - Template tokens use `{{name}}` syntax. Pass them as `{ name: value }` in the second argument.
-- `LocalisationSystem.setLocale()` takes an IETF language tag string (`'en'`, `'fr'`, `'ja'`). The locale must correspond to an existing `assets/i18n/[locale].json` file.
+- `setLocale()` takes an IETF language tag string (`'en'`, `'fr'`, `'ja'`). The locale must correspond to a locale you have registered with `addTranslations()`.
+- Always validate fetched JSON with a Zod schema before passing it to `addTranslations()` — locale files can be corrupt or edited externally.

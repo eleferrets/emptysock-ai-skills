@@ -1,144 +1,50 @@
 # UISystem
 
-`UISystem` is the EmptySock built-in 2D UI layer. It manages a tree of `UIComponent` nodes and renders them onto a Canvas 2D context at the end of each frame. It is framework-agnostic and works in all engine contexts (Node.js tests, browser preview, Tauri desktop).
+`UISystem` is the EmptySock 2D UI overlay. It renders `Widget` nodes on top of the PixiJS scene using Canvas 2D. `UISystem` is a module-level singleton — call its methods directly or access it as `this.uiSystem` inside any `Scene` subclass.
 
 ---
 
-## Core concepts
-
-| Concept | Detail |
-|---------|--------|
-| Components are trees | Root components are created with `UISystem.create()`; children with `comp.createChild()` |
-| Anchor-based layout | Each component positions itself relative to one of nine anchor points on the canvas |
-| Rendering | Call `UISystem.render(ctx, w, h)` at the end of each frame to draw all components |
-| Input | Call `UISystem.update(dt, pointerX, pointerY, w, h)` each frame; call `UISystem.dispatchPointerDown(x, y, w, h)` on click |
-
----
-
-## Component types
-
-| Type | Purpose |
-|------|---------|
-| `panel` | Filled rectangle with optional border — use as a container |
-| `button` | Panel with centred text label |
-| `text` | Left-aligned text |
-| `image` | Reserved placeholder; actual textures are rendered by `RenderSystem` |
-| `progress-bar` | Horizontal fill bar driven by `.value` (0..1) |
-| `slider` | Draggable thumb driven by `.value` (0..1) |
-| `toggle` | Checkbox driven by `.checked` |
-
----
-
-## Creating components
+## Quick start
 
 ```typescript
-import { UISystem } from '@emptysock/engine'
+import {
+  UISystem,
+  PanelWidget,
+  LabelWidget,
+  ButtonWidget,
+  ProgressBarWidget,
+} from '@emptysock/engine'
 
-// Root component anchored to the bottom-left
-const hud = UISystem.create('panel', {
-  x: 10, y: -60,
-  width: 200, height: 50,
-  anchor: 'bottom-left',
-  style: { backgroundColor: 0x1a1a2e, opacity: 0.85 },
-})
+class HUDScene extends Scene {
+  private _hp: ProgressBarWidget | null = null
+  private _scoreLabel: LabelWidget | null = null
 
-// Child text label (relative to hud)
-const label = hud.createChild('text', {
-  x: 8, y: 12,
-  text: 'Score: 0',
-  style: { color: 0xffffff, fontSize: 18 },
-})
+  override onLoad(): void {
+    this._hp = new ProgressBarWidget({
+      anchor: 'top-left',
+      x: 16, y: 16,
+      width: 200, height: 14,
+      fillColor: 0xe74c3c,
+      trackColor: 0x333333,
+      value: 1.0,
+    })
+    UISystem.add(this._hp)
 
-// Update text each frame
-label.text = `Score: ${score}`
-```
-
----
-
-## Anchor values
-
-`top-left` · `top-center` · `top-right`  
-`middle-left` · `middle-center` · `middle-right`  
-`bottom-left` · `bottom-center` · `bottom-right`
-
----
-
-## UIStyle properties
-
-| Property | Type | Notes |
-|----------|------|-------|
-| `backgroundColor` | `number` | 0xRRGGBB |
-| `color` | `number` | 0xRRGGBB — text or accent colour |
-| `fontSize` | `number` | px |
-| `fontFamily` | `string` | CSS font family |
-| `borderColor` | `number` | 0xRRGGBB |
-| `borderWidth` | `number` | px |
-| `borderRadius` | `number` | px (visual only — hit-test is still rect) |
-| `opacity` | `number` | 0..1 |
-| `padding` | `number` | px (informational — layout is manual) |
-
----
-
-## Animations
-
-Built-in animations run automatically when you call the animation method. They are ticked by `UISystem.update(dt)`.
-
-```typescript
-// Fade in over 0.4 s when the panel appears
-hud.fadeIn(0.4)
-
-// Slide in from the left edge (60 px offset) over 0.3 s
-hud.slideIn('left', 60, 0.3)
-
-// Fade out and hide when dismissed
-hud.fadeOut(0.25)
-```
-
-Animation types: `fadeIn(duration)` · `fadeOut(duration)` · `slideIn('left'|'right'|'up'|'down', distance, duration)`
-
----
-
-## Hover style
-
-```typescript
-import { UISystem, SceneManager } from '@emptysock/engine'
-
-const btn = UISystem.create('button', {
-  width: 120, height: 36,
-  text: 'Play',
-  style: { backgroundColor: 0x3c2d6e },
-})
-btn.setHoverStyle({ backgroundColor: 0x5c4da0 })
-btn.onClick(() => SceneManager.load('GameScene'))
-```
-
-The hover style is merged over the base style while the pointer is over the component. It is cleared automatically on pointer-leave. Requires `UISystem.handlePointerMove()` or `UISystem.update(dt, px, py, w, h)` to receive pointer position.
-
----
-
-## Frame loop integration
-
-```typescript
-class MyScene extends Scene {
-  private _ctx!: CanvasRenderingContext2D
-  private _w = 800
-  private _h = 600
-
-  async onLoad() {
-    this._ctx = /* get your Canvas 2D context */
-    const btn = UISystem.create('button', { ... })
-    btn.fadeIn(0.3)
+    this._scoreLabel = new LabelWidget({
+      anchor: 'top-right',
+      x: 16, y: 16,
+      text: 'Score: 0',
+      fontSize: 20,
+      color: 0xffffff,
+    })
+    UISystem.add(this._scoreLabel)
   }
 
-  onUpdate(dt: number) {
-    // Tick animations and hover
+  override onUpdate(dt: number): void {
     UISystem.update(dt)
-
-    // After game rendering, draw UI on top
-    UISystem.render(this._ctx, this._w, this._h)
   }
 
-  onDestroy() {
+  override onDestroy(): void {
     UISystem.clear()
   }
 }
@@ -146,33 +52,129 @@ class MyScene extends Scene {
 
 ---
 
-## Input wiring
+## Widget classes
+
+| Widget | Key properties |
+|--------|---------------|
+| `PanelWidget` | `background`, `border?`, `borderWidth`, `cornerRadius`, `children` |
+| `LabelWidget` | `text`, `font`, `fontSize`, `color`, `align` |
+| `ButtonWidget` | `label`, `icon?`, `disabled`, `animateOnHover` |
+| `ImageWidget` | `src`, `scaleMode` (`stretch` / `fit` / `fill` / `none`), `tint?` |
+| `ProgressBarWidget` | `value`, `min`, `max`, `fillColor`, `trackColor`, `direction` (`h`/`v`) |
+| `SliderWidget` | `value`, `min`, `max`, `step`, `trackColor`, `thumbColor`, `onChange?` |
+| `CheckboxWidget` | `checked`, `label`, `color`, `borderColor`, `onChange?` |
+
+---
+
+## Base Widget properties
+
+All widgets share the `Widget` base class:
 
 ```typescript
-canvas.addEventListener('click', (e) => {
-  UISystem.dispatchPointerDown(e.offsetX, e.offsetY, canvas.width, canvas.height)
+widget.x        // pixel offset from anchor point
+widget.y
+widget.width
+widget.height
+widget.anchor   // 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right'
+widget.visible  // hide without removing
+widget.alpha
+widget.children // Widget[] — mutable; push children onto PanelWidget for compound layouts
+widget.on(event, handler)
+widget.off(event, handler)
+widget.animate(name, opts?)
+```
+
+**Events:** `'click'`, `'hover'`, `'hoverOut'`, `'change'`, `'animEnd'`
+
+**Animations:** `'fadeIn'`, `'fadeOut'`, `'slideIn'`, `'slideOut'`, `'pop'`, `'shake'`  
+All accept `{ duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }`.
+
+---
+
+## Buttons and events
+
+```typescript
+import { UISystem, ButtonWidget, SceneManager } from '@emptysock/engine'
+
+const btn = new ButtonWidget({
+  label: 'Retry',
+  anchor: 'center',
+  width: 120,
+  height: 40,
 })
-canvas.addEventListener('pointermove', (e) => {
-  UISystem.handlePointerMove(e.offsetX, e.offsetY, canvas.width, canvas.height)
-})
+btn.on('click', () => SceneManager.load('GameScene'))
+btn.animate('fadeIn', { duration: 0.3 })
+UISystem.add(btn)
 ```
 
 ---
 
-## Cleanup
+## Compound panels
+
+Build complex layouts by pushing children onto a `PanelWidget`. Children position relative to the panel's origin:
 
 ```typescript
-// Remove a single root component
-UISystem.remove(hud)
+import { UISystem, PanelWidget, LabelWidget, ButtonWidget } from '@emptysock/engine'
 
-// Clear all components (call in scene onDestroy)
-UISystem.clear()
+const panel = new PanelWidget({
+  anchor: 'center',
+  width: 300, height: 200,
+  background: 0x1a1a2e,
+})
+
+const title = new LabelWidget({ text: 'Game Over', fontSize: 24, anchor: 'top', y: 16 })
+const score = new LabelWidget({ text: 'Score: 0', fontSize: 18, anchor: 'center' })
+const retry = new ButtonWidget({ label: 'Retry', anchor: 'bottom', y: 20, width: 100, height: 36 })
+
+retry.on('click', () => SceneManager.load('GameScene'))
+panel.children.push(title, score, retry)
+UISystem.add(panel)
+panel.animate('fadeIn')
+```
+
+---
+
+## UISystem API
+
+| Method | Description |
+|--------|-------------|
+| `UISystem.add(widget)` | Add a root widget to the overlay |
+| `UISystem.removeWidget(widget)` | Remove a specific root widget |
+| `UISystem.clear()` | Remove all widgets and legacy UIComponents |
+| `UISystem.update(dt, px?, py?, cw?, ch?)` | Tick animations and hover state each frame |
+| `UISystem.render(ctx, cw, ch)` | Draw all widgets to a Canvas 2D context |
+| `UISystem.setImageLoader(loader)` | Override the default fetch-based image loader |
+
+---
+
+## Frame loop integration
+
+```typescript
+class MyScene extends Scene {
+  override onLoad(): void {
+    const btn = new ButtonWidget({ label: 'Play', anchor: 'center' })
+    btn.animate('fadeIn', { duration: 0.3 })
+    UISystem.add(btn)
+  }
+
+  override onUpdate(dt: number): void {
+    UISystem.update(dt)
+    // UISystem.render() is called automatically after PixiJS renders.
+    // Only call it manually if you manage a raw Canvas 2D context yourself.
+  }
+
+  override onDestroy(): void {
+    UISystem.clear()
+  }
+}
 ```
 
 ---
 
 ## Rules
 
-- Never call `UISystem.create()` inside `onUpdate()` — create in `onLoad()`, update in `onUpdate()`.
-- Always call `UISystem.clear()` in `onDestroy()` — components persist until explicitly removed.
-- Opacity animations work by mutating `style.opacity`. Do not set `style.opacity` manually while a fade animation is active.
+- Never call `UISystem.add()` inside `onUpdate()` — create widgets in `onLoad()`, update properties in `onUpdate()`.
+- Always call `UISystem.clear()` in `onDestroy()` — widgets persist until explicitly removed.
+- Use `widget.visible = false` to hide temporarily; `UISystem.removeWidget(w)` to fully remove.
+- `widget.children` is a plain mutable array — push onto a `PanelWidget` to nest widgets.
+- Never use definite-assignment `!` on widget fields; use `T | null = null` and check before use.

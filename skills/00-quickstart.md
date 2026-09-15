@@ -70,10 +70,15 @@ import { PhysicsBody, CharacterController } from '@emptysock/engine'
 player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
 player.addComponent(CharacterController, { slopeAngle: 45 })
 
-// In onUpdate:
+// Declare in the class body: private _vy = 0
+// In onUpdate (assuming this.input is an InputSystem attached in onLoad):
+this.input.flush()
 const ctrl = player.requireComponent(CharacterController)
-if (ctrl.isGrounded() && Input.isPressed('Space')) ctrl.jump(600)
-ctrl.moveAndSlide({ x: Input.axis('Horizontal') * 200 * dt, y: 0 })
+if (!ctrl.isGrounded()) this._vy += 980 * dt
+else this._vy = 0
+if (ctrl.isGrounded() && this.input.isKeyPressed('Space')) this._vy = -600
+const h = this.input.isKeyDown('ArrowRight') ? 1 : this.input.isKeyDown('ArrowLeft') ? -1 : 0
+ctrl.moveAndSlide({ x: h * 200 * dt, y: this._vy * dt })
 ```
 
 ---
@@ -133,14 +138,23 @@ system.destroy()    // in onDestroy
 ## Input
 
 ```typescript
-import { Input } from '@emptysock/engine'
+import { InputSystem } from '@emptysock/engine'
 
-if (Input.isDown('ArrowRight'))  { /* held every frame */ }
-if (Input.isPressed('Space'))    { /* fired once on keydown */ }
-if (Input.isReleased('Space'))   { /* fired once on keyup */ }
+// In onLoad — create once, attach listeners:
+private input = new InputSystem()
+this.input.attach()
 
-const h = Input.axis('Horizontal') // -1..1, keyboard or gamepad stick
-const p = Input.pointer.position   // mouse or first touch position
+// In onUpdate — flush first, then read state:
+this.input.flush()
+if (this.input.isKeyDown('ArrowRight'))   { /* held every frame */ }
+if (this.input.isKeyPressed('Space'))     { /* fired once on keydown */ }
+if (this.input.isKeyReleased('Space'))    { /* fired once on keyup */ }
+
+const mx = this.input.mouseX   // pointer X
+const my = this.input.mouseY   // pointer Y
+
+// In onDestroy:
+this.input.detach()
 ```
 
 ---
@@ -149,16 +163,21 @@ const p = Input.pointer.position   // mouse or first touch position
 
 ```typescript
 private vy = 0
+private input = new InputSystem()
+
+override onLoad(): void { this.input.attach() }
+override onDestroy(): void { this.input.detach() }
 
 override onUpdate(dt: number): void {
+  this.input.flush()
   const ctrl = this.entity.requireComponent(CharacterController)
   const anim = this.entity.requireComponent(Animator)
-  const h    = Input.axis('Horizontal')
+  const h    = this.input.isKeyDown('ArrowRight') ? 1 : this.input.isKeyDown('ArrowLeft') ? -1 : 0
 
   if (!ctrl.isGrounded()) this.vy += 980 * dt
   else                    this.vy  = 0
 
-  if (Input.isPressed('Space') && ctrl.isGrounded()) this.vy = -600
+  if (this.input.isKeyPressed('Space') && ctrl.isGrounded()) this.vy = -600
 
   ctrl.moveAndSlide({ x: h * 200 * dt, y: this.vy * dt })
 
@@ -233,11 +252,19 @@ const data = Schema.parse(raw.data) // always validate — throws on corrupt
 ## Localisation
 
 ```typescript
-import { t, LocalisationSystem } from '@emptysock/engine'
+import { LocalisationSystem } from '@emptysock/engine'
+import { z } from 'zod'
 
-LocalisationSystem.setLocale('en')     // select locale
-t('greeting')                          // → "Hello"
-t('hud.score', { score: 42 })         // → "Score: 42"
+// In onLoad — create instance, load locale file:
+const localisation = new LocalisationSystem()
+const TranslationMapSchema = z.record(z.string())
+const raw = await (await fetch('assets/i18n/en.json')).json()
+localisation.addTranslations('en', TranslationMapSchema.parse(raw))
+localisation.setLocale('en')
+
+// Translate:
+localisation.t('greeting')                    // → "Hello"
+localisation.t('hud.score', { score: 42 })   // → "Score: 42"
 ```
 
 Locale JSON files live at `assets/i18n/[locale].json`. See `skills/07-save-localisation.md` for the full format.
@@ -280,31 +307,36 @@ SceneManager.pop()
 ## Story Graph (VNSystem)
 
 ```typescript
-import { VNSystem, type VNNode, type VNDialogueNode, type VNChoiceNode } from '@emptysock/engine'
+import {
+  VNSystem,
+  storyGraphToDialogueTree,
+  type DialogueNode,
+  type StoryGraph,
+} from '@emptysock/engine'
 
-// In onLoad:
+// In onLoad (register callbacks BEFORE load):
+const response = await fetch('assets/story/chapter1.storyGraph.json')
+const graph: StoryGraph = await response.json() as StoryGraph
+const tree = storyGraphToDialogueTree(graph)
+
 const vn = new VNSystem()
-await vn.loadScript('assets/story/chapter1.vnscript')   // exported from Story Graph panel
 
-vn.onNode((node: VNNode) => {
+vn.onNode = (node: DialogueNode) => {
   if (node.type === 'dialogue') {
-    const d = node as VNDialogueNode
-    showText(d.speaker, d.text)
+    showText(node.speaker, node.text)
   } else if (node.type === 'choice') {
-    const c = node as VNChoiceNode
-    showChoiceButtons(c.options.map((o) => o.label))
+    showChoiceButtons(node.options)   // options: Array<{ label, next }>
   }
-})
+}
+vn.onEnd = () => { hideDialogueBox() }
 
-vn.play()
-vn.advance()          // move past a dialogue node
-vn.choose(0)          // select first choice option
-vn.setVariable('flag', true)
-vn.jumpToNode('id')   // resume from a saved node id
-vn.destroy()          // in onDestroy
+vn.load(tree)        // synchronous — fires onNode for first node immediately
+vn.advance()         // move past a dialogue node
+vn.selectOption(id)  // select a choice — id comes from option.next
+// VNSystem has no destroy() — garbage-collected when released
 ```
 
-Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.vnscript` JSON.
+Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.storyGraph.json`.
 
 ---
 

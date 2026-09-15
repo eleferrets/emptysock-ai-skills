@@ -69,11 +69,13 @@ e.requireComponent(Sprite)      // T | throws
 e.hasTag('enemy')               // boolean
 e.destroy()
 
-// Input
-Input.isDown('ArrowRight')      // held
-Input.isPressed('Space')        // just pressed this frame
-Input.axis('Horizontal')        // -1..1
-Input.pointer.position          // { x, y }
+// Input — instanced; create in onLoad, detach in onDestroy
+// const input = new InputSystem(); input.attach();
+// In onUpdate: input.flush() first, then:
+input.isKeyDown('ArrowRight')   // held every frame
+input.isKeyPressed('Space')     // true only on the frame the key went down
+input.isKeyReleased('Space')    // true only on the frame the key came up
+input.mouseX / input.mouseY     // pointer position
 
 // Audio
 Audio.play('sfx_id', { volume: 0.8 })
@@ -110,10 +112,11 @@ await SaveSystem.save('slot-1', data)
 const raw = await SaveSystem.load('slot-1')
 const safe = MySchema.parse(raw.data)
 
-// Localisation
-LocalisationSystem.setLocale('fr')
-t('key.name')
-t('key.score', { score: 100 })
+// Localisation — instanced; create in onLoad
+// const localisation = new LocalisationSystem()
+// localisation.addTranslations('en', map); localisation.setLocale('en')
+localisation.t('key.name')
+localisation.t('key.score', { score: 100 })
 
 // Tilemap
 const map = TilemapSystem.load('level.esmap')
@@ -123,8 +126,12 @@ map.getLayer('Collision').enablePhysics()
 entity.onCollisionEnter((other, contact) => {})
 entity.onSensorEnter((other) => {})
 
-// Tweens
-Tween.to(entity, { x: 200 }, { duration: 0.5, ease: 'bounceOut' })
+// Tweens (TweenManager — one per scene, must call update(dt) in onUpdate)
+const tweens = new TweenManager()                                         // in onLoad
+tweens.to(entity.position, { x: 200 }, { duration: 0.5, ease: 'bounceOut' })
+tweens.after(2.0, fn)     // scene-local one-shot timer
+tweens.every(5.0, fn)     // repeating timer; stops when scene unloads
+tweens.update(dt)          // in onUpdate — required
 
 // Profiler
 const stats = Profiler.getStats()  // fps, drawCalls, frameTime, memoryMB
@@ -187,5 +194,14 @@ window.localStorage.setItem(...)     // use SaveSystem
 This file is intentionally concise. For full documentation see:
 
 - **skills/** — one file per system, full patterns and options
-- **docs/** — getting started, core concepts, tutorials
+- **docs/** — getting started, core concepts, tutorials (this companion repo)
 - **ai/api-reference.json** — machine-readable full API for programmatic agent use
+
+The engine's own documentation uses a Unity/Unreal-style layout in the engine repository:
+
+| Path | Contents |
+|---|---|
+| `docs/getting-started/` | Install, first project, first run |
+| `docs/guides/` | Physics, NavMesh, multiplayer, exports, and more |
+| `docs/reference/` | Every class, method, property, and type |
+| `docs/tutorials/` | Complete games built from scratch |

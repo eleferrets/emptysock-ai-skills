@@ -50,13 +50,9 @@ Ports are colour-coded by type. Connecting incompatible types shows a red error 
 
 ## Saving
 
-`Ctrl+S` or the **Save** toolbar button writes a `.esvs` JSON file. Reference it from a `VisualScriptComponent` on any entity:
+`Ctrl+S` or the **Save** toolbar button writes a `.esvs` JSON file.
 
-```typescript
-import { VisualScriptComponent } from '@emptysock/engine';
-
-entity.addComponent(VisualScriptComponent, { script: 'assets/scripts/door-logic.esvs' });
-```
+> **Note:** A runtime `VisualScriptComponent` for attaching `.esvs` scripts to entities via TypeScript is not yet part of the `@emptysock/engine` public API. Visual scripts are currently triggered through the IDE's graph interpreter during development play. Check `ai/api-reference.json` for the current exported API surface.
 
 ---
 

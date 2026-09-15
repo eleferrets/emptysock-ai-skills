@@ -139,15 +139,20 @@ Spatial audio pans and attenuates sounds based on distance from the camera (list
 Input is unified across keyboard, mouse, touch, and gamepad. The same code works on desktop and mobile:
 
 ```typescript
-import { Input } from '@emptysock/engine'
+import { InputSystem } from '@emptysock/engine'
 
-Input.isDown('ArrowRight')          // keyboard right arrow
-Input.isDown('gamepad0/DPadRight')  // gamepad D-pad right
-Input.axis('Horizontal')            // keyboard -1/0/1 or gamepad stick -1..1
-Input.pointer.position              // mouse on desktop, first touch on mobile
+// In onLoad:
+const input = new InputSystem()
+input.attach()   // register event listeners
+
+// In onUpdate — call flush() first, then read state:
+input.flush()
+input.isKeyDown('ArrowRight')   // keyboard right arrow — held every frame
+input.isKeyPressed('Space')     // true only on the frame the key went down
+input.mouseX / input.mouseY     // mouse position on desktop, first touch on mobile
 ```
 
-Import `Input` at the top of the file and call it directly — it's a static class, so you don't need to create an instance.
+Create one `InputSystem` instance in `onLoad`, call `attach()` to register listeners, `flush()` at the top of every `onUpdate`, and `detach()` in `onDestroy`.
 
 ---
 
@@ -251,3 +256,17 @@ Red errors in the console after hitting Play are runtime errors — something we
 **How do I make something appear on screen?**
 
 The quickest way is to create a canvas in `onLoad` and draw to it with the 2D canvas API — no assets required. See the example in `docs/getting-started.md`. Once you're comfortable, move to using `Sprite` components with texture files for anything you want to stay in your game long-term.
+
+---
+
+## Further reading
+
+The companion skill files in `skills/` cover each system in depth. For the engine's own
+full documentation, see the engine repository. It uses a Unity/Unreal-style layout:
+
+| Section | Path in engine repo |
+|---|---|
+| Install and first project | `docs/getting-started/` |
+| How-to guides (physics, NavMesh, exports…) | `docs/guides/` |
+| Full API reference | `docs/reference/` |
+| Step-by-step tutorials | `docs/tutorials/` |
