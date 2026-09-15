@@ -57,8 +57,8 @@ override async onLoad(): Promise<void> {
 | `'borderless'` | Undecorated maximised window | Canvas fills viewport |
 
 ```typescript
-// Toggle fullscreen (e.g. on F key):
-if (Input.isPressed('KeyF')) {
+// Toggle fullscreen (e.g. on F key — assuming this.input is an attached InputSystem):
+if (this.input.isKeyPressed('KeyF')) {
   const next = windowSystem.currentMode === 'fullscreen' ? 'windowed' : 'fullscreen'
   await windowSystem.setMode(next)
 }

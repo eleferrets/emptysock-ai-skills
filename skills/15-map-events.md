@@ -50,7 +50,8 @@ events.setHandler(async (cmd) => {
 })
 
 // In onUpdate — pass player tile coordinates and whether action was pressed this frame
-events.update(playerTileX, playerTileY, Input.isPressed('KeyZ'))
+// (assuming this.input is an InputSystem instance, flushed at the start of onUpdate)
+events.update(playerTileX, playerTileY, this.input.isKeyPressed('KeyZ'))
 ```
 
 ---

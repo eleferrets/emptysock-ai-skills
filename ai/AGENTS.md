@@ -69,11 +69,13 @@ e.requireComponent(Sprite)      // T | throws
 e.hasTag('enemy')               // boolean
 e.destroy()
 
-// Input
-Input.isDown('ArrowRight')      // held
-Input.isPressed('Space')        // just pressed this frame
-Input.axis('Horizontal')        // -1..1
-Input.pointer.position          // { x, y }
+// Input — instanced; create in onLoad, detach in onDestroy
+// const input = new InputSystem(); input.attach();
+// In onUpdate: input.flush() first, then:
+input.isKeyDown('ArrowRight')   // held every frame
+input.isKeyPressed('Space')     // true only on the frame the key went down
+input.isKeyReleased('Space')    // true only on the frame the key came up
+input.mouseX / input.mouseY     // pointer position
 
 // Audio
 Audio.play('sfx_id', { volume: 0.8 })
@@ -110,10 +112,11 @@ await SaveSystem.save('slot-1', data)
 const raw = await SaveSystem.load('slot-1')
 const safe = MySchema.parse(raw.data)
 
-// Localisation
-LocalisationSystem.setLocale('fr')
-t('key.name')
-t('key.score', { score: 100 })
+// Localisation — instanced; create in onLoad
+// const localisation = new LocalisationSystem()
+// localisation.addTranslations('en', map); localisation.setLocale('en')
+localisation.t('key.name')
+localisation.t('key.score', { score: 100 })
 
 // Tilemap
 const map = TilemapSystem.load('level.esmap')

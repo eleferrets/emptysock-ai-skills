@@ -1072,7 +1072,7 @@
   },
   "GamepadSystem": {
     "import": "import { GamepadSystem, type GamepadState, type DualRumbleOptions } from '@emptysock/engine'",
-    "description": "Low-level gamepad polling. Wraps the browser Gamepad API. For most input needs, use Input.axis() and Input.isPressed() instead — they read from GamepadSystem internally.",
+    "description": "Low-level gamepad polling. Wraps the browser Gamepad API. For most input needs, use InputSystem.isKeyDown() / isKeyPressed() instead — they integrate GamepadSystem state internally.",
     "constructor": "new GamepadSystem()",
     "methods": {
       "update": {
