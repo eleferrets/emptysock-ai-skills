@@ -256,6 +256,57 @@ const toxicDart: SkillDef = {
 
 ---
 
+## User-defined stats
+
+`BattleSystem` accepts any stat names beyond the built-in set. Define extras in the `stats` object of each `Combatant` and reference them in a custom damage formula or event handler. The built-in formula only reads `attack`, `defense`, `hp`, `maxHp`, `mp`, `maxMp`, `speed`, and `luck` — any additional keys are yours to use.
+
+```typescript
+import { type Combatant } from '@emptysock/engine'
+
+// Built-in stats plus three custom stats
+const hero: Combatant = {
+  id: 'hero',
+  name: 'Hero',
+  isParty: true,
+  stats: {
+    hp: 120, maxHp: 120,
+    mp: 40,  maxMp: 40,
+    attack: 30, defense: 12, speed: 14, luck: 5,
+    // user-defined:
+    agility: 18,
+    spellPower: 25,
+    ward: 8,
+  },
+  statusEffects: [],
+}
+
+// Access custom stats in a formula or event handler:
+battle.setDamageFormula(
+  (atk, def, power, isCrit, critMult, context): number => {
+    const sp = (context.attacker.stats['spellPower'] ?? 0) as number
+    const base = Math.max(1, (atk + sp) * power / 100 - def / 2)
+    return isCrit ? Math.floor(base * critMult) : Math.floor(base)
+  },
+)
+```
+
+The `context` argument passed to the formula is `DamageContext`:
+
+```typescript
+import { type DamageContext } from '@emptysock/engine'
+
+// DamageContext shape:
+// {
+//   attacker: Combatant,
+//   defender: Combatant,
+//   skill: SkillDef | null,   // null for basic attacks
+// }
+```
+
+Stat keys are `string`-indexed; always guard with `?? 0` when reading user-defined keys so the formula stays safe against version drift or missing fields.
+
+---
+
 ## Custom damage formula
 
 Override the built-in formula when your game uses a different damage model.
@@ -265,7 +316,7 @@ import { BattleSystem } from '@emptysock/engine'
 
 const battle = new BattleSystem()
 
-// Arguments: atk, def, power, isCrit, critMultiplier
+// Arguments: atk, def, power, isCrit, critMultiplier, context
 battle.setDamageFormula(
   (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number): number => {
     const base = Math.max(1, (atk * power) / 100 - def / 2)

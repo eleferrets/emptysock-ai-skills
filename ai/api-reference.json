@@ -390,7 +390,7 @@
     "SaveSystem": {
       "import": "import { SaveSystem } from '@emptysock/engine'",
       "methods": {
-        "save": "SaveSystem.save(slot: string, data: unknown): Promise<void>",
+        "save": "SaveSystem.save(slot: string, data: unknown, opts?: { timestamp?: number, playtime?: number }): Promise<void>",
         "load": "SaveSystem.load(slot: string): Promise<SaveSlot>",
         "delete": "SaveSystem.delete(slot: string): Promise<void>",
         "listSlots": "SaveSystem.listSlots(): Promise<SaveSlot[]>",
@@ -400,9 +400,10 @@
       "SaveSlot": {
         "slot": "string",
         "data": "unknown — ALWAYS parse through Zod before use",
-        "timestamp": "number",
-        "playtime": "number — seconds",
-        "scene": "string"
+        "timestamp": "number | undefined — ms since epoch; present only if passed to save()",
+        "playtime": "number | undefined — seconds; present only if passed to save()",
+        "scene": "string",
+        "unknownKeyWarning": "SaveSystem logs a console warning when loaded data contains keys not present in the Zod schema used to validate it."
       },
       "settings": {
         "get": "SaveSystem.settings.get<T>(key: string): T | undefined",
@@ -430,7 +431,8 @@
     "PathfindingSystem": {
       "import": "import { PathfindingSystem } from '@emptysock/engine'",
       "methods": {
-        "findPath": "PathfindingSystem.findPath(opts: { from: Point, to: Point, grid: Grid, allowDiagonal?: boolean }): Promise<Path>",
+        "setGrid": "PathfindingSystem.setGrid(grid: Grid): void — store a grid so subsequent findPath() calls can omit it",
+        "findPath": "PathfindingSystem.findPath(opts: { from: Point, to: Point, grid?: Grid, allowDiagonal?: boolean }): Promise<Path> — grid is optional if setGrid() was called",
         "buildNavMesh": "PathfindingSystem.buildNavMesh(scene: Scene): NavMesh",
         "debugDraw": "PathfindingSystem.debugDraw(enabled: boolean): void"
       }
@@ -1064,6 +1066,9 @@
         "description": "Advance all running coroutines. Call once per frame."
       }
     },
+    "properties": {
+      "onError": "(id: string, error: unknown) => void | null — optional callback invoked when a coroutine throws. Assign directly: coroutines.onError = (id, err) => { ... }"
+    },
     "helpers": {
       "waitFrames": "yield waitFrames(n: number) — pause for n frames",
       "waitSeconds": "yield waitSeconds(t: number) — pause for t seconds",
@@ -1281,7 +1286,8 @@
         "send": "(id: string, msg: Message): void — enqueue a message to a specific actor",
         "broadcast": "(msg: Message): void — enqueue a message to all registered actors (O(n))",
         "update": "(dt: number): void — flush all mailboxes then call update(dt) on every actor",
-        "destroy": "(): void — unregister all actors and free resources. Call in onDestroy."
+        "destroy": "(): void — unregister all actors and free resources. Call in onDestroy.",
+        "getAll": "(): Actor[] — return a snapshot array of all currently registered actors"
       }
     },
     "NetworkActor": {
@@ -1393,7 +1399,7 @@
     ]
   },
   "BattleSystem": {
-    "import": "import { BattleSystem, type BattlePhase, type BattleStats, type StatusEffect, type Combatant, type SkillTargetType, type DamageFormulaId, type SkillDef, type StatusEffectDef, type BattleDatabase, type BattleAction, type BattleEvent, type BattleSystemOptions } from '@emptysock/engine'",
+    "import": "import { BattleSystem, type BattlePhase, type BattleStats, type BattleStatMap, type DamageContext, type StatusEffect, type Combatant, type SkillTargetType, type DamageFormulaId, type SkillDef, type StatusEffectDef, type BattleDatabase, type BattleAction, type BattleEvent, type BattleSystemOptions } from '@emptysock/engine'",
     "description": "Opt-in turn-based RPG battle module. Handles turn order (speed desc), damage resolution, status effects, and event emission. Tree-shaken from bundles that do not import it. Enemies act automatically (attack lowest-HP party member); party members require submitAction().",
     "constructor": "new BattleSystem(options?: BattleSystemOptions)",
     "BattleSystemOptions": {
@@ -1413,7 +1419,8 @@
         "signature": "(db: BattleDatabase): void"
       },
       "setDamageFormula": {
-        "signature": "(fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number) => number): void"
+        "signature": "(fn: (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number, context: DamageContext) => number): void",
+        "description": "Override the built-in formula. The context argument gives access to attacker and defender Combatants (including user-defined stats) and the triggering SkillDef."
       },
       "onEvent": {
         "signature": "(handler: (event: BattleEvent) => void): () => void",
@@ -1449,9 +1456,11 @@
     },
     "types": {
       "BattlePhase": "'idle' | 'input' | 'resolving' | 'victory' | 'defeat'",
-      "BattleStats": "{ hp, maxHp, mp, maxMp, attack, defense, speed, luck: number }",
+      "BattleStats": "{ hp, maxHp, mp, maxMp, attack, defense, speed, luck: number } — built-in fields; see BattleStatMap for user-defined stats",
+      "BattleStatMap": "Record<string, number> — extends the built-in BattleStats with any user-defined stat names. Add extra keys to Combatant.stats; guard reads with ?? 0 in formulas.",
+      "DamageContext": "{ attacker: Combatant; defender: Combatant; skill: SkillDef | null } — passed as sixth argument to the setDamageFormula callback",
       "StatusEffect": "{ id: string; name: string; turnsRemaining: number } — turnsRemaining -1 = permanent",
-      "Combatant": "{ id: string; name: string; stats: BattleStats; statusEffects: readonly StatusEffect[]; isParty: boolean }",
+      "Combatant": "{ id: string; name: string; stats: BattleStatMap; statusEffects: readonly StatusEffect[]; isParty: boolean }",
       "SkillTargetType": "'single-enemy' | 'all-enemies' | 'single-ally' | 'all-allies' | 'self'",
       "DamageFormulaId": "'physical' | 'magical' | 'fixed' | 'percent-max-hp'",
       "SkillDef": "{ id, name, mpCost, targetType: SkillTargetType, formula: DamageFormulaId, power: number, isHeal?: boolean, statusEffect?: { effectId: string; chance: number } }",
