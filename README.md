@@ -44,7 +44,7 @@ emptysock-agent-pack/
 | `skills/02-navmesh.md` | PathfindingSystem (grid A*) and NavMeshSystem (polygon navmesh) |
 | `skills/03-physics-3d.md` | PhysicsSystem3D (Rapier3D WASM): init, bodies, destroy |
 | `skills/04-plugin-system.md` | PluginSystem singleton, inject, plugin lifecycle |
-| `skills/05-touch-input.md` | Touch and pointer input via the static Input class |
+| `skills/05-touch-input.md` | Touch and pointer input via the InputSystem class |
 | `skills/06-ide-panels.md` | IDE panel editors: Story Graph, Tilemap, Profiler, etc. |
 | `skills/07-save-localisation.md` | SaveSystem slots and LocalisationSystem / t() API |
 | `skills/08-story-graph.md` | Story Graph panel, VNSystem runtime, save/resume |
