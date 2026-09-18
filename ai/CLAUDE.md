@@ -33,7 +33,7 @@ Read this file fully before writing any code.
 ### Engine usage
 - Never import PixiJS, Rapier, Howler, or Three.js directly. Use `@emptysock/engine` only.
 - Never touch the DOM directly (`document.querySelector`, etc.). Use the EmptySock UI system.
-- Never use `setTimeout` or `setInterval` in game logic. Use `Timer.after()` / `Timer.every()`.
+- Never use `setTimeout` or `setInterval` in game logic. Use `TweenManager.after()` / `TweenManager.every()` on a per-scene instance.
 - Never use `async/await` inside `onUpdate()` or `onFixedUpdate()`. Use coroutines (`function*`).
 - Always call `entity.destroy()` when an entity is no longer needed.
 - Always cancel timers in `onDestroy()` if they reference scene objects.
@@ -156,53 +156,59 @@ override onUpdate(dt: number): void {
 ### Audio
 
 ```typescript
-import { Audio } from '@emptysock/engine'
+import { AudioSystem } from '@emptysock/engine'
 
-Audio.play('jump_sfx')
-Audio.play('footstep', { volume: 0.6, spatial: true, position: entity.position })
-Audio.music('level_theme', { loop: true, fade: 0.5 })
-Audio.setGroupVolume('sfx', 0.8)
-Audio.stopMusic({ fade: 0.5 })
+AudioSystem.play('jump_sfx')
+AudioSystem.play('footstep', { volume: 0.6, spatial: true, position: entity.position })
+AudioSystem.music('level_theme', { loop: true, fade: 0.5 })
+AudioSystem.setGroupVolume('sfx', 0.8)
+AudioSystem.stopMusic({ fade: 0.5 })
 ```
 
 ### Camera
 
 ```typescript
-import { Camera } from '@emptysock/engine'
+import { CameraSystem } from '@emptysock/engine'
 
-Camera.follow(player, { lerp: 0.1, deadzone: { x: 80, y: 40 } })
-Camera.shake({ intensity: 6, duration: 0.3 })
-Camera.zoom(2.0, { duration: 0.4, ease: 'sineOut' })
-Camera.fade({ to: 0x000000, duration: 0.5 })
-Camera.unfade({ duration: 0.3 })
+CameraSystem.follow(player, { lerp: 0.1, deadzone: { x: 80, y: 40 } })
+CameraSystem.shake({ intensity: 6, duration: 0.3 })
+CameraSystem.zoom(2.0, { duration: 0.4, ease: 'sineOut' })
+CameraSystem.fade({ to: 0x000000, duration: 0.5 })
+CameraSystem.unfade({ duration: 0.3 })
 ```
 
 ### Timers
 
 ```typescript
-import { Timer } from '@emptysock/engine'
+import { TweenManager } from '@emptysock/engine'
 
-// Store handles for cleanup
-private _spawnTimer: TimerHandle | null = null
+// Create one TweenManager per scene; call update(dt) in onUpdate
+private _tweens = new TweenManager()
 
 override onLoad(): void {
-  this._spawnTimer = Timer.every(3.0, () => { this.spawnEnemy() })
+  this._tweens.every(3.0, () => { this.spawnEnemy() })
+}
+
+override onUpdate(dt: number): void {
+  this._tweens.update(dt)
 }
 
 override onDestroy(): void {
-  this._spawnTimer?.cancel()
+  this._tweens.destroy()   // cancels all pending tweens and timers
 }
 ```
 
 ### Coroutines
 
 ```typescript
+import { waitSeconds, waitUntil } from '@emptysock/engine'
+
 // Sequences over time — use instead of async/await in game logic
 entity.startCoroutine(function* boss_intro() {
   yield waitSeconds(1.0)
   dialogue.show('I have been waiting...')
-  yield waitForDialogue()
-  Camera.shake({ intensity: 12, duration: 0.5 })
+  yield waitUntil(() => !dialogue.isVisible())
+  CameraSystem.shake({ intensity: 12, duration: 0.5 })
   yield waitSeconds(0.5)
   boss.activate()
 })
@@ -347,7 +353,7 @@ if (this.isOffscreen()) pool.release(this)
 | `Input.isPressed('Space')` | `input.isKeyPressed('Space')` on an `InputSystem` instance |
 | `import { t, LocalisationSystem }` | `import { LocalisationSystem }` (no standalone `t` export) |
 | `LocalisationSystem.setLocale('fr')` | `localisation.setLocale('fr')` on an instance |
-| `setTimeout(() => spawnEnemy(), 2000)` | `Timer.after(2.0, () => spawnEnemy())` |
+| `setTimeout(() => spawnEnemy(), 2000)` | `tweens.after(2.0, () => spawnEnemy())` on a `TweenManager` instance |
 | `async onUpdate() { await fetch(...) }` | Preload in `onLoad()`, or use a coroutine |
 | `entity.getComponent(Sprite)!` | `entity.getComponent(Sprite)?.prop` |
 | `private _x!: SomeType` | `private _x: SomeType \| null = null` |

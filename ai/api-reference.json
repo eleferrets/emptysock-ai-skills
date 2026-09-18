@@ -323,16 +323,16 @@
       },
       "keyCodes": "KeyboardEvent.code values: 'ArrowLeft' 'ArrowRight' 'ArrowUp' 'ArrowDown' 'Space' 'Enter' 'Escape' 'KeyA'-'KeyZ' 'Digit0'-'Digit9'"
     },
-    "Audio": {
-      "import": "import { Audio } from '@emptysock/engine'",
+    "AudioSystem": {
+      "import": "import { AudioSystem } from '@emptysock/engine'",
       "methods": {
-        "play": "Audio.play(id: string, opts?: PlayOptions): AudioHandle",
-        "music": "Audio.music(id: string, opts?: MusicOptions): void",
-        "stopMusic": "Audio.stopMusic(opts?: { fade?: number }): void",
-        "stop": "Audio.stop(id: string): void",
-        "setGroupVolume": "Audio.setGroupVolume(group: 'music' | 'sfx' | 'ui' | 'voice', vol: number): void",
-        "mute": "Audio.mute(group?: string): void",
-        "unmute": "Audio.unmute(group?: string): void"
+        "play": "AudioSystem.play(id: string, opts?: PlayOptions): AudioHandle",
+        "music": "AudioSystem.music(id: string, opts?: MusicOptions): void",
+        "stopMusic": "AudioSystem.stopMusic(opts?: { fade?: number }): void",
+        "stop": "AudioSystem.stop(id: string): void",
+        "setGroupVolume": "AudioSystem.setGroupVolume(group: 'music' | 'sfx' | 'ui' | 'voice', vol: number): void",
+        "mute": "AudioSystem.mute(group?: string): void",
+        "unmute": "AudioSystem.unmute(group?: string): void"
       },
       "PlayOptions": {
         "volume": "number 0–1",
@@ -343,19 +343,19 @@
         "rate": "number — playback speed multiplier"
       }
     },
-    "Camera": {
-      "import": "import { Camera } from '@emptysock/engine'",
+    "CameraSystem": {
+      "import": "import { CameraSystem } from '@emptysock/engine'",
       "methods": {
-        "follow": "Camera.follow(entity: Entity, opts?: FollowOptions): void",
-        "stopFollow": "Camera.stopFollow(): void",
-        "shake": "Camera.shake(opts: { intensity: number, duration: number, decay?: 'linear' | 'exponential' }): void",
-        "trauma": "Camera.trauma(amount: number): void",
-        "zoom": "Camera.zoom(scale: number, opts?: TweenOptions): void",
-        "flash": "Camera.flash(opts: { colour: number, duration: number }): void",
-        "fade": "Camera.fade(opts: { to: number, duration: number }): void",
-        "unfade": "Camera.unfade(opts?: { duration: number }): void",
-        "letterbox": "Camera.letterbox(opts: { ratio: string }): void",
-        "pillarbox": "Camera.pillarbox(opts: { ratio: string }): void"
+        "follow": "CameraSystem.follow(entity: Entity, opts?: FollowOptions): void",
+        "stopFollow": "CameraSystem.stopFollow(): void",
+        "shake": "CameraSystem.shake(opts: { intensity: number, duration: number, decay?: 'linear' | 'exponential' }): void",
+        "trauma": "CameraSystem.trauma(amount: number): void",
+        "zoom": "CameraSystem.zoom(scale: number, opts?: TweenOptions): void",
+        "flash": "CameraSystem.flash(opts: { colour: number, duration: number }): void",
+        "fade": "CameraSystem.fade(opts: { to: number, duration: number }): void",
+        "unfade": "CameraSystem.unfade(opts?: { duration: number }): void",
+        "letterbox": "CameraSystem.letterbox(opts: { ratio: string }): void",
+        "pillarbox": "CameraSystem.pillarbox(opts: { ratio: string }): void"
       },
       "FollowOptions": {
         "lerp": "number 0–1",
@@ -364,27 +364,25 @@
         "bounds": "{ x: number, y: number, width: number, height: number }"
       }
     },
-    "Timer": {
-      "import": "import { Timer } from '@emptysock/engine'",
+    "TweenManager": {
+      "import": "import { TweenManager } from '@emptysock/engine'",
+      "description": "Per-scene tween and timer manager. Create one instance per scene, call update(dt) in onUpdate, and call destroy() in onDestroy.",
       "methods": {
-        "after": "Timer.after(seconds: number, fn: () => void): TimerHandle",
-        "every": "Timer.every(seconds: number, fn: () => void, opts?: { times?: number }): TimerHandle"
-      },
-      "TimerHandle": {
-        "cancel": "handle.cancel(): void"
+        "to": "tweens.to(target: Record<string, number>, props: Record<string, number>, opts: TweenOptions): void",
+        "after": "tweens.after(seconds: number, fn: () => void): void",
+        "every": "tweens.every(seconds: number, fn: () => void): void",
+        "update": "tweens.update(dt: number): void",
+        "killAll": "tweens.killAll(): void",
+        "destroy": "tweens.destroy(): void"
       }
     },
     "coroutines": {
-      "import": "import { waitSeconds, waitFrames, waitUntil, waitForEvent, waitForAnimation, waitForDialogue, waitForPath } from '@emptysock/engine'",
+      "import": "import { waitSeconds, waitFrames, waitUntil } from '@emptysock/engine'",
       "usage": "entity.startCoroutine(function* name() { yield helper })",
       "helpers": {
         "waitSeconds": "yield waitSeconds(seconds: number)",
         "waitFrames": "yield waitFrames(count: number)",
-        "waitUntil": "yield waitUntil(predicate: () => boolean)",
-        "waitForEvent": "yield waitForEvent(eventName: string)",
-        "waitForAnimation": "yield waitForAnimation(entity: Entity)",
-        "waitForDialogue": "yield waitForDialogue()",
-        "waitForPath": "yield waitForPath(entity: Entity)"
+        "waitUntil": "yield waitUntil(predicate: () => boolean)"
       }
     },
     "SaveSystem": {
@@ -1333,7 +1331,7 @@
         "description": "Free all WASM-allocated physics memory. Required in onDestroy — the GC cannot see WASM memory."
       }
     },
-    "Body3DOptions": {
+    "PhysicsBody3DOptions": {
       "bodyType": "'dynamic' | 'static' | 'kinematic'",
       "shape": "'box' | 'sphere' | 'capsule' | 'cylinder' | 'cone'",
       "halfExtents": "{ x, y, z } — for box shape",
@@ -1344,7 +1342,7 @@
       "restitution": "number (optional)",
       "isSensor": "boolean (optional) — detect overlaps without generating forces"
     },
-    "Body3DHandle": {
+    "Physics3DHandle": {
       "bodyIndex": "number — use with removeBody()",
       "getPosition": "(): { x: number, y: number, z: number }",
       "getRotation": "(): { x: number, y: number, z: number, w: number }",

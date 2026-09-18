@@ -316,24 +316,32 @@ import {
 
 // In onLoad (register callbacks BEFORE load):
 const response = await fetch('assets/story/chapter1.storyGraph.json')
-const graph: StoryGraph = await response.json() as StoryGraph
+import { z } from 'zod'
+const StoryGraphSchema = z.object({
+  nodes: z.array(z.record(z.unknown())),
+  edges: z.array(z.record(z.unknown())),
+  startNodeId: z.string(),
+})
+const raw = await (await fetch('assets/story/chapter1.storyGraph.json')).json()
+const graph = StoryGraphSchema.parse(raw) as StoryGraph
 const tree = storyGraphToDialogueTree(graph)
 
 const vn = new VNSystem()
 
-vn.onNode = (node: DialogueNode) => {
+// on* methods return an unsubscribe function — call it in onDestroy
+const offNode = vn.onNode((node: DialogueNode) => {
   if (node.type === 'dialogue') {
     showText(node.speaker, node.text)
   } else if (node.type === 'choice') {
     showChoiceButtons(node.options)   // options: Array<{ label, next }>
   }
-}
-vn.onEnd = () => { hideDialogueBox() }
+})
+const offEnd = vn.onEnd(() => { hideDialogueBox() })
 
 vn.load(tree)        // synchronous — fires onNode for first node immediately
 vn.advance()         // move past a dialogue node
 vn.selectOption(id)  // select a choice — id comes from option.next
-// VNSystem has no destroy() — garbage-collected when released
+// In onDestroy: offNode(); offEnd()
 ```
 
 Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.storyGraph.json`.
