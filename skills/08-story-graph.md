@@ -47,6 +47,7 @@ In the IDE menu bar: **Module → Story Graph**. The panel is an SVG node graph 
 import {
   VNSystem,
   storyGraphToDialogueTree,
+  type IVNListener,
   type DialogueNode,
   type DialogueTree,
   type StoryGraph,
@@ -61,21 +62,21 @@ override async onLoad(): Promise<void> {
 
   const vn = new VNSystem()
 
-  // Register callbacks BEFORE calling load():
-  vn.onNode = (node: DialogueNode) => {
-    if (node.type === 'dialogue') {
-      showText(node.speaker, node.text)
-    }
-  }
-
-  vn.onChoice = (options) => {
-    // options: Array<{ label: string; next: string }>
-    showChoiceButtons(options)
-  }
-
-  vn.onEnd = () => {
-    hideDialogueBox()
-  }
+  // Register a listener BEFORE calling load():
+  vn.setListener({
+    onNode(node: DialogueNode) {
+      if (node.type === 'dialogue') {
+        showText(node.speaker, node.text)
+      }
+    },
+    onChoice(options) {
+      // options: Array<{ label: string; next: string }>
+      showChoiceButtons(options)
+    },
+    onEnd() {
+      hideDialogueBox()
+    },
+  } satisfies IVNListener)
 
   vn.load(tree)   // synchronous — fires onNode for the first node immediately
 }
@@ -98,30 +99,40 @@ function onChoiceSelected(next: string): void {
 
 ---
 
+## Reading variables
+
+`'variable-set'` nodes store values in `vn.variables` and auto-advance. Read them at any time:
+
+```typescript
+const metHero: unknown = vn.getVariable('metHero')
+```
+
+---
+
 ## DialogueNode type
 
 `DialogueNode` is a discriminated union — narrow by `node.type`:
 
 ```typescript
-vn.onNode = (node: DialogueNode) => {
-  if (node.type === 'dialogue') {
-    // node.speaker: string
-    // node.text: string
-    // node.next?: string (next node id, or undefined if last)
-  } else if (node.type === 'choice') {
-    // node.text: string (prompt text shown above options)
-    // node.options: Array<{ label: string; next: string }>
-  } else if (node.type === 'event') {
-    // node.eventName: string — fire game logic
-    // node.data?: Record<string, unknown>
-    // auto-advanced by the engine after firing onEvent
-  } else if (node.type === 'variable-set') {
-    // node.variableKey: string
-    // node.variableValue: unknown
-    // auto-advanced by the engine after firing onNode
-  }
-  // 'jump' nodes are resolved automatically — onNode never fires for them
-}
+vn.setListener({
+  onNode(node: DialogueNode) {
+    if (node.type === 'dialogue') {
+      // node.speaker: string
+      // node.text: string
+      // node.next?: string (next node id, or undefined if last)
+    } else if (node.type === 'choice') {
+      // node.text: string (prompt text shown above options)
+      // node.options: Array<{ label: string; next: string }>
+    }
+    // 'jump' nodes are resolved automatically — onNode never fires for them
+    // 'variable-set' nodes auto-advance; read via vn.getVariable(key)
+  },
+  onEvent(eventName, data) {
+    // eventName: string — fire game logic
+    // data: unknown — additional payload
+    // auto-advanced by the engine
+  },
+})
 ```
 
 ---
@@ -165,7 +176,7 @@ const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
 
 ## Rules
 
-- Register all callbacks (`onNode`, `onChoice`, `onEvent`, `onEnd`) **before** calling `load()` — `onNode` fires immediately for the first node.
-- `jump` and `variable-set` nodes are resolved automatically — `onNode` is called for `variable-set` but the engine auto-advances it.
+- Register a listener with `setListener()` **before** calling `load()` — `onNode` fires immediately for the first node.
+- `jump` and `variable-set` nodes are resolved automatically — `onNode` fires for `variable-set` but the engine auto-advances it; read the value with `getVariable()`.
 - VNSystem has no `destroy()` — it is garbage-collected when the scene releases it.
 - Never cast loaded JSON directly as `StoryGraph` without validation — use Zod in production.
