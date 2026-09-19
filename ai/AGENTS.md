@@ -27,14 +27,14 @@ Agents never import those libraries directly — only `@emptysock/engine`.
 3. **No DOM access.** Never call `document.querySelector`, `getElementById`, or similar.
    Use the engine's UI system.
 
-4. **No setTimeout/setInterval in game logic.** Use `Timer.after()`, `Timer.every()`,
-   or generator coroutines.
+4. **No setTimeout/setInterval in game logic.** Use `tweens.after()`, `tweens.every()`
+   on a per-scene `TweenManager` instance, or generator coroutines.
 
 5. **No async/await in the game loop.** `onUpdate()` and `onFixedUpdate()` are synchronous.
    Use `function*` coroutines for sequenced async behaviour.
 
 6. **Destroy what you create.** Every entity that is done must call `entity.destroy()`.
-   Every `TimerHandle` must be cancelled in `onDestroy()` if it references scene state.
+   Call `tweens.destroy()` in `onDestroy()` to cancel all pending timers and tweens.
 
 7. **Validate saves.** Never read save data as `unknown as MyType`. Always parse through
    a Zod schema before use. Saves can be corrupt.
@@ -77,16 +77,20 @@ input.isKeyPressed('Space')     // true only on the frame the key went down
 input.isKeyReleased('Space')    // true only on the frame the key came up
 input.mouseX / input.mouseY     // pointer position
 
-// Audio
-Audio.play('sfx_id', { volume: 0.8 })
-Audio.music('track_id', { loop: true, fade: 0.5 })
-Audio.setGroupVolume('sfx', 0.8)
+// Audio — static class, call directly
+AudioSystem.play('sfx_id', { volume: 0.8 })
+AudioSystem.music('track_id', { loop: true, fade: 0.5 })
+AudioSystem.setGroupVolume('sfx', 0.8)
 
-// Camera
-Camera.follow(entity, { lerp: 0.1 })
-Camera.shake({ intensity: 6, duration: 0.3 })
-Camera.zoom(2.0, { duration: 0.4 })
-Camera.fade({ to: 0x000000, duration: 0.5 })
+// Camera — instanced; create in onLoad, update in onUpdate, destroy in onDestroy
+const camera = new CameraSystem()
+camera.attach(stage)                      // wire to PixiJS container
+camera.setFollow(() => entity.position)   // track a moving target
+camera.setLerpFactor(0.1)                // smoothing (0.05 = slow, 1.0 = instant)
+camera.shake(6, 0.3)                     // intensity px, duration seconds
+camera.zoomTo(2.0)                       // smooth zoom to scale factor
+camera.setBounds({ minX: 0, minY: 0, maxX: 3200, maxY: 900 })
+camera.update(dt)                        // call every frame in onUpdate
 
 // Scene navigation
 SceneManager.load('SceneName')
@@ -94,23 +98,24 @@ SceneManager.transition('SceneName', { effect: 'fade', duration: 0.4 })
 SceneManager.push('OverlayScene')
 SceneManager.pop()
 
-// Timers — store handle, cancel in onDestroy
-const h = Timer.after(2.0, fn)
-const h = Timer.every(0.5, fn)
-h.cancel()
+// Timers — use TweenManager instance (create in onLoad, destroy in onDestroy)
+tweens.after(2.0, fn)    // one-shot; cancelled when tweens.destroy() is called
+tweens.every(0.5, fn)    // repeating; cancelled when tweens.destroy() is called
 
 // Coroutines — async game sequences
 entity.startCoroutine(function* () {
   yield waitSeconds(1.0)
   yield waitUntil(() => player.isGrounded())
-  yield waitForEvent('boss_dead')
   SceneManager.transition('WinScene', { effect: 'iris' })
 })
 
-// Saves — always Zod validate
-await SaveSystem.save('slot-1', data)
-const raw = await SaveSystem.load('slot-1')
-const safe = MySchema.parse(raw.data)
+// Saves — instanced, synchronous; always Zod validate
+const save = new SaveSystem()
+const ok = save.save('slot-1', data)        // boolean (false if storage unavailable)
+const slot = save.load('slot-1')             // SaveSlot | null
+if (slot !== null) {
+  const safe = MySchema.parse(slot.data)
+}
 
 // Localisation — instanced; create in onLoad
 // const localisation = new LocalisationSystem()

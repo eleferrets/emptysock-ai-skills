@@ -33,7 +33,7 @@ Read this file fully before writing any code.
 ### Engine usage
 - Never import PixiJS, Rapier, Howler, or Three.js directly. Use `@emptysock/engine` only.
 - Never touch the DOM directly (`document.querySelector`, etc.). Use the EmptySock UI system.
-- Never use `setTimeout` or `setInterval` in game logic. Use `Timer.after()` / `Timer.every()`.
+- Never use `setTimeout` or `setInterval` in game logic. Use `TweenManager.after()` / `TweenManager.every()` on a per-scene instance.
 - Never use `async/await` inside `onUpdate()` or `onFixedUpdate()`. Use coroutines (`function*`).
 - Always call `entity.destroy()` when an entity is no longer needed.
 - Always cancel timers in `onDestroy()` if they reference scene objects.
@@ -156,53 +156,77 @@ override onUpdate(dt: number): void {
 ### Audio
 
 ```typescript
-import { Audio } from '@emptysock/engine'
+import { AudioSystem } from '@emptysock/engine'
 
-Audio.play('jump_sfx')
-Audio.play('footstep', { volume: 0.6, spatial: true, position: entity.position })
-Audio.music('level_theme', { loop: true, fade: 0.5 })
-Audio.setGroupVolume('sfx', 0.8)
-Audio.stopMusic({ fade: 0.5 })
+AudioSystem.play('jump_sfx')
+AudioSystem.play('footstep', { volume: 0.6, spatial: true, position: entity.position })
+AudioSystem.music('level_theme', { loop: true, fade: 0.5 })
+AudioSystem.setGroupVolume('sfx', 0.8)
+AudioSystem.stopMusic({ fade: 0.5 })
 ```
 
 ### Camera
 
 ```typescript
-import { Camera } from '@emptysock/engine'
+import { CameraSystem } from '@emptysock/engine'
 
-Camera.follow(player, { lerp: 0.1, deadzone: { x: 80, y: 40 } })
-Camera.shake({ intensity: 6, duration: 0.3 })
-Camera.zoom(2.0, { duration: 0.4, ease: 'sineOut' })
-Camera.fade({ to: 0x000000, duration: 0.5 })
-Camera.unfade({ duration: 0.3 })
+// Create one CameraSystem per scene
+private _camera = new CameraSystem()
+
+override onLoad(): void {
+  this._camera.attach(this.stage)            // wire to PixiJS container — required
+  this._camera.setFollow(() => player.position)
+  this._camera.setLerpFactor(0.1)            // 0.05 = slow drift, 1.0 = instant
+  this._camera.setBounds({ minX: 0, minY: 0, maxX: 3200, maxY: 900 })
+}
+
+override onUpdate(dt: number): void {
+  this._camera.update(dt)                    // must be called every frame
+  // On hit:
+  this._camera.shake(6, 0.3)               // intensity px, duration seconds
+  this._camera.zoomTo(2.0)                 // smooth zoom toward target
+  // Convert coordinates:
+  const world = this._camera.screenToWorld(clickX, clickY)
+  const screen = this._camera.worldToScreen(entity.position.x, entity.position.y)
+}
+
+override onDestroy(): void {
+  this._camera.destroy()
+}
 ```
 
 ### Timers
 
 ```typescript
-import { Timer } from '@emptysock/engine'
+import { TweenManager } from '@emptysock/engine'
 
-// Store handles for cleanup
-private _spawnTimer: TimerHandle | null = null
+// Create one TweenManager per scene; call update(dt) in onUpdate
+private _tweens = new TweenManager()
 
 override onLoad(): void {
-  this._spawnTimer = Timer.every(3.0, () => { this.spawnEnemy() })
+  this._tweens.every(3.0, () => { this.spawnEnemy() })
+}
+
+override onUpdate(dt: number): void {
+  this._tweens.update(dt)
 }
 
 override onDestroy(): void {
-  this._spawnTimer?.cancel()
+  this._tweens.destroy()   // cancels all pending tweens and timers
 }
 ```
 
 ### Coroutines
 
 ```typescript
+import { waitSeconds, waitUntil } from '@emptysock/engine'
+
 // Sequences over time — use instead of async/await in game logic
 entity.startCoroutine(function* boss_intro() {
   yield waitSeconds(1.0)
   dialogue.show('I have been waiting...')
-  yield waitForDialogue()
-  Camera.shake({ intensity: 12, duration: 0.5 })
+  yield waitUntil(() => !dialogue.isVisible())
+  this._camera.shake(12, 0.5)
   yield waitSeconds(0.5)
   boss.activate()
 })
@@ -234,13 +258,17 @@ const SaveSchema = z.object({
 })
 type SaveData = z.infer<typeof SaveSchema>
 
-async function save(slot: string): Promise<void> {
-  await SaveSystem.save(slot, { scene: 'Level2', score: 4200, inventory: [], flags: {} })
+// Create one SaveSystem per scene (or share a scene-level instance)
+private _save = new SaveSystem()
+
+function saveGame(slot: string): boolean {
+  return this._save.save(slot, { scene: 'Level2', score: 4200, inventory: [], flags: {} })
 }
 
-async function load(slot: string): Promise<SaveData> {
-  const raw = await SaveSystem.load(slot)
-  return SaveSchema.parse(raw.data) // always validate — throws on corrupt data
+function loadGame(slot: string): SaveData | null {
+  const raw = this._save.load(slot)  // returns SaveSlot | null
+  if (raw === null) return null
+  return SaveSchema.parse(raw.data)  // always validate — throws on corrupt data
 }
 ```
 
@@ -335,28 +363,6 @@ function fire(): void {
 // Inside BulletEntity.onUpdate(dt):
 if (this.isOffscreen()) pool.release(this)
 ```
-
----
-
-## Common Mistakes — Never Do These
-
-| Wrong | Right |
-|---|---|
-| `import * as PIXI from 'pixi.js'` | Use `@emptysock/engine` only |
-| `import { Input } from '@emptysock/engine'` | `import { InputSystem } from '@emptysock/engine'` (instanced) |
-| `Input.isPressed('Space')` | `input.isKeyPressed('Space')` on an `InputSystem` instance |
-| `import { t, LocalisationSystem }` | `import { LocalisationSystem }` (no standalone `t` export) |
-| `LocalisationSystem.setLocale('fr')` | `localisation.setLocale('fr')` on an instance |
-| `setTimeout(() => spawnEnemy(), 2000)` | `Timer.after(2.0, () => spawnEnemy())` |
-| `async onUpdate() { await fetch(...) }` | Preload in `onLoad()`, or use a coroutine |
-| `entity.getComponent(Sprite)!` | `entity.getComponent(Sprite)?.prop` |
-| `private _x!: SomeType` | `private _x: SomeType \| null = null` |
-| `JSON.parse(raw) as MyType` | `MySchema.parse(JSON.parse(raw))` |
-| `let x: any = getStuff()` | `let x: unknown = getStuff()` then narrow |
-| `document.getElementById('canvas')` | EmptySock UI / canvas system |
-| Forgetting `entity.destroy()` | Always destroy when done |
-| Forgetting timer cleanup in `onDestroy` | Always cancel stored `TimerHandle`s |
-| Forgetting `input.detach()` in `onDestroy` | Always detach `InputSystem` when done |
 
 ---
 

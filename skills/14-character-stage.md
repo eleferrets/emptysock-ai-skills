@@ -72,8 +72,8 @@ new CharacterStage(opts: CharacterStageOptions)
 stage.show(slot: StageSlot, imagePath: string, opts?: CharacterShowOptions): void
 stage.hide(slot: StageSlot, fadeDuration?: number): void
 stage.update(dt: number): void
-stage.render(ctx: CanvasRenderingContext2D): void
-stage.clear(): void
+stage.render(ctx: CanvasRenderingContext2D): void  // ctx is a browser CanvasRenderingContext2D
+stage.clear(): void  // immediately removes all characters from all slots
 ```
 
 ### CharacterStageOptions

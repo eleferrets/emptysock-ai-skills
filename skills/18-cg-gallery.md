@@ -47,9 +47,9 @@ Pass the CG id from your `VNSystem` node callback when a CG is shown:
 import { VNSystem, CGGallery, VNBackgroundLayer } from '@emptysock/engine'
 
 vn.onNode((node) => {
-  if (node.type === 'dialogue' && node.cgId !== undefined) {
-    gallery.unlockFromNode(node.cgId)   // marks as unlocked and persists via SaveSystem
-    bg.showCG(`assets/cg/${node.cgId}.jpg`)
+  if (node.type === 'dialogue' && node.cgPath !== undefined) {
+    gallery.unlock(node.cgPath)   // marks as unlocked and persists via SaveSystem
+    bg.showCG(node.cgPath)
   }
 })
 ```

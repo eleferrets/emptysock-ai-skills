@@ -31,9 +31,25 @@ export class GameScene extends Scene {
     // build world here — awaited before first frame
   }
 
+  override onStart(): void {
+    // called once after onLoad resolves — safe to reference entities created in onLoad
+  }
+
   override onUpdate(dt: number): void {
     // runs every frame — dt = seconds since last frame
     // no async/await here — use coroutines
+  }
+
+  override onFixedUpdate(dt: number): void {
+    // runs at fixed timestep — use for physics / authoritative simulation
+  }
+
+  override onPause(): void {
+    // called when another scene is pushed on top via SceneManager.push()
+  }
+
+  override onResume(): void {
+    // called when that pushed scene is popped and this one becomes active again
   }
 
   override onDestroy(): void {
@@ -57,6 +73,25 @@ player.addComponent(Animator, { spritesheet: 'hero.esanim', defaultClip: 'idle' 
 
 const sprite = player.getComponent(Sprite)          // T | undefined
 const body   = player.requireComponent(PhysicsBody) // T | throws
+
+// Transform — position, rotation (radians), scale:
+player.position = { x: 100, y: 200 }
+player.setPosition(100, 200)  // chainable
+player.rotation = Math.PI / 4
+player.scale = { x: 1.5, y: 1.5 }
+
+// Events — on() returns an unsubscriber:
+const unsub = player.on('hit', (data) => { console.log('hit', data) })
+player.emit('hit', { damage: 10 })
+unsub()  // stop listening
+
+// Coroutines on the entity:
+player.startCoroutine(function* () {
+  yield waitSeconds(1.0)
+  player.emit('ready')
+})
+
+// Destroy — removes from scene, destroys children, emits 'destroy':
 player.destroy()
 ```
 
@@ -222,13 +257,68 @@ Audio.stopMusic({ fade: 0.5 })
 
 ## Camera
 
-```typescript
-import { Camera } from '@emptysock/engine'
+`CameraSystem` is an instance you create per scene, then attach to the PixiJS stage.
 
-Camera.follow(player, { lerp: 0.1, deadzone: { x: 80, y: 40 } })
-Camera.shake({ intensity: 6, duration: 0.3 })
-Camera.zoom(2.0, { duration: 0.4, ease: 'sineOut' })
-Camera.fade({ to: 0x000000, duration: 0.5 })
+```typescript
+import { CameraSystem } from '@emptysock/engine'
+import type { CameraBounds } from '@emptysock/engine'
+
+const camera = new CameraSystem()
+camera.attach(stage)                         // pass your PixiJS Container
+camera.setViewSize(1280, 720)
+
+// Follow a moving entity (smooth)
+camera.setFollow(() => player.position)
+camera.setLerpFactor(0.1)                   // 0 = no movement, 1 = instant
+
+// Snap / move without follow
+camera.snapTo(0, 0)                         // instant
+camera.moveTo(500, 300)                     // smooth to target
+
+// Zoom
+camera.zoomTo(2.0)                          // smooth
+camera.snapZoom(1.0)                        // instant
+
+// Screen shake
+camera.shake(6, 0.3)                        // intensity px, duration seconds
+
+// Clamp to world bounds (accounts for zoom)
+const bounds: CameraBounds = { minX: 0, minY: 0, maxX: 4000, maxY: 2000 }
+camera.setBounds(bounds)
+camera.setBounds(null)                      // remove clamping
+
+// Coordinate conversion
+const worldPos = camera.screenToWorld(mouseX, mouseY)
+const screenPos = camera.worldToScreen(enemy.x, enemy.y)
+
+// Call every frame
+camera.update(dt)
+
+// Clean up with scene
+camera.destroy()
+```
+
+## Gamepad
+
+```typescript
+import { GamepadSystem } from '@emptysock/engine'
+
+const gamepad = new GamepadSystem()
+
+// In onUpdate(dt):
+gamepad.update()
+const state = gamepad.getState(0)          // pad index 0 | null when disconnected
+
+if (gamepad.isButtonPressed(0, 0))  jump() // A button, just pressed
+if (gamepad.isButtonDown(0, 2))     attack()
+if (gamepad.isButtonReleased(0, 0)) land()
+const leftX = state?.axes[0] ?? 0          // left stick X, -1..1
+
+// Rumble
+gamepad.rumble(0, 0.8, 200)                // padIndex, intensity 0-1, ms
+gamepad.rumbleDual(0, { weakMagnitude: 0.3, strongMagnitude: 0.8, duration: 300 })
+
+gamepad.destroy()
 ```
 
 ---
@@ -242,9 +332,11 @@ import { z } from 'zod'
 const Schema = z.object({ scene: z.string(), score: z.number(), flags: z.record(z.boolean()) })
 type Save = z.infer<typeof Schema>
 
-await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: {} })
-const raw  = await SaveSystem.load('slot-1')
-const data = Schema.parse(raw.data) // always validate — throws on corrupt
+const save = new SaveSystem()
+const ok = save.save('slot-1', { scene: 'Level2', score: 4200, data: { flags: {} }, timestamp: Date.now(), playtime: 0 })
+if (!ok) console.warn('save failed — storage unavailable')
+const slot = save.load('slot-1')                     // SaveSlot | null
+if (slot !== null) Schema.parse(slot.data)            // always validate
 ```
 
 ---
@@ -316,24 +408,32 @@ import {
 
 // In onLoad (register callbacks BEFORE load):
 const response = await fetch('assets/story/chapter1.storyGraph.json')
-const graph: StoryGraph = await response.json() as StoryGraph
+import { z } from 'zod'
+const StoryGraphSchema = z.object({
+  nodes: z.array(z.record(z.unknown())),
+  edges: z.array(z.record(z.unknown())),
+  startNodeId: z.string(),
+})
+const raw = await (await fetch('assets/story/chapter1.storyGraph.json')).json()
+const graph = StoryGraphSchema.parse(raw) as StoryGraph
 const tree = storyGraphToDialogueTree(graph)
 
 const vn = new VNSystem()
 
-vn.onNode = (node: DialogueNode) => {
+// on* methods return an unsubscribe function — call it in onDestroy
+const offNode = vn.onNode((node: DialogueNode) => {
   if (node.type === 'dialogue') {
     showText(node.speaker, node.text)
   } else if (node.type === 'choice') {
     showChoiceButtons(node.options)   // options: Array<{ label, next }>
   }
-}
-vn.onEnd = () => { hideDialogueBox() }
+})
+const offEnd = vn.onEnd(() => { hideDialogueBox() })
 
 vn.load(tree)        // synchronous — fires onNode for first node immediately
 vn.advance()         // move past a dialogue node
 vn.selectOption(id)  // select a choice — id comes from option.next
-// VNSystem has no destroy() — garbage-collected when released
+// In onDestroy: offNode(); offEnd()
 ```
 
 Open the Story Graph panel via **Module → Story Graph** in the IDE. Export the graph as `.storyGraph.json`.

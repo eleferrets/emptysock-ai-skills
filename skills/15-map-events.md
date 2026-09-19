@@ -7,7 +7,7 @@
 ## Quick start
 
 ```typescript
-import { MapEventSystem, variableStore, VNSystem, SceneManager, Input } from '@emptysock/engine'
+import { MapEventSystem, variableStore, VNSystem, SceneManager, InputSystem } from '@emptysock/engine'
 
 const events = new MapEventSystem()
 const vn = new VNSystem()
@@ -37,7 +37,10 @@ events.addEvent({
 // Wire the command handler
 events.setHandler(async (cmd) => {
   if (cmd.type === 'show-dialogue') {
-    await vn.showDialogue(cmd.speaker, cmd.text)
+    // Load a single-node dialogue tree and display it:
+    const off = vn.onNode((node) => { /* render node.speaker, node.text */ })
+    vn.load({ nodes: { n0: { type: 'dialogue', speaker: cmd.speaker, text: cmd.text } }, startNode: 'n0' })
+    await new Promise<void>((resolve) => { const u = vn.onEnd(() => { u(); off(); resolve() }) })
   } else if (cmd.type === 'set-variable') {
     variableStore.setVar(cmd.index, cmd.value)
     variableStore.save()

@@ -75,13 +75,27 @@ this._tweens.every(5.0, () => { this.spawnPowerUp() })
 | `bounceOut` | Springy bounce at the end |
 | `elasticOut` | Overshoot and spring back |
 
+## Cancelling a tween or timer
+
+All three methods return a `TweenHandle` with a `cancel()` method:
+
+```typescript
+const handle = this._tweens.to(entity.position, { x: 600 }, { duration: 1.0 })
+// Later, if needed:
+handle.cancel()
+
+const timer = this._tweens.every(2.0, () => { this.spawnEnemy() })
+// Stop spawning:
+timer.cancel()
+```
+
 ## API reference
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `to` | `(target: Record<string, number>, props: Record<string, number>, opts: TweenOptions): void` | Animate target properties from current values to props. |
-| `after` | `(seconds: number, fn: () => void): void` | Run fn once after seconds. |
-| `every` | `(seconds: number, fn: () => void): void` | Run fn repeatedly every seconds until scene unloads. |
+| `to` | `(target: Record<string, number>, props: Record<string, number>, opts: TweenOptions): TweenHandle` | Animate target properties. Returns a handle to cancel. |
+| `after` | `(seconds: number, fn: () => void): TweenHandle` | Run fn once after seconds. Returns a handle to cancel. |
+| `every` | `(seconds: number, fn: () => void): TweenHandle` | Run fn on a repeating interval. Returns a handle to cancel. |
 | `update` | `(dt: number): void` | Advance all tweens and timers. Call once per frame in onUpdate. |
 
 ## Notes

@@ -19,23 +19,29 @@ const Schema = z.object({
 })
 type SaveData = z.infer<typeof Schema>
 
-// Save:
-await SaveSystem.save('slot-1', {
+const save = new SaveSystem()
+
+// Save — returns true on success, false if storage is unavailable:
+const ok = save.save('slot-1', {
   scene: 'Level3',
   score: 8400,
-  flags: { bossDefeated: true },
-  level: 3,
+  data: { bossDefeated: true, level: 3 },
+  timestamp: Date.now(),
+  playtime: 3621,
 })
+if (!ok) console.warn('Could not save — storage unavailable or quota exceeded')
 
 // Load and validate:
-const raw  = await SaveSystem.load('slot-1')   // throws if slot not found
-const data = Schema.parse(raw.data)             // throws on corrupt / schema mismatch
+const slot = save.load('slot-1')  // returns SaveSlot | null (never throws)
+if (slot !== null) {
+  const data = Schema.parse(slot.data)  // validate with your own schema
+}
 
-// List available slots:
-const slots = await SaveSystem.listSlots()      // string[]
+// List slots sorted newest first:
+const slots = save.listSlots()  // SaveSlot[]
 
 // Delete a slot:
-await SaveSystem.delete('slot-1')
+save.delete('slot-1')
 ```
 
 ### Optional metadata fields
@@ -68,8 +74,10 @@ const data = Schema.parse(raw.data)
 If the loaded save data contains keys your Zod schema does not recognise, `SaveSystem` logs a console warning listing the unknown keys. This happens before the parse, and the parse itself still succeeds (Zod strips unknown keys by default). The warning surfaces version drift early — it is not an error, but it signals that a save was created by a newer or older version of the game.
 
 ### Notes
-- `SaveSystem.load()` throws `SlotNotFoundError` if the slot does not exist. Check `listSlots()` first or wrap in try/catch.
-- Never cast `raw.data as MySaveType` — schema validation is the contract.
+- `save()` returns `false` when localStorage is unavailable (private mode, quota exceeded). Always check the return value.
+- `load()` returns `null` for missing or corrupt slots — never throws.
+- `listSlots()` returns slots sorted by `timestamp` descending (newest first).
+- Never cast `slot.data as MySaveType` — always run it through your Zod schema.
 - Slot names are arbitrary strings. Use a consistent naming convention (`slot-1`, `autosave`, `checkpoint-{level}`) to avoid collisions.
 - In browser mode, data is stored in `localStorage`. Clearing site data deletes saves.
 
@@ -106,6 +114,13 @@ class GameScene extends Scene {
     this._localisation?.setLocale(code)
   }
 }
+
+// React to locale changes (e.g., refresh UI labels):
+const unsub = localisation.onLocaleChange((locale) => {
+  scoreLabel.text = localisation.t('hud.score', { score: this._score })
+})
+// In onDestroy:
+unsub()
 
 // Translate a key:
 localisation.t('menu.start')                          // → "Start Game"
