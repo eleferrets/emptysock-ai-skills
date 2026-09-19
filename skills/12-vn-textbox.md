@@ -1,11 +1,11 @@
 # VNTextbox
 
-`VNTextbox` is a pre-built dialogue box rendered by `UISystem`. It creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area. Call `bind(vn)` to wire it to a `VNSystem` instance — it updates automatically whenever the current node changes. Clicking the textbox calls `vn.advance()` automatically.
+`VNTextbox` is a pre-built dialogue box rendered by a scene's `UISystem`. It creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area. Call `bind(vn)` to wire it to a `VNSystem` instance — it updates automatically whenever the current node changes. Clicking the textbox calls `vn.advance()` automatically.
 
 ## Import
 
 ```typescript
-import { VNTextbox, VNSystem, UISystem, type VNTextboxOptions } from '@emptysock/engine'
+import { VNTextbox, VNSystem, type VNTextboxOptions } from '@emptysock/engine'
 ```
 
 ## Quick start
@@ -23,25 +23,21 @@ class NarrativeScene extends Scene {
     this._vn = new VNSystem()
 
     this._textbox = new VNTextbox({
+      ui: this.ui,          // pass the scene's UISystem instance
       canvasWidth:  800,
       canvasHeight: 600,
     })
     this._textbox.bind(this._vn)   // sync immediately to current node
 
-    this._vn.onChoice = (options) => {
-      // choice selection is external — VNTextbox doesn't provide choice buttons
-      // wire your own buttons and call this._vn.selectOption(option.next)
-    }
-
     this._vn.load(tree)   // fires onNode for the first node immediately
   }
 
   override onUpdate(dt: number): void {
-    UISystem.update(dt)
+    this.ui.update(dt)
   }
 
   override onDestroy(): void {
-    this._textbox?.destroy()   // removes UISystem components
+    this._textbox?.destroy()   // removes widgets from this.ui
   }
 }
 ```
@@ -50,14 +46,15 @@ class NarrativeScene extends Scene {
 
 | Option | Type | Default | Notes |
 |--------|------|---------|-------|
+| `ui` | `UISystem` | required | The scene's UISystem instance — pass `this.ui` |
 | `canvasWidth` | `number` | required | Canvas pixel width |
 | `canvasHeight` | `number` | required | Canvas pixel height |
 | `height` | `number` | `160` | Dialogue panel height in px |
 | `namePlateHeight` | `number` | `36` | Speaker name plate height in px |
 | `paddingX` | `number` | `24` | Horizontal padding inside the panel |
-| `panelColor` | `number` | `0x0d0d1a` | 0xRRGGBB panel fill (80% opacity) |
-| `namePlateColor` | `number` | `0x3c2d6e` | 0xRRGGBB name plate fill |
-| `textColor` | `number` | `0xffffff` | Dialogue text colour |
+| `panelColor` | `string` | `"rgba(13,13,26,0.88)"` | CSS colour for panel fill |
+| `namePlateColor` | `string` | `"#3c2d6e"` | CSS colour for name plate fill |
+| `textColor` | `string` | `"#ffffff"` | Dialogue text colour |
 | `fontSize` | `number` | `16` | Dialogue text size in px |
 
 ## API
@@ -66,7 +63,7 @@ class NarrativeScene extends Scene {
 |---|---|---|
 | `bind` | `(vn: VNSystem): void` | Wire to a VNSystem; immediately syncs to the current node. |
 | `visible` | `boolean` (getter/setter) | Show or hide the textbox. Auto-managed by node type. |
-| `destroy` | `(): void` | Remove components from UISystem. Call in onDestroy. |
+| `destroy` | `(): void` | Remove widgets from the UISystem. Call in onDestroy. |
 
 ## Advancing and choosing
 
@@ -77,10 +74,11 @@ Clicking anywhere on the textbox calls `vn.advance()` automatically for dialogue
 this._vn.onChoice = (options) => {
   options.forEach((opt, i) => {
     const btn = createChoiceButton(i + 1, opt.label)
-    btn.onClick(() => {
-      this._vn.selectOption(opt.next)   // opt.next is the target node ID
+    btn.on('click', () => {
+      this._vn?.selectOption(opt.next)   // opt.next is the target node ID
       removeChoiceButtons()
     })
+    this.ui.add(btn)
   })
 }
 ```
@@ -106,6 +104,7 @@ const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
 
 ## Rules
 
-- Call `destroy()` in `onDestroy()` — VNTextbox registers root components in `UISystem` and they persist until removed.
+- Always pass `ui: this.ui` — VNTextbox needs a UISystem instance to register its widgets.
+- Call `destroy()` in `onDestroy()` — widgets persist until removed.
 - Bind before calling `vn.load()` if you want the textbox to show the first node immediately.
 - VNSystem has no `destroy()` — release the reference and it is garbage-collected.

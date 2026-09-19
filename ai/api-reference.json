@@ -559,24 +559,24 @@
     },
     "UISystem": {
       "import": "import { UISystem, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
-      "description": "Canvas 2D overlay for screen-space UI (menus, HUD, dialogue boxes). Renders on top of the PixiJS scene. Access via this.uiSystem inside any Scene subclass.",
-      "singleton": "UISystem — module-level singleton, shared across all scenes",
+      "description": "Canvas 2D overlay for screen-space UI (menus, HUD, dialogue boxes). Each Scene owns a UISystem instance at scene.ui — there is no global singleton. Access it as this.ui inside any Scene subclass.",
+      "access": "this.ui — per-scene instance, created automatically by Scene",
       "methods": {
-        "add": "UISystem.add(widget: Widget): void — add a root widget to the overlay",
-        "removeWidget": "UISystem.removeWidget(widget: Widget): void — remove a root widget",
-        "clear": "UISystem.clear(): void — remove all widgets and UIComponents",
-        "clearWidgets": "UISystem.clearWidgets(): void — remove only Widget-API roots (not legacy UIComponents)",
-        "setImageLoader": "UISystem.setImageLoader(loader: ImageLoader): void — override the default fetch-based loader",
-        "update": "UISystem.update(dt: number, pointerX?, pointerY?, cw?, ch?): void — tick animations + hover state",
-        "render": "UISystem.render(ctx: IUIRenderer, cw: number, ch: number): void — draw all components and widgets",
-        "handleClick": "UISystem.handleClick(x, y, cw, ch): boolean — hit-test and dispatch click",
-        "handlePointerMove": "UISystem.handlePointerMove(x, y, cw, ch): void — update hover state"
+        "add": "this.ui.add(widget: Widget): void — add a root widget to the overlay",
+        "remove": "this.ui.remove(widget: Widget): void — remove a specific root widget",
+        "clear": "this.ui.clear(): void — remove all widgets",
+        "setImageLoader": "this.ui.setImageLoader(loader: ImageLoader | null): void — override the default fetch-based loader",
+        "update": "this.ui.update(dt: number, pointerX?, pointerY?, cw?, ch?): void — tick animations + hover state",
+        "render": "this.ui.render(ctx: IUIRenderer, cw: number, ch: number): void — draw all widgets",
+        "handleClick": "this.ui.handleClick(x, y, cw, ch): boolean — hit-test and dispatch click",
+        "dispatchPointerDown": "this.ui.dispatchPointerDown(x, y, cw, ch): boolean — alias for handleClick",
+        "handlePointerMove": "this.ui.handlePointerMove(x, y, cw, ch): void — update hover state"
       },
-      "note": "UISystem constructs a default ImageLoader internally (fetch + createImageBitmap). No setup needed for the common case."
+      "note": "Widgets added to this.ui are cleared automatically when the scene calls ui.clear() in onDestroy. Each scene has its own isolated widget tree — there is no cross-scene leakage."
     },
     "Widget": {
       "import": "import { Widget, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
-      "description": "Base class and 7 concrete widget types for building screen-space UI. Use uiSystem.add(widget) to render, uiSystem.removeWidget(widget) to remove.",
+      "description": "Base class and 7 concrete widget types for building screen-space UI. Use this.ui.add(widget) to render, this.ui.remove(widget) to remove.",
       "baseProperties": {
         "x": "number — pixel offset from anchor",
         "y": "number — pixel offset from anchor",
@@ -603,7 +603,7 @@
         "SliderWidget": "new SliderWidget({ value?, min?, max?, step?, trackColor?, thumbColor?, onChange?, ...baseOpts }) — .normalised: number",
         "CheckboxWidget": "new CheckboxWidget({ checked?, label?, color?, background?, borderColor?, fontSize?, font?, onChange?, ...baseOpts })"
       },
-      "example": "const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });\nconst btn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });\nbtn.on('click', () => this.engine.popScene());\npanel.children.push(btn);\nthis.uiSystem.add(panel);\npanel.animate('fadeIn');"
+      "example": "const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });\nconst btn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });\nbtn.on('click', () => this.engine.popScene());\npanel.children.push(btn);\nthis.ui.add(panel);\npanel.animate('fadeIn');"
     }
   },
   "fileExtensions": {
@@ -900,8 +900,8 @@
   },
   "VNTextbox": {
     "import": "import { VNTextbox, type VNTextboxOptions } from '@emptysock/engine'",
-    "description": "Pre-built dialogue box rendered by UISystem. Bind to a VNSystem instance to auto-update. Clicking the textbox automatically calls VNSystem.advance(). Call destroy() in onDestroy.",
-    "constructor": "new VNTextbox({ canvasWidth, canvasHeight, height?, namePlateHeight?, paddingX?, panelColor?, namePlateColor?, textColor?, fontSize? })",
+    "description": "Pre-built dialogue box rendered by a scene's UISystem. Bind to a VNSystem instance to auto-update. Clicking the textbox automatically calls VNSystem.advance(). Call destroy() in onDestroy.",
+    "constructor": "new VNTextbox({ ui: this.ui, canvasWidth, canvasHeight, height?, namePlateHeight?, paddingX?, panelColor?, namePlateColor?, textColor?, fontSize? })",
     "methods": {
       "bind": {
         "signature": "(vn: VNSystem): void",

@@ -1,6 +1,6 @@
 # UISystem
 
-`UISystem` is the EmptySock 2D UI overlay. It renders `Widget` nodes on top of the PixiJS scene using Canvas 2D. `UISystem` is a module-level singleton — call its methods directly or access it as `this.uiSystem` inside any `Scene` subclass.
+`UISystem` is the EmptySock 2D UI overlay. It renders `Widget` nodes on top of the PixiJS scene using Canvas 2D. Each `Scene` owns a `UISystem` instance at `scene.ui` — there is no global singleton. Widgets added to `scene.ui` are automatically cleared when the scene is destroyed.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ```typescript
 import {
-  UISystem,
+  Scene,
   PanelWidget,
   LabelWidget,
   ButtonWidget,
@@ -19,33 +19,33 @@ class HUDScene extends Scene {
   private _hp: ProgressBarWidget | null = null
   private _scoreLabel: LabelWidget | null = null
 
-  override onLoad(): void {
+  override async onLoad(): Promise<void> {
     this._hp = new ProgressBarWidget({
       anchor: 'top-left',
       x: 16, y: 16,
       width: 200, height: 14,
-      fillColor: 0xe74c3c,
-      trackColor: 0x333333,
+      fillColor: '#e74c3c',
+      trackColor: '#333333',
       value: 1.0,
     })
-    UISystem.add(this._hp)
+    this.ui.add(this._hp)
 
     this._scoreLabel = new LabelWidget({
       anchor: 'top-right',
       x: 16, y: 16,
       text: 'Score: 0',
       fontSize: 20,
-      color: 0xffffff,
+      color: '#ffffff',
     })
-    UISystem.add(this._scoreLabel)
+    this.ui.add(this._scoreLabel)
   }
 
   override onUpdate(dt: number): void {
-    UISystem.update(dt)
+    this.ui.update(dt)
   }
 
   override onDestroy(): void {
-    UISystem.clear()
+    this.ui.clear()
   }
 }
 ```
@@ -94,17 +94,21 @@ All accept `{ duration?: number, easing?: string, direction?: 'left'|'right'|'up
 ## Buttons and events
 
 ```typescript
-import { UISystem, ButtonWidget, SceneManager } from '@emptysock/engine'
+import { Scene, ButtonWidget } from '@emptysock/engine'
 
-const btn = new ButtonWidget({
-  label: 'Retry',
-  anchor: 'center',
-  width: 120,
-  height: 40,
-})
-btn.on('click', () => SceneManager.load('GameScene'))
-btn.animate('fadeIn', { duration: 0.3 })
-UISystem.add(btn)
+class MenuScene extends Scene {
+  override async onLoad(): Promise<void> {
+    const btn = new ButtonWidget({
+      label: 'Retry',
+      anchor: 'center',
+      width: 120,
+      height: 40,
+    })
+    btn.on('click', () => this.engine.loadScene('GameScene'))
+    btn.animate('fadeIn', { duration: 0.3 })
+    this.ui.add(btn)
+  }
+}
 ```
 
 ---
@@ -114,36 +118,44 @@ UISystem.add(btn)
 Build complex layouts by pushing children onto a `PanelWidget`. Children position relative to the panel's origin:
 
 ```typescript
-import { UISystem, PanelWidget, LabelWidget, ButtonWidget } from '@emptysock/engine'
+import { Scene, PanelWidget, LabelWidget, ButtonWidget } from '@emptysock/engine'
 
-const panel = new PanelWidget({
-  anchor: 'center',
-  width: 300, height: 200,
-  background: 0x1a1a2e,
-})
+class GameOverScene extends Scene {
+  override async onLoad(): Promise<void> {
+    const panel = new PanelWidget({
+      anchor: 'center',
+      width: 300, height: 200,
+      background: '#1a1a2e',
+    })
 
-const title = new LabelWidget({ text: 'Game Over', fontSize: 24, anchor: 'top', y: 16 })
-const score = new LabelWidget({ text: 'Score: 0', fontSize: 18, anchor: 'center' })
-const retry = new ButtonWidget({ label: 'Retry', anchor: 'bottom', y: 20, width: 100, height: 36 })
+    const title = new LabelWidget({ text: 'Game Over', fontSize: 24, anchor: 'top', y: 16 })
+    const score = new LabelWidget({ text: 'Score: 0', fontSize: 18, anchor: 'center' })
+    const retry = new ButtonWidget({ label: 'Retry', anchor: 'bottom', y: 20, width: 100, height: 36 })
 
-retry.on('click', () => SceneManager.load('GameScene'))
-panel.children.push(title, score, retry)
-UISystem.add(panel)
-panel.animate('fadeIn')
+    retry.on('click', () => this.engine.loadScene('GameScene'))
+    panel.children.push(title, score, retry)
+    this.ui.add(panel)
+    panel.animate('fadeIn')
+  }
+}
 ```
 
 ---
 
 ## UISystem API
 
+Access via `scene.ui` (or `this.ui` inside a `Scene` subclass).
+
 | Method | Description |
 |--------|-------------|
-| `UISystem.add(widget)` | Add a root widget to the overlay |
-| `UISystem.removeWidget(widget)` | Remove a specific root widget |
-| `UISystem.clear()` | Remove all widgets and legacy UIComponents |
-| `UISystem.update(dt, px?, py?, cw?, ch?)` | Tick animations and hover state each frame |
-| `UISystem.render(ctx, cw, ch)` | Draw all widgets to a Canvas 2D context |
-| `UISystem.setImageLoader(loader)` | Override the default fetch-based image loader |
+| `ui.add(widget)` | Add a root widget to the overlay |
+| `ui.remove(widget)` | Remove a specific root widget |
+| `ui.clear()` | Remove all widgets |
+| `ui.update(dt, px?, py?, cw?, ch?)` | Tick animations and hover state each frame |
+| `ui.render(ctx, cw, ch)` | Draw all widgets to a Canvas 2D context |
+| `ui.setImageLoader(loader)` | Override the default fetch-based image loader |
+| `ui.handleClick(x, y, cw, ch)` | Hit-test and dispatch click; returns true if a widget was hit |
+| `ui.handlePointerMove(x, y, cw, ch)` | Update hover state |
 
 ---
 
@@ -151,20 +163,20 @@ panel.animate('fadeIn')
 
 ```typescript
 class MyScene extends Scene {
-  override onLoad(): void {
+  override async onLoad(): Promise<void> {
     const btn = new ButtonWidget({ label: 'Play', anchor: 'center' })
     btn.animate('fadeIn', { duration: 0.3 })
-    UISystem.add(btn)
+    this.ui.add(btn)
   }
 
   override onUpdate(dt: number): void {
-    UISystem.update(dt)
-    // UISystem.render() is called automatically after PixiJS renders.
+    this.ui.update(dt)
+    // ui.render() is called automatically after PixiJS renders.
     // Only call it manually if you manage a raw Canvas 2D context yourself.
   }
 
   override onDestroy(): void {
-    UISystem.clear()
+    this.ui.clear()
   }
 }
 ```
@@ -173,8 +185,9 @@ class MyScene extends Scene {
 
 ## Rules
 
-- Never call `UISystem.add()` inside `onUpdate()` — create widgets in `onLoad()`, update properties in `onUpdate()`.
-- Always call `UISystem.clear()` in `onDestroy()` — widgets persist until explicitly removed.
-- Use `widget.visible = false` to hide temporarily; `UISystem.removeWidget(w)` to fully remove.
+- Each `Scene` has its own `UISystem` at `this.ui`. Never import or reference the class directly to get a shared instance — each scene is isolated.
+- Never call `this.ui.add()` inside `onUpdate()` — create widgets in `onLoad()`, update properties in `onUpdate()`.
+- Call `this.ui.clear()` in `onDestroy()` — or widgets linger until the next scene's clear call.
+- Use `widget.visible = false` to hide temporarily; `this.ui.remove(w)` to fully remove.
 - `widget.children` is a plain mutable array — push onto a `PanelWidget` to nest widgets.
 - Never use definite-assignment `!` on widget fields; use `T | null = null` and check before use.
