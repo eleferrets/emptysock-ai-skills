@@ -31,9 +31,25 @@ export class GameScene extends Scene {
     // build world here — awaited before first frame
   }
 
+  override onStart(): void {
+    // called once after onLoad resolves — safe to reference entities created in onLoad
+  }
+
   override onUpdate(dt: number): void {
     // runs every frame — dt = seconds since last frame
     // no async/await here — use coroutines
+  }
+
+  override onFixedUpdate(dt: number): void {
+    // runs at fixed timestep — use for physics / authoritative simulation
+  }
+
+  override onPause(): void {
+    // called when another scene is pushed on top via SceneManager.push()
+  }
+
+  override onResume(): void {
+    // called when that pushed scene is popped and this one becomes active again
   }
 
   override onDestroy(): void {
@@ -57,6 +73,25 @@ player.addComponent(Animator, { spritesheet: 'hero.esanim', defaultClip: 'idle' 
 
 const sprite = player.getComponent(Sprite)          // T | undefined
 const body   = player.requireComponent(PhysicsBody) // T | throws
+
+// Transform — position, rotation (radians), scale:
+player.position = { x: 100, y: 200 }
+player.setPosition(100, 200)  // chainable
+player.rotation = Math.PI / 4
+player.scale = { x: 1.5, y: 1.5 }
+
+// Events — on() returns an unsubscriber:
+const unsub = player.on('hit', (data) => { console.log('hit', data) })
+player.emit('hit', { damage: 10 })
+unsub()  // stop listening
+
+// Coroutines on the entity:
+player.startCoroutine(function* () {
+  yield waitSeconds(1.0)
+  player.emit('ready')
+})
+
+// Destroy — removes from scene, destroys children, emits 'destroy':
 player.destroy()
 ```
 
@@ -242,9 +277,11 @@ import { z } from 'zod'
 const Schema = z.object({ scene: z.string(), score: z.number(), flags: z.record(z.boolean()) })
 type Save = z.infer<typeof Schema>
 
-await SaveSystem.save('slot-1', { scene: 'Level2', score: 4200, flags: {} })
-const raw  = await SaveSystem.load('slot-1')
-const data = Schema.parse(raw.data) // always validate — throws on corrupt
+const save = new SaveSystem()
+const ok = save.save('slot-1', { scene: 'Level2', score: 4200, data: { flags: {} }, timestamp: Date.now(), playtime: 0 })
+if (!ok) console.warn('save failed — storage unavailable')
+const slot = save.load('slot-1')                     // SaveSlot | null
+if (slot !== null) Schema.parse(slot.data)            // always validate
 ```
 
 ---
