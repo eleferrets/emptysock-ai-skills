@@ -366,28 +366,6 @@ if (this.isOffscreen()) pool.release(this)
 
 ---
 
-## Common Mistakes — Never Do These
-
-| Wrong | Right |
-|---|---|
-| `import * as PIXI from 'pixi.js'` | Use `@emptysock/engine` only |
-| `import { Input } from '@emptysock/engine'` | `import { InputSystem } from '@emptysock/engine'` (instanced) |
-| `Input.isPressed('Space')` | `input.isKeyPressed('Space')` on an `InputSystem` instance |
-| `import { t, LocalisationSystem }` | `import { LocalisationSystem }` (no standalone `t` export) |
-| `LocalisationSystem.setLocale('fr')` | `localisation.setLocale('fr')` on an instance |
-| `setTimeout(() => spawnEnemy(), 2000)` | `tweens.after(2.0, () => spawnEnemy())` on a `TweenManager` instance |
-| `async onUpdate() { await fetch(...) }` | Preload in `onLoad()`, or use a coroutine |
-| `entity.getComponent(Sprite)!` | `entity.getComponent(Sprite)?.prop` |
-| `private _x!: SomeType` | `private _x: SomeType \| null = null` |
-| `JSON.parse(raw) as MyType` | `MySchema.parse(JSON.parse(raw))` |
-| `let x: any = getStuff()` | `let x: unknown = getStuff()` then narrow |
-| `document.getElementById('canvas')` | EmptySock UI / canvas system |
-| Forgetting `entity.destroy()` | Always destroy when done |
-| Forgetting timer cleanup in `onDestroy` | Call `tweens.destroy()` — cancels all pending timers |
-| Forgetting `input.detach()` in `onDestroy` | Always detach `InputSystem` when done |
-
----
-
 ## Performance Quick Rules
 
 - Keep draw calls under **50 per frame** when targeting Raspberry Pi 4 or older mobile.

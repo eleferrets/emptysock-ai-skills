@@ -25,6 +25,8 @@ Update this file after any fix in this repo.
 - [x] **`skills/00-quickstart.md`** — Replaced wrong static Camera API; added Gamepad section.
 - [x] **`skills/01-actor-model.md`** — Added inbox cap (1000 msgs) and flush-pass re-send caveat.
 
+- [x] **`ai/CLAUDE.md`** — "Common Mistakes" table removed; every entry is now a TypeScript compile error or ESLint rule.
+
 ## Remaining open items
 
 None identified. See `emptysock-engine/RELEASE_PASS.md` for full cross-repo list.
