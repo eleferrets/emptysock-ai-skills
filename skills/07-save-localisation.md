@@ -44,6 +44,35 @@ const slots = save.listSlots()  // SaveSlot[]
 save.delete('slot-1')
 ```
 
+### Optional metadata fields
+
+`SaveSystem.save()` accepts two optional metadata fields alongside your data:
+
+```typescript
+await SaveSystem.save('slot-1', {
+  scene: 'Level3',
+  score: 8400,
+  flags: { bossDefeated: true },
+  level: 3,
+}, {
+  timestamp: Date.now(),    // ms since epoch — written into raw.timestamp on load
+  playtime: 3742,           // seconds of play time — written into raw.playtime on load
+})
+```
+
+Both fields are available on the raw object returned by `load()`:
+
+```typescript
+const raw = await SaveSystem.load('slot-1')
+console.log(raw.timestamp)  // number | undefined
+console.log(raw.playtime)   // number | undefined
+const data = Schema.parse(raw.data)
+```
+
+### Unknown-key warning
+
+If the loaded save data contains keys your Zod schema does not recognise, `SaveSystem` logs a console warning listing the unknown keys. This happens before the parse, and the parse itself still succeeds (Zod strips unknown keys by default). The warning surfaces version drift early — it is not an error, but it signals that a save was created by a newer or older version of the game.
+
 ### Notes
 - `save()` returns `false` when localStorage is unavailable (private mode, quota exceeded). Always check the return value.
 - `load()` returns `null` for missing or corrupt slots — never throws.

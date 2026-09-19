@@ -63,9 +63,21 @@ remote.setTransport(transport);
 system.register(remote);
 ```
 
+## Listing all actors
+
+Use `getAll()` to iterate every actor currently registered in the system — useful for save snapshots, debug UIs, or broadcast filtering.
+
+```typescript
+const allActors: Actor[] = system.getAll();
+for (const actor of allActors) {
+  console.log(actor.id);
+}
+```
+
 ## Tips
 - One ActorSystem per scene; call `system.update(dt)` in your game loop.
 - `broadcast()` is O(n) — prefer targeted `send()` for high-frequency messages.
 - Actors are destroyed when `system.unregister(id)` is called — clean up handles in `onStop()`.
 - Each actor's inbox is capped at **1 000 messages**. Messages beyond that are dropped with a console warning. If you see the warning, the actor is not draining fast enough — split the work or reduce send frequency.
 - Messages sent inside `receive()` are processed in the **same flush pass** (not next frame). A cycle where actor A sends to actor B which sends back to A will drain both inboxes in the same frame — avoid mutual re-sends.
+- `getAll()` returns a snapshot array; mutating it does not affect the ActorSystem.
