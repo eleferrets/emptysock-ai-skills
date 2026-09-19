@@ -15,7 +15,8 @@ In the IDE menu bar: **Module → Story Graph**. The panel is an SVG node graph 
 | Type | Purpose | Ports |
 |------|---------|-------|
 | `dialogue` | Speaker + text body | 1 input, 1 output |
-| `choice` | Array of options | 1 input, N outputs (one per option) |
+| `choice` | Array of options, each optionally gated by a `VariableCondition` (`when`) | 1 input, N outputs (one per option) |
+| `condition` | Branches to `ifTrue` or `ifFalse` based on a `VariableCondition` | 1 input, 2 outputs |
 
 ---
 
@@ -60,6 +61,10 @@ override async onLoad(): Promise<void> {
 
   const tree: DialogueTree = storyGraphToDialogueTree(graph)
 
+  // Uses the shared `variableStore` singleton by default — pass a different
+  // `VariableStore` instance as the constructor argument for isolated state
+  // (per-save-slot, tests). This is what "condition" nodes and a choice
+  // option's `when` field are evaluated against.
   const vn = new VNSystem()
 
   // Register a listener BEFORE calling load():
@@ -122,10 +127,14 @@ vn.setListener({
       // node.next?: string (next node id, or undefined if last)
     } else if (node.type === 'choice') {
       // node.text: string (prompt text shown above options)
-      // node.options: Array<{ label: string; next: string }>
+      // node.options: Array<{ label: string; next: string; when?: VariableCondition }>
+      // Options whose `when` evaluates false are already filtered out before
+      // onChoice fires — you never see them and never re-check the condition.
     }
     // 'jump' nodes are resolved automatically — onNode never fires for them
     // 'variable-set' nodes auto-advance; read via vn.getVariable(key)
+    // 'condition' nodes resolve and advance to ifTrue/ifFalse synchronously,
+    // like jump — onNode never fires for them either
   },
   onEvent(eventName, data) {
     // eventName: string — fire game logic
@@ -137,6 +146,42 @@ vn.setListener({
 
 ---
 
+## Branching on persistent variables
+
+`'condition'` dialogue nodes and a choice option's `when` field both branch on the shared `VariableStore` (see `skills/13-variable-store.md`), so a Story Graph can react to what happened elsewhere in the game — a boss fight, a switch flipped by a map event — without any special-case code in the scene.
+
+```typescript
+import { variableStore, VNSystem, type DialogueTree } from '@emptysock/engine'
+
+variableStore.setSwitchName(10, 'bossDefeated')
+
+const tree: DialogueTree = {
+  startNode: 'throneRoomCheck',
+  nodes: {
+    throneRoomCheck: {
+      type: 'condition',
+      condition: { kind: 'switch', index: 10, equals: true },
+      ifTrue: 'kingThanksYou',
+      ifFalse: 'kingWarnsYou',
+    },
+    kingThanksYou: { type: 'dialogue', speaker: 'King', text: 'You saved the realm.' },
+    kingWarnsYou: { type: 'dialogue', speaker: 'King', text: 'The dragon still lives — hurry.' },
+  },
+}
+
+const vn = new VNSystem()  // uses the shared variableStore by default
+vn.setListener({
+  onNode(node) {
+    if (node.type === 'dialogue') showText(node.speaker, node.text)
+  },
+})
+vn.load(tree)  // shows "The dragon still lives — hurry." while switch 10 is false
+```
+
+A choice option works the same way — add `when: { kind: 'variable', index: 4, op: 'gte', value: 10 }` to any option and it is silently excluded from `onChoice`'s array until the condition is true.
+
+---
+
 ## Save and resume pattern
 
 VNSystem has no internal save state. Store enough to recreate position yourself:
@@ -145,11 +190,14 @@ VNSystem has no internal save state. Store enough to recreate position yourself:
 import { SaveSystem, VNSystem, storyGraphToDialogueTree } from '@emptysock/engine'
 import { z } from 'zod'
 
-const Schema = z.object({ nodeId: z.string() })
+const progressSaves = new SaveSystem<{ id: string; nodeId: string }>(
+  'vn_progress_',
+  z.object({ id: z.string(), nodeId: z.string() }),
+)
 
 // Save the current node id:
 function saveProgress(currentNodeId: string): void {
-  SaveSystem.save('vn-progress', { nodeId: currentNodeId }).catch(() => undefined)
+  progressSaves.save('vn-progress', { nodeId: currentNodeId })
 }
 
 // Resume: load the tree again and navigate to the saved node

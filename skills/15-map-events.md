@@ -9,6 +9,8 @@
 ```typescript
 import { MapEventSystem, variableStore, VNSystem, SceneManager, InputSystem } from '@emptysock/engine'
 
+// Defaults to the shared `variableStore` singleton — pass a different
+// `VariableStore` instance to isolate an event system's `when` gates.
 const events = new MapEventSystem()
 const vn = new VNSystem()
 
@@ -82,8 +84,35 @@ interface MapEvent {
   tileY: number
   trigger: EventTriggerType
   commands: EventCommand[]
+  /**
+   * Optional gate evaluated against the VariableStore before the event is
+   * allowed to run. When present and false, update() skips the event
+   * entirely — it never triggers, autoruns, or fires as a parallel process —
+   * and it is re-checked every frame, so the event starts working the moment
+   * the condition becomes true.
+   */
+  when?: VariableCondition
 }
 ```
+
+### Gating an event on a variable
+
+```typescript
+import { variableStore, type MapEvent } from '@emptysock/engine'
+
+// Invisible (never triggers) until switch 10 (set elsewhere, e.g. by another
+// event or a Story Graph node) flips to true:
+const throneRoomDoor: MapEvent = {
+  id: 'throne-room-door',
+  tileX: 0, tileY: 0,
+  trigger: 'autorun',
+  when: { kind: 'switch', index: 10, equals: true },
+  commands: [{ type: 'show-dialogue', speaker: 'Guard', text: 'The way is open.' }],
+}
+events.addEvent(throneRoomDoor)
+```
+
+See `skills/13-variable-store.md` for the full `VariableCondition` shape and `evaluateCondition()`.
 
 ### Trigger types
 
@@ -121,18 +150,21 @@ The handler may be async. The system awaits it before executing the next command
 To save and restore map event state across sessions, snapshot the events list yourself and pass it back to `loadEvents()`:
 
 ```typescript
-import { z } from 'zod'
+import { SaveSystem } from '@emptysock/engine'
 
 // Capture the current event definitions (they are plain data — no toJSON needed):
 const saved = myEventDefinitions   // the same MapEvent[] you passed to loadEvents()
 
-// Include in a save slot:
-await SaveSystem.save('slot-1', { scene: 'Map01', events: saved })
+const saves = new SaveSystem()
 
-// Restore on load (always validate with Zod before use):
-const raw  = await SaveSystem.load('slot-1')
-const data = MySaveSchema.parse(raw.data)
-events.loadEvents(data.events)
+// Include in a save slot:
+saves.save('slot-1', { scene: 'Map01', data: { events: saved } })
+
+// Restore on load — load() already validates against GameSaveSlot:
+const slot = saves.load('slot-1')
+if (slot !== null) {
+  events.loadEvents(slot.data.events as MapEvent[])
+}
 ```
 
 ---

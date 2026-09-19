@@ -59,20 +59,49 @@ variableStore.reset(): void    // clear all variables and switches
 
 ```typescript
 import { SaveSystem, variableStore } from '@emptysock/engine'
-import { z } from 'zod'
 
-const VariableStoreDataSchema = z.object({
-  vars:     z.record(z.number()),
-  switches: z.record(z.boolean()),
-})
+// SaveSystem is synchronous — embed a snapshot() call inside a slot's `data` field:
+const saves = new SaveSystem()
+saves.save('slot1', { scene: 'Map01', data: { vars: variableStore.snapshot() } })
 
-// Include in a SaveSystem slot:
-await SaveSystem.save('slot1', { scene: 'Map01', vars: variableStore.snapshot() })
+// Restore on load — load() already validates against GameSaveSlot, so no
+// separate parse step is needed:
+const slot = saves.load('slot1')
+if (slot !== null) {
+  variableStore.restore(slot.data.vars as ReturnType<typeof variableStore.snapshot>)
+}
+```
 
-// Restore on load — always validate with Zod:
-const raw  = await SaveSystem.load('slot1')
-const data = z.object({ scene: z.string(), vars: VariableStoreDataSchema }).parse(raw.data)
-variableStore.restore(data.vars)
+See `skills/07-save-localisation.md` for the full `SaveSystem` API.
+
+---
+
+## Conditional logic — `VariableCondition`
+
+`VariableCondition` is the shared seam that gates conditional dialogue in `VNSystem` and conditional map events in `MapEventSystem` — see `skills/08-story-graph.md` and `skills/15-map-events.md`. You only need to call `evaluateCondition()` directly when building a conditional gate of your own outside those two systems.
+
+```typescript
+import { variableStore, evaluateCondition, type VariableCondition } from '@emptysock/engine'
+
+type VariableCondition =
+  | { kind: 'switch'; index: number; equals: boolean }
+  | { kind: 'variable'; index: number; op: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'; value: number }
+
+variableStore.setSwitch(1, true)
+evaluateCondition(variableStore, { kind: 'switch', index: 1, equals: true })  // true
+
+variableStore.setVar(4, 12)
+evaluateCondition(variableStore, { kind: 'variable', index: 4, op: 'gte', value: 10 })  // true
+```
+
+`VNSystem` and `MapEventSystem` both default to the shared `variableStore` singleton when constructed with no arguments, so a game with one save file needs no extra wiring. Pass a different `VariableStore` instance to either constructor when isolation is needed instead — per-save-slot state, or a clean store in a test:
+
+```typescript
+import { VariableStore, VNSystem, MapEventSystem } from '@emptysock/engine'
+
+const isolatedStore = new VariableStore()
+const vn = new VNSystem(isolatedStore)
+const events = new MapEventSystem(isolatedStore)
 ```
 
 ---
@@ -85,7 +114,7 @@ The **Variables** panel (enable via **Module → Variables**) shows all named va
 
 ## Rules
 
-- `variableStore` is a process-global singleton — do not create new `VariableStore` instances per scene.
+- `variableStore` is the shared default singleton — use it unless you specifically need an isolated store (per-save-slot state, tests), in which case construct your own `VariableStore` and pass it explicitly to `VNSystem` / `MapEventSystem`.
 - Call `load()` once in your entry scene's `onLoad()`, not on every scene transition.
 - Call `save()` after any meaningful state change (checkpoint, item collected, boss defeated) — do not call every frame.
 - Indices are 1-based. Index 0 is accepted but treated as the same slot as 1 internally; use 1+ for clarity.

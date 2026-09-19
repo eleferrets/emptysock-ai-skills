@@ -62,6 +62,7 @@ emptysock-agent-pack/
 | `skills/20-ui-widgets.md` | UISystem widgets: panels, labels, buttons, progress bars, sliders, checkboxes, animations |
 | `skills/21-post-process.md` | PostProcessSystem: full-screen effects and per-layer filters |
 | `skills/22-lighting-system.md` | LightingSystem: dynamic lights, ambient light, shadow casting |
+| `skills/23-rendering.md` | RenderPipeline: Transform+Sprite auto-rendering, tilemap mounting, layers |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |

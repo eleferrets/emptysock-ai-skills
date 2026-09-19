@@ -61,13 +61,22 @@ class MyScene extends Scene {
 
 // Entities & components
 const e = scene.createEntity('Name')
-e.addComponent(Sprite, { texture: 'file.png' })
-e.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
-e.addComponent(CharacterController, { slopeAngle: 45 })
-e.getComponent(Sprite)          // T | undefined
-e.requireComponent(Sprite)      // T | throws
+e.addComponent(new Transform({ x: 0, y: 0 }))
+e.addComponent(new Sprite({ texturePath: 'file.png' }))
+e.addComponent(new PhysicsBody({ shape: 'capsule', bodyType: 'dynamic' }))
+e.addComponent(new CharacterController({ slopeAngle: 45 }))
+e.getComponent(Sprite.TYPE)          // Sprite | undefined — built-ins expose a typed `.TYPE` token
+e.requireComponent(Sprite.TYPE)      // Sprite | throws
 e.hasTag('enemy')               // boolean
 e.destroy()
+
+// Rendering — Transform + Sprite is the entire contract for "this shows up on screen"
+const render = new RenderPipeline()                    // in onLoad
+await render.init({ width: 1280, height: 720 })
+document.body.appendChild(render.canvas)
+render.renderFrame(scene)                               // once per frame, after game logic
+render.mountTilemap(tilemap)                             // draws real tile sprites
+render.destroy()                                         // in onDestroy
 
 // Input — instanced; create in onLoad, detach in onDestroy
 // const input = new InputSystem(); input.attach();
@@ -109,13 +118,12 @@ entity.startCoroutine(function* () {
   SceneManager.transition('WinScene', { effect: 'iris' })
 })
 
-// Saves — instanced, synchronous; always Zod validate
+// Saves — instanced, synchronous. No schema given → default GameSaveSlot shape
+// ({ id, scene, data, timestamp, playtime }); pass a Zod schema as the 2nd
+// constructor arg for a custom shape — load() then already validates for you.
 const save = new SaveSystem()
-const ok = save.save('slot-1', data)        // boolean (false if storage unavailable)
-const slot = save.load('slot-1')             // SaveSlot | null
-if (slot !== null) {
-  const safe = MySchema.parse(slot.data)
-}
+save.save('slot-1', { scene: 'Level2', data: { score: 4200 } })
+const slot = save.load('slot-1')             // GameSaveSlot | null — never throws
 
 // Localisation — instanced; create in onLoad
 // const localisation = new LocalisationSystem()

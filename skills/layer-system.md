@@ -2,6 +2,8 @@
 
 `LayerSystem` controls draw order: entities are assigned to a named layer at an explicit depth; `RenderSystem` draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers are created by the constructor — add more with `defineLayer`.
 
+> Most games never call `addEntity` directly. `RenderPipeline` (see `skills/23-rendering.md`) reads `layer`/`depth` straight off each entity's `Sprite` component and calls `addEntity`/`setDepth` for you every frame. Call `LayerSystem` methods yourself only when you need custom layers (`defineLayer`) or manual visibility control (`setVisible`) — `RenderPipeline` shares the same `LayerSystem` instance via its `layers` getter, or you can pass your own in via `RenderPipelineOptions.layers`.
+
 ## Import
 
 ```typescript

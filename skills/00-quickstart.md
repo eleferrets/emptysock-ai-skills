@@ -63,16 +63,19 @@ export class GameScene extends Scene {
 ## Entities and components
 
 ```typescript
-import { Sprite, PhysicsBody, CharacterController, Animator } from '@emptysock/engine'
+import { Transform, Sprite, PhysicsBody, CharacterController, Animator } from '@emptysock/engine'
 
 const player = scene.createEntity('Player')
-player.addComponent(Sprite, { texture: 'hero.png', anchor: { x: 0.5, y: 1.0 } })
-player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
-player.addComponent(CharacterController, { slopeAngle: 45 })
-player.addComponent(Animator, { spritesheet: 'hero.esanim', defaultClip: 'idle' })
+player.addComponent(new Transform({ x: 0, y: 0 }))
+player.addComponent(new Sprite({ texturePath: 'hero.png', anchorX: 0.5, anchorY: 1.0 }))
+player.addComponent(new PhysicsBody({ shape: 'capsule', bodyType: 'dynamic' }))
+player.addComponent(new CharacterController({ slopeAngle: 45 }))
+player.addComponent(new Animator({ spritesheet: 'hero.esanim', defaultClip: 'idle' }))
 
-const sprite = player.getComponent(Sprite)          // T | undefined
-const body   = player.requireComponent(PhysicsBody) // T | throws
+// Built-in components expose a typed ComponentType token as `.TYPE` — use it
+// with getComponent/requireComponent to infer the right type and catch typos:
+const sprite = player.getComponent(Sprite.TYPE)          // Sprite | undefined
+const body   = player.requireComponent(PhysicsBody.TYPE) // PhysicsBody | throws
 
 // Transform — position, rotation (radians), scale:
 player.position = { x: 100, y: 200 }
@@ -93,6 +96,34 @@ player.startCoroutine(function* () {
 
 // Destroy — removes from scene, destroys children, emits 'destroy':
 player.destroy()
+```
+
+---
+
+## Rendering (RenderPipeline)
+
+Attaching `Transform` + `Sprite` to an entity is the entire contract for "this shows up on screen" — no manual PixiJS wiring. See `skills/23-rendering.md` for tilemaps, layers, and custom texture loading.
+
+```typescript
+import { RenderPipeline, Transform, Sprite } from '@emptysock/engine'
+
+// In onLoad:
+private _render = new RenderPipeline()
+await this._render.init({ width: 1280, height: 720 })
+document.body.appendChild(this._render.canvas)
+
+// Anything with Transform + Sprite is drawn automatically:
+const player = scene.createEntity('Player')
+player.addComponent(new Transform({ x: 100, y: 200 }))
+player.addComponent(new Sprite({ texturePath: 'hero.png', layer: 'foreground', depth: 10 }))
+
+// Call once per frame, after game logic:
+override onUpdate(dt: number): void {
+  this._render.renderFrame(this)
+}
+
+// In onDestroy:
+this._render.destroy()
 ```
 
 ---
@@ -326,17 +357,15 @@ gamepad.destroy()
 ## Save and load
 
 ```typescript
-import { SaveSystem } from '@emptysock/engine'
-import { z } from 'zod'
+import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'
 
-const Schema = z.object({ scene: z.string(), score: z.number(), flags: z.record(z.boolean()) })
-type Save = z.infer<typeof Schema>
-
+// No schema given → uses the default GameSaveSlot shape: { id, scene, data, timestamp, playtime }
 const save = new SaveSystem()
-const ok = save.save('slot-1', { scene: 'Level2', score: 4200, data: { flags: {} }, timestamp: Date.now(), playtime: 0 })
-if (!ok) console.warn('save failed — storage unavailable')
-const slot = save.load('slot-1')                     // SaveSlot | null
-if (slot !== null) Schema.parse(slot.data)            // always validate
+save.save('slot-1', { scene: 'Level2', data: { score: 4200, flags: {} } })
+const slot = save.load('slot-1')   // GameSaveSlot | null — already validated, never throws
+if (slot !== null) loadScene(slot.scene)
+
+// Pass a Zod schema for a custom slot shape — see skills/07-save-localisation.md
 ```
 
 ---

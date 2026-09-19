@@ -91,21 +91,45 @@ export class GameScene extends Scene {
 ### Entity & Components
 
 ```typescript
-import { Sprite, PhysicsBody, CharacterController, Animator } from '@emptysock/engine'
+import { Transform, Sprite, PhysicsBody, CharacterController, Animator } from '@emptysock/engine'
 
 const player = scene.createEntity('Player')
-player.addComponent(Sprite, { texture: 'hero.png', anchor: { x: 0.5, y: 1.0 } })
-player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
-player.addComponent(CharacterController, { slopeAngle: 45, snapToGround: 0.5 })
-player.addComponent(Animator, { spritesheet: 'hero.esanim', defaultClip: 'idle' })
+player.addComponent(new Transform({ x: 0, y: 0 }))
+player.addComponent(new Sprite({ texturePath: 'hero.png', anchorX: 0.5, anchorY: 1.0 }))
+player.addComponent(new PhysicsBody({ shape: 'capsule', bodyType: 'dynamic' }))
+player.addComponent(new CharacterController({ slopeAngle: 45, snapToGround: 0.5 }))
+player.addComponent(new Animator({ spritesheet: 'hero.esanim', defaultClip: 'idle' }))
 
-// Access
-const sprite = player.getComponent(Sprite)  // T | undefined
-const body   = player.requireComponent(PhysicsBody) // T | throws
+// Access — built-in components expose a typed `.TYPE` token for getComponent/requireComponent
+const sprite = player.getComponent(Sprite.TYPE)  // Sprite | undefined
+const body   = player.requireComponent(PhysicsBody.TYPE) // PhysicsBody | throws
 
 // Destroy
 player.destroy()
 ```
+
+### Rendering (RenderPipeline)
+
+Attaching `Transform` + `Sprite` to an entity is the entire contract for "this shows up on screen" — `RenderPipeline` finds every such entity each frame, keeps a synced sprite, and draws it. There is no manual PixiJS wiring, ever.
+
+```typescript
+import { RenderPipeline, Transform, Sprite } from '@emptysock/engine'
+
+// In onLoad:
+private _render = new RenderPipeline()
+await this._render.init({ width: 1280, height: 720 })
+document.body.appendChild(this._render.canvas)
+
+// Call once per frame, after game logic:
+override onUpdate(dt: number): void {
+  this._render.renderFrame(this)
+}
+
+// In onDestroy:
+this._render.destroy()
+```
+
+`RenderPipeline.mountTilemap(tilemap, layerName?, autoTileSystem?)` draws a `Tilemap`'s tiles as real textured sprites — `Tilemap` has no rendering of its own. See `skills/23-rendering.md` for the full API.
 
 ### Input
 
@@ -246,31 +270,22 @@ SceneManager.pop()                 // return to previous scene
 ### Saving & loading
 
 ```typescript
-import { SaveSystem } from '@emptysock/engine'
-import { z } from 'zod'
+import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'
 
-// Always define a Zod schema — never skip validation
-const SaveSchema = z.object({
-  scene:     z.string(),
-  score:     z.number(),
-  inventory: z.array(z.string()),
-  flags:     z.record(z.boolean()),
-})
-type SaveData = z.infer<typeof SaveSchema>
-
-// Create one SaveSystem per scene (or share a scene-level instance)
+// No schema given → SaveSystem uses the default GameSaveSlot shape:
+// { id, scene, data, timestamp, playtime }. save()/load() are synchronous.
 private _save = new SaveSystem()
 
-function saveGame(slot: string): boolean {
-  return this._save.save(slot, { scene: 'Level2', score: 4200, inventory: [], flags: {} })
+function saveGame(slot: string): void {
+  this._save.save(slot, { scene: 'Level2', data: { score: 4200, inventory: [], flags: {} } })
 }
 
-function loadGame(slot: string): SaveData | null {
-  const raw = this._save.load(slot)  // returns SaveSlot | null
-  if (raw === null) return null
-  return SaveSchema.parse(raw.data)  // always validate — throws on corrupt data
+function loadGame(slot: string): GameSaveSlot | null {
+  return this._save.load(slot)   // already validated against the schema — never throws
 }
 ```
+
+Pass a custom Zod schema as the second constructor argument (`new SaveSystem(prefix, schema)`) for a save shape that doesn't fit `{ scene, data, timestamp, playtime }` — the schema must require an `id: string` field, which `save()` fills in automatically. See `skills/07-save-localisation.md`.
 
 ### Localisation
 

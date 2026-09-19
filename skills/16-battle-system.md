@@ -106,19 +106,16 @@ const opts: BattleSystemOptions = {
 
 const battle = new BattleSystem(opts)
 
-battle.addPartyMember(hero)
-battle.addEnemy(goblin)
-
 // db can also be loaded separately after construction
 battle.loadDatabase(db)
 
 // --- Event subscription (returns unsubscribe) ---
-const unsub = battle.onEvent((event: BattleEvent): void => {
+const unsub = battle.subscribe((event: BattleEvent): void => {
   handleBattleEvent(event)
 })
 
-// --- Start ---
-battle.start()
+// --- Start — party and enemy roster passed together, replacing any previous battle ---
+battle.start([hero], [goblin])
 // fires: battle-start → round-start → action-needed (for first party member by speed)
 ```
 
@@ -367,32 +364,35 @@ const BattleSaveSchema = z.object({
 
 type BattleSave = z.infer<typeof BattleSaveSchema>
 
+const battleSaves = new SaveSystem<{ id: string; data: BattleSave }>(
+  'battle_save_',
+  z.object({ id: z.string(), data: BattleSaveSchema }),
+)
+
 // --- Snapshot (call before transitioning away mid-battle) ---
-async function saveBattle(slot: string): Promise<void> {
+function saveBattle(slot: string): void {
   const snapshot: BattleSave = {
     round: battle.getRound(),
     phase: battle.getPhase(),
     party: battle.getParty().map((c) => ({ ...c })),
     enemies: battle.getEnemies().map((c) => ({ ...c })),
   }
-  await SaveSystem.save(slot, snapshot)
+  battleSaves.save(slot, { data: snapshot })
 }
 
 // --- Restore ---
-async function resumeBattle(slot: string): Promise<BattleSystem | null> {
-  const raw = await SaveSystem.load(slot)
+function resumeBattle(slot: string): BattleSystem | null {
+  const raw = battleSaves.load(slot)
   if (raw === null) return null
 
-  const saved = BattleSaveSchema.parse(raw.data)
+  const saved = raw.data
 
   const resumed = new BattleSystem({ db })
-  saved.party.forEach((c) => resumed.addPartyMember(c as Combatant))
-  saved.enemies.forEach((c) => resumed.addEnemy(c as Combatant))
 
   // Re-subscribe and start — the system fires battle-start from the beginning;
   // use saved.round and saved.phase to restore any UI state your scene manages.
-  resumed.onEvent(handleBattleEvent)
-  resumed.start()
+  resumed.subscribe(handleBattleEvent)
+  resumed.start(saved.party as Combatant[], saved.enemies as Combatant[])
   return resumed
 }
 ```

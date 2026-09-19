@@ -4,82 +4,85 @@
 
 ## SaveSystem
 
-Persists typed game data to disk (Tauri) or localStorage (browser). Always validate loaded data with a schema — files can be corrupt or from a different game version.
+`SaveSystem` is generic key-value persistence for save slots, backed by `localStorage`. All operations are synchronous. It only knows how to store, retrieve, and validate an opaque JSON object per slot under a prefixed key — it does not decide what a "save slot" contains; that shape is supplied to the constructor as a Zod schema.
+
+```typescript
+import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'
+
+// With no schema, SaveSystem uses the default GameSaveSlot shape:
+// { id, scene, data, timestamp, playtime }
+const saves = new SaveSystem()
+
+// save() only needs `scene` and `data` — timestamp defaults to Date.now(),
+// playtime defaults to 0, and `id` is filled in from the slot name automatically:
+saves.save('slot-1', {
+  scene: 'Level3',
+  data: { score: 8400, flags: { bossDefeated: true } },
+})
+
+// Load and validate — a non-null result is already guaranteed to match GameSaveSlot:
+const slot = saves.load('slot-1')  // GameSaveSlot | null — never throws
+if (slot !== null) {
+  loadScene(slot.scene)
+}
+
+// List every stored slot that currently validates against the schema,
+// sorted newest first:
+const slots = saves.listSlots()  // GameSaveSlot[]
+
+// Delete a slot — no-ops if it doesn't exist:
+saves.delete('slot-1')
+```
+
+### `GameSaveSlot` — the default slot shape
+
+```typescript
+interface GameSaveSlot {
+  readonly id: string
+  readonly scene: string
+  readonly data: Record<string, unknown>
+  readonly timestamp: number
+  readonly playtime: number
+}
+```
+
+### Using a custom slot schema
+
+A game whose save data doesn't fit `{ scene, data, timestamp, playtime }` passes its own Zod schema as the second constructor argument instead of relying on the default. The schema must validate the full slot including an `id: string` field — `save()` fills `id` in from the slot name automatically, so the schema just needs to require it.
 
 ```typescript
 import { SaveSystem } from '@emptysock/engine'
 import { z } from 'zod'
 
-// Define and validate your save shape:
-const Schema = z.object({
-  scene:  z.string(),
-  score:  z.number(),
-  flags:  z.record(z.boolean()),
-  level:  z.number().default(1),
+const CharacterSaveSchema = z.object({
+  id: z.string(),
+  characterName: z.string(),
+  level: z.number().int().positive(),
+  unlockedSkills: z.array(z.string()),
 })
-type SaveData = z.infer<typeof Schema>
+type CharacterSave = z.infer<typeof CharacterSaveSchema>
 
-const save = new SaveSystem()
+const characterSaves = new SaveSystem<CharacterSave>('char_save_', CharacterSaveSchema)
 
-// Save — returns true on success, false if storage is unavailable:
-const ok = save.save('slot-1', {
-  scene: 'Level3',
-  score: 8400,
-  data: { bossDefeated: true, level: 3 },
-  timestamp: Date.now(),
-  playtime: 3621,
+characterSaves.save('hero-1', {
+  characterName: 'Aria',
+  level: 5,
+  unlockedSkills: ['dash', 'parry'],
 })
-if (!ok) console.warn('Could not save — storage unavailable or quota exceeded')
 
-// Load and validate:
-const slot = save.load('slot-1')  // returns SaveSlot | null (never throws)
-if (slot !== null) {
-  const data = Schema.parse(slot.data)  // validate with your own schema
-}
-
-// List slots sorted newest first:
-const slots = save.listSlots()  // SaveSlot[]
-
-// Delete a slot:
-save.delete('slot-1')
+const hero = characterSaves.load('hero-1')  // CharacterSave | null
 ```
 
-### Optional metadata fields
-
-`SaveSystem.save()` accepts two optional metadata fields alongside your data:
-
-```typescript
-await SaveSystem.save('slot-1', {
-  scene: 'Level3',
-  score: 8400,
-  flags: { bossDefeated: true },
-  level: 3,
-}, {
-  timestamp: Date.now(),    // ms since epoch — written into raw.timestamp on load
-  playtime: 3742,           // seconds of play time — written into raw.playtime on load
-})
-```
-
-Both fields are available on the raw object returned by `load()`:
-
-```typescript
-const raw = await SaveSystem.load('slot-1')
-console.log(raw.timestamp)  // number | undefined
-console.log(raw.playtime)   // number | undefined
-const data = Schema.parse(raw.data)
-```
-
-### Unknown-key warning
-
-If the loaded save data contains keys your Zod schema does not recognise, `SaveSystem` logs a console warning listing the unknown keys. This happens before the parse, and the parse itself still succeeds (Zod strips unknown keys by default). The warning surfaces version drift early — it is not an error, but it signals that a save was created by a newer or older version of the game.
+The constructor's first argument, `prefix`, sets the `localStorage` key prefix (default `"emptysock_save_"`). Use a different prefix per `SaveSystem` instance to keep unrelated slot shapes from colliding in storage.
 
 ### Notes
-- `save()` returns `false` when localStorage is unavailable (private mode, quota exceeded). Always check the return value.
-- `load()` returns `null` for missing or corrupt slots — never throws.
-- `listSlots()` returns slots sorted by `timestamp` descending (newest first).
-- Never cast `slot.data as MySaveType` — always run it through your Zod schema.
+- If the assembled slot does not validate against the configured schema, `save()` logs a warning and does not write anything — it never silently drops unknown fields or partially persists invalid data.
+- `load()` returns `null` for a missing slot, corrupted stored JSON, or a slot that no longer matches the configured schema (e.g. written by an older game version with a different shape) — never throws.
+- `listSlots()` skips malformed or foreign-shaped entries rather than throwing.
+- Never cast a loaded slot `as MySaveType` — `load()` already validates against the schema you gave the constructor, so a non-null result is guaranteed to match `TSlot`.
 - Slot names are arbitrary strings. Use a consistent naming convention (`slot-1`, `autosave`, `checkpoint-{level}`) to avoid collisions.
-- In browser mode, data is stored in `localStorage`. Clearing site data deletes saves.
+- `SaveSystem` has no `destroy()` method.
+- To persist `VariableStore` state alongside a save, embed `variableStore.snapshot()` inside the slot's `data` field and call `variableStore.restore(...)` after loading — see `skills/13-variable-store.md`.
 
 ---
 
