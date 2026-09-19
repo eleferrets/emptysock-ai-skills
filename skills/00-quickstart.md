@@ -257,13 +257,68 @@ Audio.stopMusic({ fade: 0.5 })
 
 ## Camera
 
-```typescript
-import { Camera } from '@emptysock/engine'
+`CameraSystem` is an instance you create per scene, then attach to the PixiJS stage.
 
-Camera.follow(player, { lerp: 0.1, deadzone: { x: 80, y: 40 } })
-Camera.shake({ intensity: 6, duration: 0.3 })
-Camera.zoom(2.0, { duration: 0.4, ease: 'sineOut' })
-Camera.fade({ to: 0x000000, duration: 0.5 })
+```typescript
+import { CameraSystem } from '@emptysock/engine'
+import type { CameraBounds } from '@emptysock/engine'
+
+const camera = new CameraSystem()
+camera.attach(stage)                         // pass your PixiJS Container
+camera.setViewSize(1280, 720)
+
+// Follow a moving entity (smooth)
+camera.setFollow(() => player.position)
+camera.setLerpFactor(0.1)                   // 0 = no movement, 1 = instant
+
+// Snap / move without follow
+camera.snapTo(0, 0)                         // instant
+camera.moveTo(500, 300)                     // smooth to target
+
+// Zoom
+camera.zoomTo(2.0)                          // smooth
+camera.snapZoom(1.0)                        // instant
+
+// Screen shake
+camera.shake(6, 0.3)                        // intensity px, duration seconds
+
+// Clamp to world bounds (accounts for zoom)
+const bounds: CameraBounds = { minX: 0, minY: 0, maxX: 4000, maxY: 2000 }
+camera.setBounds(bounds)
+camera.setBounds(null)                      // remove clamping
+
+// Coordinate conversion
+const worldPos = camera.screenToWorld(mouseX, mouseY)
+const screenPos = camera.worldToScreen(enemy.x, enemy.y)
+
+// Call every frame
+camera.update(dt)
+
+// Clean up with scene
+camera.destroy()
+```
+
+## Gamepad
+
+```typescript
+import { GamepadSystem } from '@emptysock/engine'
+
+const gamepad = new GamepadSystem()
+
+// In onUpdate(dt):
+gamepad.update()
+const state = gamepad.getState(0)          // pad index 0 | null when disconnected
+
+if (gamepad.isButtonPressed(0, 0))  jump() // A button, just pressed
+if (gamepad.isButtonDown(0, 2))     attack()
+if (gamepad.isButtonReleased(0, 0)) land()
+const leftX = state?.axes[0] ?? 0          // left stick X, -1..1
+
+// Rumble
+gamepad.rumble(0, 0.8, 200)                // padIndex, intensity 0-1, ms
+gamepad.rumbleDual(0, { weakMagnitude: 0.3, strongMagnitude: 0.8, duration: 300 })
+
+gamepad.destroy()
 ```
 
 ---
