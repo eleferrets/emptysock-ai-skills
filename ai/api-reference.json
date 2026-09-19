@@ -31,8 +31,8 @@
       "await inside onUpdate()",
       "document.querySelector",
       "document.getElementById",
-      "JSON.parse(x) as T — always use Zod",
-      "window.localStorage — use SaveSystem"
+      "JSON.parse(x) as T \u2014 always use Zod",
+      "window.localStorage \u2014 use SaveSystem"
     ],
     "required_patterns": [
       "explicit return types on all functions",
@@ -50,44 +50,44 @@
         "create": {
           "signature": "Engine.create(config: EngineConfig): Promise<Engine>",
           "config": {
-            "scenes": "Record<string, typeof Scene> — all scene classes",
-            "startScene": "string — name of first scene to load",
-            "gameSpeed": "number — target FPS, default 60",
-            "rendererType": "'auto' | 'webgpu' | 'webgl2' — default 'auto'",
-            "splash": "boolean — show splash on boot, default false"
+            "scenes": "Record<string, typeof Scene> \u2014 all scene classes",
+            "startScene": "string \u2014 name of first scene to load",
+            "gameSpeed": "number \u2014 target FPS, default 60",
+            "rendererType": "'auto' | 'webgpu' | 'webgl2' \u2014 default 'auto'",
+            "splash": "boolean \u2014 show splash on boot, default false"
           }
         },
         "start": "engine.start(): Promise<void>",
         "stop": "engine.stop(): void",
-        "pushScene": "Engine.pushScene(scene: Scene): void — push a scene on the stack (mirrors SceneManager.pushScene; use this.engine.pushScene() from inside a Scene)",
-        "popScene": "Engine.popScene(): void — pop the top scene (use this.engine.popScene() from inside a Scene)",
-        "loadScene": "Engine.loadScene(name: string): void — load a named scene, replacing the active scene (use this.engine.loadScene() from inside a Scene)"
+        "pushScene": "Engine.pushScene(scene: Scene): void \u2014 push a scene on the stack (mirrors SceneManager.pushScene; use this.engine.pushScene() from inside a Scene)",
+        "popScene": "Engine.popScene(): void \u2014 pop the top scene (use this.engine.popScene() from inside a Scene)",
+        "loadScene": "Engine.loadScene(name: string): void \u2014 load a named scene, replacing the active scene (use this.engine.loadScene() from inside a Scene)"
       },
       "properties": {
-        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' — read-only"
+        "gpuTier": "'potato' | 'low' | 'mid' | 'high' | 'ultra' \u2014 read-only"
       }
     },
     "Scene": {
       "import": "import { Scene, type SceneConfig } from '@emptysock/engine'",
       "description": "Base class. Extend for every game scene.",
       "static": {
-        "config": "SceneConfig — declare as static readonly on each subclass"
+        "config": "SceneConfig \u2014 declare as static readonly on each subclass"
       },
       "SceneConfig": {
         "renderMode": "'2d' | '3d' | 'hybrid'",
-        "gameSpeed": "number — overrides engine default for this scene",
-        "physics": "boolean — enable Rapier world, default true",
-        "lighting": "boolean — enable 2D lighting pass, default false",
-        "backgroundColor": "number — hex colour"
+        "gameSpeed": "number \u2014 overrides engine default for this scene",
+        "physics": "boolean \u2014 enable Rapier world, default true",
+        "lighting": "boolean \u2014 enable 2D lighting pass, default false",
+        "backgroundColor": "number \u2014 hex colour"
       },
       "lifecycle": {
-        "onLoad": "async onLoad(): Promise<void> — awaited before scene renders",
-        "onStart": "onStart(): void — called once after onLoad",
-        "onUpdate": "onUpdate(dt: number): void — every frame, dt = seconds",
-        "onFixedUpdate": "onFixedUpdate(dt: number): void — fixed 1/60s timestep",
-        "onDestroy": "onDestroy(): void — before scene unloads",
-        "onPause": "onPause(): void — when scene is pushed under another",
-        "onResume": "onResume(): void — when scene returns to top"
+        "onLoad": "async onLoad(): Promise<void> \u2014 awaited before scene renders",
+        "onStart": "onStart(): void \u2014 called once after onLoad",
+        "onUpdate": "onUpdate(dt: number): void \u2014 every frame, dt = seconds",
+        "onFixedUpdate": "onFixedUpdate(dt: number): void \u2014 fixed 1/60s timestep",
+        "onDestroy": "onDestroy(): void \u2014 before scene unloads",
+        "onPause": "onPause(): void \u2014 when scene is pushed under another",
+        "onResume": "onResume(): void \u2014 when scene returns to top"
       },
       "methods": {
         "createEntity": "scene.createEntity(name: string, opts?: { position?: Point, rotation?: number, scale?: Point }): Entity",
@@ -99,7 +99,7 @@
       },
       "properties": {
         "lighting.ambientColour": "number (hex)",
-        "lighting.ambientIntensity": "number (0–1)",
+        "lighting.ambientIntensity": "number (0\u20131)",
         "postProcess": {
           "add": "scene.postProcess.add(effect: PostEffect, opts?: object): void",
           "remove": "scene.postProcess.remove(effect: PostEffect): void",
@@ -115,28 +115,26 @@
         "push": "SceneManager.push(name: string): Promise<void>",
         "pop": "SceneManager.pop(): Promise<void>",
         "preload": "SceneManager.preload(name: string): Promise<void>",
-        "pushScene": "SceneManager.pushScene(scene: Scene): void — push a scene instance on top of the stack; active scene is paused",
-        "popScene": "SceneManager.popScene(): void — pop top scene; scene underneath resumes"
+        "pushScene": "SceneManager.pushScene(scene: Scene): void \u2014 push a scene instance on top of the stack; active scene is paused",
+        "popScene": "SceneManager.popScene(): void \u2014 pop top scene; scene underneath resumes"
       },
       "properties": {
-        "currentScene": "string — name of active scene",
-        "stackDepth": "number — current scene stack depth"
+        "currentScene": "string \u2014 name of active scene",
+        "stackDepth": "number \u2014 current scene stack depth"
       },
       "TransitionOptions": {
-        "effect": "'fade' | 'wipe' | 'iris' | 'slide' | 'zoom' | 'dissolve' | 'flash' | 'custom'",
-        "duration": "number (seconds)",
-        "colour": "number (hex, for fade/flash)",
-        "direction": "'left' | 'right' | 'up' | 'down' (for wipe/slide)",
-        "origin": "Point (for iris/zoom)"
-      }
+        "duration": "number (seconds) \u2014 delay before scene switch. Default 0.3",
+        "colour": "number (hex) \u2014 reserved for future transition overlay use"
+      },
+      "note_transition_effects": "Transition visual effects (fade, wipe, iris, etc.) are not yet implemented. transition() currently introduces a timed delay only. The effect option has been removed from the public API."
     },
     "Entity": {
       "import": "import { Entity } from '@emptysock/engine'",
       "properties": {
         "name": "string",
         "position": "{ x: number, y: number }",
-        "globalPosition": "{ x: number, y: number } — world-space",
-        "rotation": "number — radians",
+        "globalPosition": "{ x: number, y: number } \u2014 world-space",
+        "rotation": "number \u2014 radians",
         "rotationDegrees": "number",
         "scale": "{ x: number, y: number }",
         "active": "boolean",
@@ -174,23 +172,23 @@
       "Sprite": {
         "import": "import { Sprite } from '@emptysock/engine'",
         "props": {
-          "texture": "string — filename in assets/sprites/",
-          "frame": "string — atlas frame name (optional)",
-          "anchor": "{ x: number, y: number } — 0–1, default { x: 0.5, y: 0.5 }",
-          "tint": "number — hex, default 0xffffff",
-          "alpha": "number — 0–1",
+          "texture": "string \u2014 filename in assets/sprites/",
+          "frame": "string \u2014 atlas frame name (optional)",
+          "anchor": "{ x: number, y: number } \u2014 0\u20131, default { x: 0.5, y: 0.5 }",
+          "tint": "number \u2014 hex, default 0xffffff",
+          "alpha": "number \u2014 0\u20131",
           "blendMode": "'normal' | 'add' | 'multiply' | 'screen'",
           "flipX": "boolean",
           "flipY": "boolean",
-          "normalMap": "string — filename for 2D lighting normal map (optional)"
+          "normalMap": "string \u2014 filename for 2D lighting normal map (optional)"
         }
       },
       "Animator": {
         "import": "import { Animator } from '@emptysock/engine'",
         "props": {
-          "spritesheet": "string — .esanim file",
-          "defaultClip": "string — animation name to play on attach",
-          "speed": "number — playback multiplier, default 1"
+          "spritesheet": "string \u2014 .esanim file",
+          "defaultClip": "string \u2014 animation name to play on attach",
+          "speed": "number \u2014 playback multiplier, default 1"
         },
         "methods": {
           "play": "animator.play(clip: string, opts?: { loop?: boolean, onComplete?: () => void }): void",
@@ -210,11 +208,11 @@
           "shape": "'cuboid' | 'ball' | 'capsule' | 'polygon' | 'compound'",
           "bodyType": "'fixed' | 'dynamic' | 'kinematicPosition' | 'kinematicVelocity'",
           "mass": "number",
-          "friction": "number — 0–1",
-          "restitution": "number — 0–1 (bounciness)",
-          "ccd": "boolean — continuous collision detection, for fast objects",
-          "sensor": "boolean — trigger volume, no physical response",
-          "collisionGroups": "string[] — named group labels"
+          "friction": "number \u2014 0\u20131",
+          "restitution": "number \u2014 0\u20131 (bounciness)",
+          "ccd": "boolean \u2014 continuous collision detection, for fast objects",
+          "sensor": "boolean \u2014 trigger volume, no physical response",
+          "collisionGroups": "string[] \u2014 named group labels"
         },
         "methods": {
           "applyImpulse": "body.applyImpulse(force: Vector2): void",
@@ -226,9 +224,9 @@
       "CharacterController": {
         "import": "import { CharacterController } from '@emptysock/engine'",
         "props": {
-          "slopeAngle": "number — max walkable slope degrees",
-          "snapToGround": "number — snap distance (0 = off)",
-          "offset": "number — collision skin width, default 0.01"
+          "slopeAngle": "number \u2014 max walkable slope degrees",
+          "snapToGround": "number \u2014 snap distance (0 = off)",
+          "offset": "number \u2014 collision skin width, default 0.01"
         },
         "methods": {
           "moveAndSlide": "controller.moveAndSlide(velocity: Vector2): void",
@@ -242,7 +240,7 @@
         "props": {
           "path": "Path",
           "speed": "number",
-          "onComplete": "() => void — optional"
+          "onComplete": "() => void \u2014 optional"
         },
         "methods": {
           "setPath": "follower.setPath(path: Path): void",
@@ -256,19 +254,19 @@
         "description": "Component that constrains two PhysicsBody entities with a Rapier joint. Attach to the entity that holds the first PhysicsBody; set bodyBEntityId to the second entity's numeric id.",
         "constructor": "new RigidJoint({ jointType?, bodyBEntityId?, revolute?, prismatic?, spring? })",
         "props": {
-          "jointType": "'fixed' | 'revolute' | 'prismatic' | 'spring' — default 'fixed'",
-          "bodyBEntityId": "number | null — entity id of the second body"
+          "jointType": "'fixed' | 'revolute' | 'prismatic' | 'spring' \u2014 default 'fixed'",
+          "bodyBEntityId": "number | null \u2014 entity id of the second body"
         },
         "RevoluteOptions": {
-          "anchorA": "{ x, y } — anchor on body A in local space",
-          "anchorB": "{ x, y } — anchor on body B in local space",
-          "minAngle": "number — minimum rotation in radians",
-          "maxAngle": "number — maximum rotation in radians"
+          "anchorA": "{ x, y } \u2014 anchor on body A in local space",
+          "anchorB": "{ x, y } \u2014 anchor on body B in local space",
+          "minAngle": "number \u2014 minimum rotation in radians",
+          "maxAngle": "number \u2014 maximum rotation in radians"
         },
         "PrismaticOptions": {
           "anchorA": "{ x, y }",
           "anchorB": "{ x, y }",
-          "axis": "{ x, y } — slide axis in local space of body A",
+          "axis": "{ x, y } \u2014 slide axis in local space of body A",
           "minDistance": "number",
           "maxDistance": "number"
         },
@@ -284,7 +282,7 @@
         "import": "import { VNController } from '@emptysock/engine'",
         "description": "Entity component for simple VN playback. Attach to an entity, set dialogueTree to a .esvn file path, and drive it via advance()/jump(). For programmatic control, callback registration, or VNTextbox binding, use VNSystem instead.",
         "props": {
-          "dialogueTree": "string — .esvn file",
+          "dialogueTree": "string \u2014 .esvn file",
           "onChoice": "(index: number, text: string) => void",
           "onEvent": "(name: string, data: unknown) => void"
         },
@@ -299,24 +297,24 @@
       "import": "import { InputSystem } from '@emptysock/engine'",
       "description": "Instanced input system. Create in onLoad, call attach() to register event listeners. Call flush() once per frame before reading any state.",
       "lifecycle": {
-        "attach": "input.attach(target?: EventTarget): void — register listeners (defaults to window)",
-        "detach": "input.detach(): void — remove listeners",
-        "flush": "input.flush(): void — call once per frame before reading state"
+        "attach": "input.attach(target?: EventTarget): void \u2014 register listeners (defaults to window)",
+        "detach": "input.detach(): void \u2014 remove listeners",
+        "flush": "input.flush(): void \u2014 call once per frame before reading state"
       },
       "keyMethods": {
-        "isKeyDown": "input.isKeyDown(code: string): boolean — held every frame",
-        "isKeyPressed": "input.isKeyPressed(code: string): boolean — true only on the frame the key went down",
-        "isKeyReleased": "input.isKeyReleased(code: string): boolean — true only on the frame the key came up"
+        "isKeyDown": "input.isKeyDown(code: string): boolean \u2014 held every frame",
+        "isKeyPressed": "input.isKeyPressed(code: string): boolean \u2014 true only on the frame the key went down",
+        "isKeyReleased": "input.isKeyReleased(code: string): boolean \u2014 true only on the frame the key came up"
       },
       "mouseMethods": {
         "mouseX": "input.mouseX: number",
         "mouseY": "input.mouseY: number",
-        "isMouseDown": "input.isMouseDown(button?: number): boolean — default button 0 (left click)",
+        "isMouseDown": "input.isMouseDown(button?: number): boolean \u2014 default button 0 (left click)",
         "isMousePressed": "input.isMousePressed(button?: number): boolean"
       },
       "touchMethods": {
         "touchCount": "input.touchCount: number",
-        "touches": "input.touches: ReadonlyArray<TouchPoint> — {id, x, y, dx, dy}",
+        "touches": "input.touches: ReadonlyArray<TouchPoint> \u2014 {id, x, y, dx, dy}",
         "primaryTouch": "input.primaryTouch: TouchPoint | undefined",
         "isTouchStarted": "input.isTouchStarted(id?: number): boolean",
         "isTouchEnded": "input.isTouchEnded(id?: number): boolean"
@@ -335,12 +333,12 @@
         "unmute": "Audio.unmute(group?: string): void"
       },
       "PlayOptions": {
-        "volume": "number 0–1",
+        "volume": "number 0\u20131",
         "loop": "boolean",
         "spatial": "boolean",
         "position": "{ x: number, y: number }",
-        "fade": "number — fade-in seconds",
-        "rate": "number — playback speed multiplier"
+        "fade": "number \u2014 fade-in seconds",
+        "rate": "number \u2014 playback speed multiplier"
       }
     },
     "Camera": {
@@ -358,7 +356,7 @@
         "pillarbox": "Camera.pillarbox(opts: { ratio: string }): void"
       },
       "FollowOptions": {
-        "lerp": "number 0–1",
+        "lerp": "number 0\u20131",
         "deadzone": "{ x: number, y: number }",
         "lookahead": "{ x: number, y: number }",
         "bounds": "{ x: number, y: number, width: number, height: number }"
@@ -399,9 +397,9 @@
       },
       "SaveSlot": {
         "slot": "string",
-        "data": "unknown — ALWAYS parse through Zod before use",
-        "timestamp": "number | undefined — ms since epoch; present only if passed to save()",
-        "playtime": "number | undefined — seconds; present only if passed to save()",
+        "data": "unknown \u2014 ALWAYS parse through Zod before use",
+        "timestamp": "number | undefined \u2014 ms since epoch; present only if passed to save()",
+        "playtime": "number | undefined \u2014 seconds; present only if passed to save()",
         "scene": "string",
         "unknownKeyWarning": "SaveSystem logs a console warning when loaded data contains keys not present in the Zod schema used to validate it."
       },
@@ -414,10 +412,10 @@
       "import": "import { LocalisationSystem } from '@emptysock/engine'",
       "description": "Instanced localisation class. Create one instance; call addTranslations() to register locale data before switching locale.",
       "methods": {
-        "setLocale": "instance.setLocale(locale: string): void — switch the active locale",
-        "addTranslations": "instance.addTranslations(locale: string, map: Record<string, string>): void — register translations for a locale",
-        "t": "instance.t(key: string, vars?: Record<string, string | number>): string — translate key; returns key itself if not found",
-        "currentLocale": "instance.currentLocale: string — read-only getter for the active locale"
+        "setLocale": "instance.setLocale(locale: string): void \u2014 switch the active locale",
+        "addTranslations": "instance.addTranslations(locale: string, map: Record<string, string>): void \u2014 register translations for a locale",
+        "t": "instance.t(key: string, vars?: Record<string, string | number>): string \u2014 translate key; returns key itself if not found",
+        "currentLocale": "instance.currentLocale: string \u2014 read-only getter for the active locale"
       },
       "translationFileFormat": {
         "location": "assets/i18n/[locale].json",
@@ -431,8 +429,8 @@
     "PathfindingSystem": {
       "import": "import { PathfindingSystem } from '@emptysock/engine'",
       "methods": {
-        "setGrid": "PathfindingSystem.setGrid(grid: Grid): void — store a grid so subsequent findPath() calls can omit it",
-        "findPath": "PathfindingSystem.findPath(opts: { from: Point, to: Point, grid?: Grid, allowDiagonal?: boolean }): Promise<Path> — grid is optional if setGrid() was called",
+        "setGrid": "PathfindingSystem.setGrid(grid: Grid): void \u2014 store a grid so subsequent findPath() calls can omit it",
+        "findPath": "PathfindingSystem.findPath(opts: { from: Point, to: Point, grid?: Grid, allowDiagonal?: boolean }): Promise<Path> \u2014 grid is optional if setGrid() was called",
         "buildNavMesh": "PathfindingSystem.buildNavMesh(scene: Scene): NavMesh",
         "debugDraw": "PathfindingSystem.debugDraw(enabled: boolean): void"
       }
@@ -444,16 +442,16 @@
       },
       "TilemapInstance": {
         "getLayer": "map.getLayer(name: string): TilemapLayer",
-        "width": "number — tiles",
-        "height": "number — tiles",
-        "tileWidth": "number — pixels",
-        "tileHeight": "number — pixels"
+        "width": "number \u2014 tiles",
+        "height": "number \u2014 tiles",
+        "tileWidth": "number \u2014 pixels",
+        "tileHeight": "number \u2014 pixels"
       },
       "TilemapLayer": {
         "enablePhysics": "layer.enablePhysics(): void",
-        "entities": "Entity[] — object layer placements",
+        "entities": "Entity[] \u2014 object layer placements",
         "getTile": "layer.getTile(x: number, y: number): Tile | null",
-        "asGrid": "layer.asGrid(): Grid — for A* pathfinding"
+        "asGrid": "layer.asGrid(): Grid \u2014 for A* pathfinding"
       }
     },
     "ObjectPool": {
@@ -475,12 +473,12 @@
       },
       "ProfileStats": {
         "fps": "number",
-        "frameTime": "number — ms",
+        "frameTime": "number \u2014 ms",
         "drawCalls": "number",
         "entityCount": "number",
-        "physicsTime": "number — ms",
-        "renderTime": "number — ms",
-        "scriptTime": "number — ms",
+        "physicsTime": "number \u2014 ms",
+        "renderTime": "number \u2014 ms",
+        "scriptTime": "number \u2014 ms",
         "memoryMB": "number"
       }
     },
@@ -488,31 +486,31 @@
       "import": "import { ParticleEmitter } from '@emptysock/engine'",
       "description": "Component that spawns and animates short-lived visual particles. Attach to an entity, configure options, then call start() or burst().",
       "constructorOptions": {
-        "rate": "number — particles emitted per second in continuous mode",
-        "lifetime": "number — seconds each particle lives",
-        "speed": "number — initial speed in world units/second",
-        "spread": "number — emission cone half-angle in degrees (0 = straight line, 360 = sphere)",
-        "count": "number (1–2000) — maximum simultaneous live particles",
-        "textureName": "string (optional) — asset name for sprite-sheet particles; omit for default white square"
+        "rate": "number \u2014 particles emitted per second in continuous mode",
+        "lifetime": "number \u2014 seconds each particle lives",
+        "speed": "number \u2014 initial speed in world units/second",
+        "spread": "number \u2014 emission cone half-angle in degrees (0 = straight line, 360 = sphere)",
+        "count": "number (1\u20132000) \u2014 maximum simultaneous live particles",
+        "textureName": "string (optional) \u2014 asset name for sprite-sheet particles; omit for default white square"
       },
       "methods": {
-        "start": "emitter.start(): void — begin continuous emission at the configured rate",
-        "stop": "emitter.stop(): void — stop emitting new particles; existing particles finish their lifetime",
-        "burst": "emitter.burst(count: number): void — fire exactly count particles immediately, ignoring rate"
+        "start": "emitter.start(): void \u2014 begin continuous emission at the configured rate",
+        "stop": "emitter.stop(): void \u2014 stop emitting new particles; existing particles finish their lifetime",
+        "burst": "emitter.burst(count: number): void \u2014 fire exactly count particles immediately, ignoring rate"
       },
       "properties": {
-        "rate": "number — read/write, effective before start() is called",
-        "lifetime": "number — read/write",
-        "speed": "number — read/write",
-        "spread": "number — read/write",
-        "count": "number — read/write",
-        "textureName": "string | undefined — read/write"
+        "rate": "number \u2014 read/write, effective before start() is called",
+        "lifetime": "number \u2014 read/write",
+        "speed": "number \u2014 read/write",
+        "spread": "number \u2014 read/write",
+        "count": "number \u2014 read/write",
+        "textureName": "string | undefined \u2014 read/write"
       },
       "notes": [
         "Call stop() in onDestroy before the entity is destroyed.",
         "burst() does not require start() to have been called first.",
         "Particles sharing the same textureName are batched into one draw call.",
-        "count should be kept as low as visually acceptable — all particles update every frame."
+        "count should be kept as low as visually acceptable \u2014 all particles update every frame."
       ]
     },
     "WindowSystem": {
@@ -557,24 +555,24 @@
         }
       },
       "properties": {
-        "currentMode": "WindowMode — current window mode",
-        "currentConfig": "Readonly<WindowConfig> — full current config snapshot"
+        "currentMode": "WindowMode \u2014 current window mode",
+        "currentConfig": "Readonly<WindowConfig> \u2014 full current config snapshot"
       }
     },
     "UISystem": {
       "import": "import { UISystem, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
       "description": "Canvas 2D overlay for screen-space UI (menus, HUD, dialogue boxes). Renders on top of the PixiJS scene. Access via this.uiSystem inside any Scene subclass.",
-      "singleton": "UISystem — module-level singleton, shared across all scenes",
+      "singleton": "UISystem \u2014 module-level singleton, shared across all scenes",
       "methods": {
-        "add": "UISystem.add(widget: Widget): void — add a root widget to the overlay",
-        "removeWidget": "UISystem.removeWidget(widget: Widget): void — remove a root widget",
-        "clear": "UISystem.clear(): void — remove all widgets and UIComponents",
-        "clearWidgets": "UISystem.clearWidgets(): void — remove only Widget-API roots (not legacy UIComponents)",
-        "setImageLoader": "UISystem.setImageLoader(loader: ImageLoader): void — override the default fetch-based loader",
-        "update": "UISystem.update(dt: number, pointerX?, pointerY?, cw?, ch?): void — tick animations + hover state",
-        "render": "UISystem.render(ctx: IUIRenderer, cw: number, ch: number): void — draw all components and widgets",
-        "handleClick": "UISystem.handleClick(x, y, cw, ch): boolean — hit-test and dispatch click",
-        "handlePointerMove": "UISystem.handlePointerMove(x, y, cw, ch): void — update hover state"
+        "add": "UISystem.add(widget: Widget): void \u2014 add a root widget to the overlay",
+        "removeWidget": "UISystem.removeWidget(widget: Widget): void \u2014 remove a root widget",
+        "clear": "UISystem.clear(): void \u2014 remove all widgets and UIComponents",
+        "clearWidgets": "UISystem.clearWidgets(): void \u2014 remove only Widget-API roots (not legacy UIComponents)",
+        "setImageLoader": "UISystem.setImageLoader(loader: ImageLoader): void \u2014 override the default fetch-based loader",
+        "update": "UISystem.update(dt: number, pointerX?, pointerY?, cw?, ch?): void \u2014 tick animations + hover state",
+        "render": "UISystem.render(ctx: IUIRenderer, cw: number, ch: number): void \u2014 draw all components and widgets",
+        "handleClick": "UISystem.handleClick(x, y, cw, ch): boolean \u2014 hit-test and dispatch click",
+        "handlePointerMove": "UISystem.handlePointerMove(x, y, cw, ch): void \u2014 update hover state"
       },
       "note": "UISystem constructs a default ImageLoader internally (fetch + createImageBitmap). No setup needed for the common case."
     },
@@ -582,37 +580,37 @@
       "import": "import { Widget, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
       "description": "Base class and 7 concrete widget types for building screen-space UI. Use uiSystem.add(widget) to render, uiSystem.removeWidget(widget) to remove.",
       "baseProperties": {
-        "x": "number — pixel offset from anchor",
-        "y": "number — pixel offset from anchor",
+        "x": "number \u2014 pixel offset from anchor",
+        "y": "number \u2014 pixel offset from anchor",
         "width": "number",
         "height": "number",
-        "anchor": "WidgetAnchor — 'top-left'|'top'|'top-right'|'left'|'center'|'right'|'bottom-left'|'bottom'|'bottom-right'",
+        "anchor": "WidgetAnchor \u2014 'top-left'|'top'|'top-right'|'left'|'center'|'right'|'bottom-left'|'bottom'|'bottom-right'",
         "visible": "boolean",
-        "alpha": "number (0–1)",
-        "children": "Widget[] — mutable; add children with panel.children.push(child)"
+        "alpha": "number (0\u20131)",
+        "children": "Widget[] \u2014 mutable; add children with panel.children.push(child)"
       },
       "baseMethods": {
-        "on": "widget.on(event: WidgetEvent, handler): void — events: 'click'|'hover'|'hoverOut'|'change'|'animEnd'",
+        "on": "widget.on(event: WidgetEvent, handler): void \u2014 events: 'click'|'hover'|'hoverOut'|'change'|'animEnd'",
         "off": "widget.off(event, handler): void",
-        "animate": "widget.animate(name: AnimationName, opts?): void — names: 'fadeIn'|'fadeOut'|'slideIn'|'slideOut'|'pop'|'shake'; opts: { duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }",
+        "animate": "widget.animate(name: AnimationName, opts?): void \u2014 names: 'fadeIn'|'fadeOut'|'slideIn'|'slideOut'|'pop'|'shake'; opts: { duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }",
         "triggerClick": "widget.triggerClick(): void",
         "contains": "widget.contains(px, py, cw, ch): boolean"
       },
       "widgets": {
         "LabelWidget": "new LabelWidget({ text?, font?, fontSize?, color?, align?, ...baseOpts })",
         "ImageWidget": "new ImageWidget({ src?, scaleMode?: \"fit\"|\"fill\"|\"stretch\"|\"none\", tint?, ...baseOpts })",
-        "ButtonWidget": "new ButtonWidget({ label?, icon?, color?, background?, hoverBackground?, pressedBackground?, borderRadius?, fontSize?, font?, disabled?, animateOnHover?, ...baseOpts }) — state: \"normal\"|\"hover\"|\"pressed\"|\"disabled\"",
+        "ButtonWidget": "new ButtonWidget({ label?, icon?, color?, background?, hoverBackground?, pressedBackground?, borderRadius?, fontSize?, font?, disabled?, animateOnHover?, ...baseOpts }) \u2014 state: \"normal\"|\"hover\"|\"pressed\"|\"disabled\"",
         "PanelWidget": "new PanelWidget({ background?, border?, borderWidth?, cornerRadius?, ...baseOpts })",
-        "ProgressBarWidget": "new ProgressBarWidget({ value?, min?, max?, fillColor?, trackColor?, direction?: \"h\"|\"v\", ...baseOpts }) — .normalised: number",
-        "SliderWidget": "new SliderWidget({ value?, min?, max?, step?, trackColor?, thumbColor?, onChange?, ...baseOpts }) — .normalised: number",
+        "ProgressBarWidget": "new ProgressBarWidget({ value?, min?, max?, fillColor?, trackColor?, direction?: \"h\"|\"v\", ...baseOpts }) \u2014 .normalised: number",
+        "SliderWidget": "new SliderWidget({ value?, min?, max?, step?, trackColor?, thumbColor?, onChange?, ...baseOpts }) \u2014 .normalised: number",
         "CheckboxWidget": "new CheckboxWidget({ checked?, label?, color?, background?, borderColor?, fontSize?, font?, onChange?, ...baseOpts })"
       },
       "example": "const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });\nconst btn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });\nbtn.on('click', () => this.engine.popScene());\npanel.children.push(btn);\nthis.uiSystem.add(panel);\npanel.animate('fadeIn');"
     }
   },
   "fileExtensions": {
-    ".esscene": "Scene — entities, components, properties (JSON)",
-    ".esmap": "Tilemap — layers, tiles, collision, objects (JSON)",
+    ".esscene": "Scene \u2014 entities, components, properties (JSON)",
+    ".esmap": "Tilemap \u2014 layers, tiles, collision, objects (JSON)",
     ".esanim": "Spritesheet animation clips (JSON)",
     ".esprefab": "Reusable entity template (JSON)",
     ".esvn": "Visual novel dialogue tree (JSON)",
@@ -698,7 +696,7 @@
     ]
   },
   "builtins": {
-    "description": "Compile-time constants injected by the EmptySock build pipeline. Replace with literal values at build time — no runtime lookup. Available in all game files without import.",
+    "description": "Compile-time constants injected by the EmptySock build pipeline. Replace with literal values at build time \u2014 no runtime lookup. Available in all game files without import.",
     "constants": {
       "PROJECT_TITLE": {
         "type": "string",
@@ -785,7 +783,7 @@
       },
       "reset": {
         "signature": "(): void",
-        "description": "Clear all variables to 0 and all switches to false in memory. Does not persist — call save() afterwards if the reset should survive a reload."
+        "description": "Clear all variables to 0 and all switches to false in memory. Does not persist \u2014 call save() afterwards if the reset should survive a reload."
       }
     }
   },
@@ -816,7 +814,7 @@
     "constructor": "new GridMovementBehavior({ tileSize?, speed?, input, isSolid? })",
     "properties": {
       "tileSize": "number",
-      "speed": "number — tiles per second"
+      "speed": "number \u2014 tiles per second"
     }
   },
   "CharacterStage": {
@@ -864,7 +862,7 @@
     }
   },
   "VNSystem": {
-    "import": "import { VNSystem, type DialogueNode, type DialogueTree } from '@emptysock/engine'",
+    "import": "import { VNSystem, type IVNListener, type DialogueNode, type DialogueTree } from '@emptysock/engine'",
     "description": "Standalone visual novel runtime. Loads a DialogueTree (converted from Story Graph JSON via storyGraphToDialogueTree). Used by VNTextbox as its data source.",
     "constructor": "new VNSystem()",
     "DialogueNode": "type DialogueNode = { type: 'dialogue'; speaker: string; text: string; voice?: string; next?: string; cgPath?: string } | { type: 'choice'; text: string; options: Array<{ label: string; next: string }>; cgPath?: string } | { type: 'event'; eventName: string; data?: Record<string, unknown>; next?: string; cgPath?: string } | { type: 'jump'; target: string; cgPath?: string } | { type: 'variable-set'; variableKey: string; variableValue: unknown; next?: string; cgPath?: string }",
@@ -872,7 +870,7 @@
     "methods": {
       "load": {
         "signature": "(tree: DialogueTree): void",
-        "description": "Load a DialogueTree and begin processing from startNode. Fires onNode immediately for the first node. Not async — use storyGraphToDialogueTree() or JSON.parse() on a fetched file before calling."
+        "description": "Load a DialogueTree and begin processing from startNode. Fires onNode immediately for the first node. Not async \u2014 use storyGraphToDialogueTree() or JSON.parse() on a fetched file before calling."
       },
       "advance": {
         "signature": "(): void",
@@ -885,22 +883,29 @@
       "currentNode": {
         "signature": "DialogueNode | null (getter)",
         "description": "The currently active node, or null if not loaded or finished."
+      },
+      "setListener": {
+        "signature": "(listener: IVNListener): void",
+        "description": "Register the active listener. Replaces any previously set listener. Call before load() so the first onNode is delivered."
+      },
+      "removeListener": {
+        "signature": "(): void",
+        "description": "Detach the current listener. Subsequent node events are discarded."
+      },
+      "getVariable": {
+        "signature": "(key: string): unknown",
+        "description": "Retrieve the value of a variable set by a 'variable-set' node, or undefined if not yet set."
       }
     },
-    "callbacks": {
-      "onNode": "((node: DialogueNode) => void) | null — fired on every node change including after selectOption()",
-      "onChoice": "((options: Array<{ label: string; next: string }>) => void) | null — fired for choice nodes",
-      "onEvent": "((eventName: string, data: Record<string, unknown>) => void) | null — fired for event nodes",
-      "onEnd": "(() => void) | null — fired when a dialogue node has no next",
-      "onCGNode": "((cgPath: string) => void) | null — fired for any node with a cgPath field"
-    },
     "notes": [
-      "Set callbacks before calling load(). onNode fires immediately on load().",
-      "jump nodes are resolved automatically — onNode is never called for them.",
-      "variable-set nodes are also resolved automatically (auto-advanced); read variableKey/variableValue inside onNode before calling advance().",
-      "No destroy() method — GC'd with the scene when the reference drops.",
-      "For save/resume: store the currentNode?.next or the chosen option's next field; call load() again with the full tree and navigate with selectOption() to restore position."
-    ]
+      "Call setListener() before load(). onNode fires immediately on load().",
+      "jump nodes are resolved automatically \u2014 onNode is never called for them.",
+      "variable-set nodes are auto-advanced; read their value with getVariable(key).",
+      "No destroy() method \u2014 GC'd with the scene when the reference drops.",
+      "For save/resume: store currentNode?.id and re-walk the graph on resume."
+    ],
+    "IVNListener": "interface IVNListener { onNode?: (node: DialogueNode) => void; onChoice?: (options: Array<{ label: string; next: string }>) => void; onEvent?: (eventName: string, ...args: unknown[]) => void; onEnd?: () => void; onCGNode?: (cgPath: string) => void }",
+    "variables": "Map<string, unknown> (readonly) \u2014 all variables set by 'variable-set' nodes during playback"
   },
   "VNTextbox": {
     "import": "import { VNTextbox, type VNTextboxOptions } from '@emptysock/engine'",
@@ -972,7 +977,7 @@
       },
       "setAmbient": {
         "signature": "(colour: number, intensity: number): void",
-        "description": "Set the scene-wide ambient light colour (hex) and intensity (0–1)."
+        "description": "Set the scene-wide ambient light colour (hex) and intensity (0\u20131)."
       },
       "attachFilter": {
         "signature": "(stage: Container, useNormalMap?: boolean, canvasWidth?: number, canvasHeight?: number): void",
@@ -988,25 +993,25 @@
       }
     },
     "properties": {
-      "lights": "Map<string, Light> — mutable registry; update light.x/light.y in-place to move lights without remove/re-add",
-      "ambientColour": "number — current ambient colour (hex)",
-      "ambientIntensity": "number — current ambient intensity (0–1)"
+      "lights": "Map<string, Light> \u2014 mutable registry; update light.x/light.y in-place to move lights without remove/re-add",
+      "ambientColour": "number \u2014 current ambient colour (hex)",
+      "ambientIntensity": "number \u2014 current ambient intensity (0\u20131)"
     },
     "Light": {
-      "id": "string — unique identifier (required)",
-      "type": "LightType — 'point' | 'directional' | 'spot' | 'ambient'",
-      "colour": "number — hex colour (mutable)",
-      "intensity": "number — brightness multiplier (mutable)",
-      "radius": "number — falloff radius in world pixels (point/spot only)",
-      "angle": "number — cone half-angle in radians (spot only)",
-      "direction": "{ x: number, y: number } — world-space direction (directional only)",
+      "id": "string \u2014 unique identifier (required)",
+      "type": "LightType \u2014 'point' | 'directional' | 'spot' | 'ambient'",
+      "colour": "number \u2014 hex colour (mutable)",
+      "intensity": "number \u2014 brightness multiplier (mutable)",
+      "radius": "number \u2014 falloff radius in world pixels (point/spot only)",
+      "angle": "number \u2014 cone half-angle in radians (spot only)",
+      "direction": "{ x: number, y: number } \u2014 world-space direction (directional only)",
       "castShadows": "boolean",
-      "x": "number — world-space x (point/spot; mutable — update each frame to follow entities)",
-      "y": "number — world-space y (point/spot; mutable)"
+      "x": "number \u2014 world-space x (point/spot; mutable \u2014 update each frame to follow entities)",
+      "y": "number \u2014 world-space y (point/spot; mutable)"
     },
     "notes": [
       "Requires scene config `lighting: true`.",
-      "Mutate light.x and light.y directly for moving lights — no need to remove/re-add each frame.",
+      "Mutate light.x and light.y directly for moving lights \u2014 no need to remove/re-add each frame.",
       "Normal maps: if hero_n.png exists alongside hero.png, pass useNormalMap: true to attachFilter.",
       "Max 16 point lights and 4 directional lights per GPU uniform batch."
     ]
@@ -1034,16 +1039,16 @@
     },
     "NavPolygon": {
       "id": "number",
-      "vertices": "ReadonlyArray<Vec2> — convex polygon vertices in order",
+      "vertices": "ReadonlyArray<Vec2> \u2014 convex polygon vertices in order",
       "centroid": "Vec2",
-      "neighbours": "ReadonlyArray<number> — ids of adjacent walkable polygons"
+      "neighbours": "ReadonlyArray<number> \u2014 ids of adjacent walkable polygons"
     },
     "Vec2": {
       "x": "number",
       "y": "number"
     },
     "notes": [
-      "NavMesh data is offline — no runtime generation from tilemap data.",
+      "NavMesh data is offline \u2014 no runtime generation from tilemap data.",
       "Use PathfindingSystem for grid-based A* on a TilemapLayer.asGrid().",
       "NavMeshSystem uses polygon-graph A* and is suited for open-world navigation."
     ]
@@ -1067,17 +1072,17 @@
       }
     },
     "properties": {
-      "onError": "(id: string, error: unknown) => void | null — optional callback invoked when a coroutine throws. Assign directly: coroutines.onError = (id, err) => { ... }"
+      "onError": "(id: string, error: unknown) => void | null \u2014 optional callback invoked when a coroutine throws. Assign directly: coroutines.onError = (id, err) => { ... }"
     },
     "helpers": {
-      "waitFrames": "yield waitFrames(n: number) — pause for n frames",
-      "waitSeconds": "yield waitSeconds(t: number) — pause for t seconds",
-      "waitUntil": "yield waitUntil(fn: () => boolean) — pause until predicate returns true"
+      "waitFrames": "yield waitFrames(n: number) \u2014 pause for n frames",
+      "waitSeconds": "yield waitSeconds(t: number) \u2014 pause for t seconds",
+      "waitUntil": "yield waitUntil(fn: () => boolean) \u2014 pause until predicate returns true"
     }
   },
   "GamepadSystem": {
     "import": "import { GamepadSystem, type GamepadState, type DualRumbleOptions } from '@emptysock/engine'",
-    "description": "Low-level gamepad polling. Wraps the browser Gamepad API. For most input needs, use InputSystem.isKeyDown() / isKeyPressed() instead — they integrate GamepadSystem state internally.",
+    "description": "Low-level gamepad polling. Wraps the browser Gamepad API. For most input needs, use InputSystem.isKeyDown() / isKeyPressed() instead \u2014 they integrate GamepadSystem state internally.",
     "constructor": "new GamepadSystem()",
     "methods": {
       "update": {
@@ -1099,13 +1104,13 @@
     },
     "GamepadState": {
       "connected": "boolean",
-      "buttons": "ReadonlyArray<boolean> — button pressed states",
-      "axes": "ReadonlyArray<number> — axis values (-1 to 1)"
+      "buttons": "ReadonlyArray<boolean> \u2014 button pressed states",
+      "axes": "ReadonlyArray<number> \u2014 axis values (-1 to 1)"
     },
     "DualRumbleOptions": {
-      "weakMagnitude": "number — 0–1",
-      "strongMagnitude": "number — 0–1",
-      "duration": "number — milliseconds"
+      "weakMagnitude": "number \u2014 0\u20131",
+      "strongMagnitude": "number \u2014 0\u20131",
+      "duration": "number \u2014 milliseconds"
     }
   },
   "TweenManager": {
@@ -1131,12 +1136,25 @@
       }
     },
     "TweenOptions": {
-      "duration": "number — seconds",
-      "ease": "EasingName — default 'linear'",
-      "delay": "number — seconds before tween starts",
-      "onComplete": "() => void — optional callback"
+      "duration": "number \u2014 seconds",
+      "ease": "EasingName \u2014 default 'linear'",
+      "delay": "number \u2014 seconds before tween starts",
+      "onComplete": "() => void \u2014 optional callback"
     },
-    "easings": ["linear", "sineIn", "sineOut", "sineInOut", "quadIn", "quadOut", "quadInOut", "cubicIn", "cubicOut", "cubicInOut", "bounceOut", "elasticOut"]
+    "easings": [
+      "linear",
+      "sineIn",
+      "sineOut",
+      "sineInOut",
+      "quadIn",
+      "quadOut",
+      "quadInOut",
+      "cubicIn",
+      "cubicOut",
+      "cubicInOut",
+      "bounceOut",
+      "elasticOut"
+    ]
   },
   "PostProcessSystem": {
     "import": "import { PostProcessSystem, type PostEffectType, type PostEffectOptions, type LayerFilterOptions } from '@emptysock/engine'",
@@ -1205,7 +1223,12 @@
       "FOREGROUND": 100,
       "UI": 1000
     },
-    "builtinLayers": ["background", "default", "foreground", "ui"],
+    "builtinLayers": [
+      "background",
+      "default",
+      "foreground",
+      "ui"
+    ],
     "methods": {
       "defineLayer": {
         "signature": "(name: string, index: number): void",
@@ -1268,33 +1291,33 @@
   },
   "ActorSystem": {
     "import": "import { Actor, ActorSystem, NetworkActor, type Message, type ActorId, type Transport, type TransportMessage } from '@emptysock/engine'",
-    "description": "Mailbox-based Actor Model for decoupled game logic. Actors communicate only via messages — no shared mutable state. Create one ActorSystem per scene; destroy it in onDestroy.",
+    "description": "Mailbox-based Actor Model for decoupled game logic. Actors communicate only via messages \u2014 no shared mutable state. Create one ActorSystem per scene; destroy it in onDestroy.",
     "Actor": {
       "description": "Base class for all actors. Extend it and implement receive() and update().",
       "constructor": "new MyActor(id: string)",
       "methods": {
-        "receive": "(msg: Message): void — handle an incoming message",
-        "update": "(dt: number): void — called every frame after all mailboxes are flushed"
+        "receive": "(msg: Message): void \u2014 handle an incoming message",
+        "update": "(dt: number): void \u2014 called every frame after all mailboxes are flushed"
       }
     },
     "ActorSystem": {
       "description": "Manages a set of actors; drains every actor's inbox before calling update() on any actor. Create in onLoad, call update(dt) in onUpdate, call destroy() in onDestroy.",
       "constructor": "new ActorSystem()",
       "methods": {
-        "register": "(actor: Actor): void — register an actor with the system",
-        "unregister": "(id: string): void — remove an actor; triggers its onStop() if defined",
-        "send": "(id: string, msg: Message): void — enqueue a message to a specific actor",
-        "broadcast": "(msg: Message): void — enqueue a message to all registered actors (O(n))",
-        "update": "(dt: number): void — flush all mailboxes then call update(dt) on every actor",
-        "destroy": "(): void — unregister all actors and free resources. Call in onDestroy.",
-        "getAll": "(): Actor[] — return a snapshot array of all currently registered actors"
+        "register": "(actor: Actor): void \u2014 register an actor with the system",
+        "unregister": "(id: string): void \u2014 remove an actor; triggers its onStop() if defined",
+        "send": "(id: string, msg: Message): void \u2014 enqueue a message to a specific actor",
+        "broadcast": "(msg: Message): void \u2014 enqueue a message to all registered actors (O(n))",
+        "update": "(dt: number): void \u2014 flush all mailboxes then call update(dt) on every actor",
+        "destroy": "(): void \u2014 unregister all actors and free resources. Call in onDestroy.",
+        "getAll": "(): Actor[] \u2014 return a snapshot array of all currently registered actors"
       }
     },
     "NetworkActor": {
       "description": "Opt-in base class for actors that send or receive messages over a network Transport. Extends Actor.",
       "methods": {
-        "setTransport": "(transport: Transport): void — wire a Transport implementation",
-        "sendRemote": "(channel: string, msg: Message): void — forward a message through the Transport"
+        "setTransport": "(transport: Transport): void \u2014 wire a Transport implementation",
+        "sendRemote": "(channel: string, msg: Message): void \u2014 forward a message through the Transport"
       }
     },
     "Transport": {
@@ -1307,7 +1330,7 @@
       }
     },
     "notes": [
-      "Messages sent inside an actor's receive() are processed in the same flush pass — not deferred to the next frame.",
+      "Messages sent inside an actor's receive() are processed in the same flush pass \u2014 not deferred to the next frame.",
       "An actor that always re-enqueues a message to itself in receive() creates an infinite flush loop.",
       "Use targeted send() for high-frequency messages; broadcast() is O(n).",
       "Create a new ActorSystem in onLoad and destroy it in onDestroy to avoid stale-actor bugs across scene transitions."
@@ -1315,7 +1338,7 @@
   },
   "PhysicsSystem3D": {
     "import": "import { PhysicsSystem3D } from '@emptysock/engine'",
-    "description": "Full Rapier3D integration for 3D physics. WASM-based — must call await physics.init() before adding bodies. Always call physics.destroy() in onDestroy to free WASM memory.",
+    "description": "Full Rapier3D integration for 3D physics. WASM-based \u2014 must call await physics.init() before adding bodies. Always call physics.destroy() in onDestroy to free WASM memory.",
     "constructor": "new PhysicsSystem3D()",
     "methods": {
       "init": {
@@ -1336,36 +1359,36 @@
       },
       "destroy": {
         "signature": "(): void",
-        "description": "Free all WASM-allocated physics memory. Required in onDestroy — the GC cannot see WASM memory."
+        "description": "Free all WASM-allocated physics memory. Required in onDestroy \u2014 the GC cannot see WASM memory."
       }
     },
     "Body3DOptions": {
       "bodyType": "'dynamic' | 'static' | 'kinematic'",
       "shape": "'box' | 'sphere' | 'capsule' | 'cylinder' | 'cone'",
-      "halfExtents": "{ x, y, z } — for box shape",
-      "radius": "number — for sphere, capsule, cylinder, cone",
-      "halfHeight": "number — for capsule, cylinder, cone",
+      "halfExtents": "{ x, y, z } \u2014 for box shape",
+      "radius": "number \u2014 for sphere, capsule, cylinder, cone",
+      "halfHeight": "number \u2014 for capsule, cylinder, cone",
       "position": "{ x, y, z }",
       "density": "number (optional)",
       "restitution": "number (optional)",
-      "isSensor": "boolean (optional) — detect overlaps without generating forces"
+      "isSensor": "boolean (optional) \u2014 detect overlaps without generating forces"
     },
     "Body3DHandle": {
-      "bodyIndex": "number — use with removeBody()",
+      "bodyIndex": "number \u2014 use with removeBody()",
       "getPosition": "(): { x: number, y: number, z: number }",
       "getRotation": "(): { x: number, y: number, z: number, w: number }",
       "applyImpulse": "(impulse: { x: number, y: number, z: number }): void"
     },
     "notes": [
-      "Always await physics.init() before adding bodies — Rapier WASM must initialise first.",
-      "Always call physics.destroy() in onDestroy — WASM memory is outside the JS heap and the GC cannot free it.",
+      "Always await physics.init() before adding bodies \u2014 Rapier WASM must initialise first.",
+      "Always call physics.destroy() in onDestroy \u2014 WASM memory is outside the JS heap and the GC cannot free it.",
       "Sensor bodies (isSensor: true) detect overlaps without generating physical response forces."
     ]
   },
   "PluginSystem": {
     "import": "import { pluginSystem, type Plugin, type PluginContext } from '@emptysock/engine'",
-    "description": "Module-level singleton for registering process-global engine extensions. Plugins install optional services (analytics, ads, platform achievements) once for the app lifetime. The singleton is shared across all scenes — no per-scene construction needed.",
-    "singleton": "pluginSystem — import and use directly; do not construct a new PluginSystem",
+    "description": "Module-level singleton for registering process-global engine extensions. Plugins install optional services (analytics, ads, platform achievements) once for the app lifetime. The singleton is shared across all scenes \u2014 no per-scene construction needed.",
+    "singleton": "pluginSystem \u2014 import and use directly; do not construct a new PluginSystem",
     "methods": {
       "register": {
         "signature": "(plugin: Plugin): Promise<void>",
@@ -1381,19 +1404,19 @@
       }
     },
     "properties": {
-      "registeredPlugins": "readonly string[] — names of all currently registered plugins"
+      "registeredPlugins": "readonly string[] \u2014 names of all currently registered plugins"
     },
     "Plugin": {
-      "name": "string — unique plugin name; duplicate registration throws",
+      "name": "string \u2014 unique plugin name; duplicate registration throws",
       "version": "string",
       "install": "(ctx: PluginContext): void | Promise<void>",
       "uninstall": "(): void | Promise<void>"
     },
     "PluginContext": {
-      "provide": "(key: string, value: unknown): void — expose a value for pluginSystem.inject()"
+      "provide": "(key: string, value: unknown): void \u2014 expose a value for pluginSystem.inject()"
     },
     "notes": [
-      "pluginSystem is a module-level singleton — do not construct one per scene.",
+      "pluginSystem is a module-level singleton \u2014 do not construct one per scene.",
       "install() may be async; await pluginSystem.register() to ensure it has completed.",
       "The singleton makes inject() callable from anywhere without passing a reference."
     ]
@@ -1403,10 +1426,10 @@
     "description": "Opt-in turn-based RPG battle module. Handles turn order (speed desc), damage resolution, status effects, and event emission. Tree-shaken from bundles that do not import it. Enemies act automatically (attack lowest-HP party member); party members require submitAction().",
     "constructor": "new BattleSystem(options?: BattleSystemOptions)",
     "BattleSystemOptions": {
-      "db": "BattleDatabase — optional, can also be loaded via loadDatabase()",
-      "critChance": "number — default 0.0625",
-      "critMultiplier": "number — default 1.5",
-      "fleeChance": "number — default 0.5"
+      "db": "BattleDatabase \u2014 optional, can also be loaded via loadDatabase()",
+      "critChance": "number \u2014 default 0.0625",
+      "critMultiplier": "number \u2014 default 1.5",
+      "fleeChance": "number \u2014 default 0.5"
     },
     "methods": {
       "addPartyMember": {
@@ -1456,10 +1479,10 @@
     },
     "types": {
       "BattlePhase": "'idle' | 'input' | 'resolving' | 'victory' | 'defeat'",
-      "BattleStats": "{ hp, maxHp, mp, maxMp, attack, defense, speed, luck: number } — built-in fields; see BattleStatMap for user-defined stats",
-      "BattleStatMap": "Record<string, number> — extends the built-in BattleStats with any user-defined stat names. Add extra keys to Combatant.stats; guard reads with ?? 0 in formulas.",
-      "DamageContext": "{ attacker: Combatant; defender: Combatant; skill: SkillDef | null } — passed as sixth argument to the setDamageFormula callback",
-      "StatusEffect": "{ id: string; name: string; turnsRemaining: number } — turnsRemaining -1 = permanent",
+      "BattleStats": "{ hp, maxHp, mp, maxMp, attack, defense, speed, luck: number } \u2014 built-in fields; see BattleStatMap for user-defined stats",
+      "BattleStatMap": "Record<string, number> \u2014 extends the built-in BattleStats with any user-defined stat names. Add extra keys to Combatant.stats; guard reads with ?? 0 in formulas.",
+      "DamageContext": "{ attacker: Combatant; defender: Combatant; skill: SkillDef | null } \u2014 passed as sixth argument to the setDamageFormula callback",
+      "StatusEffect": "{ id: string; name: string; turnsRemaining: number } \u2014 turnsRemaining -1 = permanent",
       "Combatant": "{ id: string; name: string; stats: BattleStatMap; statusEffects: readonly StatusEffect[]; isParty: boolean }",
       "SkillTargetType": "'single-enemy' | 'all-enemies' | 'single-ally' | 'all-allies' | 'self'",
       "DamageFormulaId": "'physical' | 'magical' | 'fixed' | 'percent-max-hp'",

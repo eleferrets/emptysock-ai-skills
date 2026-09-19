@@ -389,7 +389,7 @@ entity.startCoroutine(function* boss_sequence() {
 import { SceneManager } from '@emptysock/engine'
 
 SceneManager.load('GameScene')
-SceneManager.transition('MenuScene', { effect: 'fade', duration: 0.4 })
+SceneManager.transition('MenuScene', { duration: 0.4 })
 SceneManager.push('PauseScene')
 SceneManager.pop()
 ```

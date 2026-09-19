@@ -71,16 +71,18 @@ Clicking anywhere on the textbox calls `vn.advance()` automatically for dialogue
 
 ```typescript
 // In onLoad, after binding:
-this._vn.onChoice = (options) => {
-  options.forEach((opt, i) => {
-    const btn = createChoiceButton(i + 1, opt.label)
-    btn.on('click', () => {
-      this._vn?.selectOption(opt.next)   // opt.next is the target node ID
-      removeChoiceButtons()
+this._vn.setListener({
+  onChoice: (options) => {
+    options.forEach((opt, i) => {
+      const btn = createChoiceButton(i + 1, opt.label)
+      btn.on('click', () => {
+        this._vn?.selectOption(opt.next)   // opt.next is the target node ID
+        removeChoiceButtons()
+      })
+      this.ui.add(btn)
     })
-    this.ui.add(btn)
-  })
-}
+  },
+})
 ```
 
 ## Visibility
