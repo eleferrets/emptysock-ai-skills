@@ -344,25 +344,34 @@
       }
     },
     "CameraSystem": {
-      "import": "import { CameraSystem } from '@emptysock/engine'",
+      "import": "import { CameraSystem, type CameraBounds, type CameraState } from '@emptysock/engine'",
+      "description": "Instanced class — create one per scene, call attach(stage) in onLoad, update(dt) in onUpdate, destroy() in onDestroy.",
+      "instantiation": "const camera = new CameraSystem()",
       "methods": {
-        "follow": "CameraSystem.follow(entity: Entity, opts?: FollowOptions): void",
-        "stopFollow": "CameraSystem.stopFollow(): void",
-        "shake": "CameraSystem.shake(opts: { intensity: number, duration: number, decay?: 'linear' | 'exponential' }): void",
-        "trauma": "CameraSystem.trauma(amount: number): void",
-        "zoom": "CameraSystem.zoom(scale: number, opts?: TweenOptions): void",
-        "flash": "CameraSystem.flash(opts: { colour: number, duration: number }): void",
-        "fade": "CameraSystem.fade(opts: { to: number, duration: number }): void",
-        "unfade": "CameraSystem.unfade(opts?: { duration: number }): void",
-        "letterbox": "CameraSystem.letterbox(opts: { ratio: string }): void",
-        "pillarbox": "CameraSystem.pillarbox(opts: { ratio: string }): void"
+        "attach": "camera.attach(stage: Container): void — wire to PixiJS container, required before any transforms apply",
+        "setViewSize": "camera.setViewSize(width: number, height: number): void — defaults to 1280×720",
+        "setFollow": "camera.setFollow(fn: (() => { x: number; y: number }) | null): void — track a moving target; pass null to stop",
+        "setLerpFactor": "camera.setLerpFactor(factor: number): void — 0.05 = slow drift, 1.0 = instant (default 0.1)",
+        "snapTo": "camera.snapTo(x: number, y: number): void — immediately jump to world position, clears follow",
+        "moveTo": "camera.moveTo(x: number, y: number): void — smooth move toward world position, clears follow",
+        "zoomTo": "camera.zoomTo(zoom: number): void — smooth zoom toward scale factor (1.0 = no zoom)",
+        "snapZoom": "camera.snapZoom(zoom: number): void — immediately set zoom with no animation",
+        "setRotation": "camera.setRotation(radians: number): void — rotate the entire view",
+        "shake": "camera.shake(intensity: number, duration: number): void — intensity in px, duration in seconds",
+        "setBounds": "camera.setBounds(bounds: CameraBounds | null): void — clamp position to { minX, minY, maxX, maxY }",
+        "worldToScreen": "camera.worldToScreen(wx: number, wy: number): { x: number; y: number }",
+        "screenToWorld": "camera.screenToWorld(sx: number, sy: number): { x: number; y: number }",
+        "update": "camera.update(dt: number): void — must be called every frame",
+        "destroy": "camera.destroy(): void — release references, call in onDestroy"
       },
-      "FollowOptions": {
-        "lerp": "number 0–1",
-        "deadzone": "{ x: number, y: number }",
-        "lookahead": "{ x: number, y: number }",
-        "bounds": "{ x: number, y: number, width: number, height: number }"
-      }
+      "properties": {
+        "state": "camera.state: CameraState — read-only snapshot { x, y, zoom, rotation, viewWidth, viewHeight }",
+        "viewX": "camera.viewX: number",
+        "viewY": "camera.viewY: number",
+        "viewWidth": "camera.viewWidth: number",
+        "viewHeight": "camera.viewHeight: number"
+      },
+      "CameraBounds": "{ minX: number; minY: number; maxX: number; maxY: number }"
     },
     "TweenManager": {
       "import": "import { TweenManager } from '@emptysock/engine'",
@@ -386,25 +395,21 @@
       }
     },
     "SaveSystem": {
-      "import": "import { SaveSystem } from '@emptysock/engine'",
+      "import": "import { SaveSystem, type SaveSlot } from '@emptysock/engine'",
+      "description": "Instanced class — create one per scene (or share across scenes). Backed by localStorage; synchronous. Always validate loaded data through a Zod schema.",
+      "instantiation": "const save = new SaveSystem()",
       "methods": {
-        "save": "SaveSystem.save(slot: string, data: unknown): Promise<void>",
-        "load": "SaveSystem.load(slot: string): Promise<SaveSlot>",
-        "delete": "SaveSystem.delete(slot: string): Promise<void>",
-        "listSlots": "SaveSystem.listSlots(): Promise<SaveSlot[]>",
-        "enableAutoSave": "SaveSystem.enableAutoSave(opts: { interval: number, slot: string }): void",
-        "disableAutoSave": "SaveSystem.disableAutoSave(): void"
+        "save": "save.save(slotId: string, data: Omit<SaveSlot, 'id'>): boolean — returns false if storage unavailable (private mode, quota exceeded)",
+        "load": "save.load(slotId: string): SaveSlot | null — null if slot missing or corrupt",
+        "delete": "save.delete(slotId: string): void",
+        "listSlots": "save.listSlots(): SaveSlot[] — sorted by timestamp descending"
       },
       "SaveSlot": {
-        "slot": "string",
-        "data": "unknown — ALWAYS parse through Zod before use",
+        "id": "string — the slotId passed to save()",
+        "scene": "string",
+        "data": "Record<string, unknown> — ALWAYS parse through Zod before use",
         "timestamp": "number",
-        "playtime": "number — seconds",
-        "scene": "string"
-      },
-      "settings": {
-        "get": "SaveSystem.settings.get<T>(key: string): T | undefined",
-        "set": "SaveSystem.settings.set(key: string, value: unknown): Promise<void>"
+        "playtime": "number — seconds"
       }
     },
     "LocalisationSystem": {
@@ -588,7 +593,7 @@
         "children": "Widget[] — mutable; add children with panel.children.push(child)"
       },
       "baseMethods": {
-        "on": "widget.on(event: WidgetEvent, handler): void — events: 'click'|'hover'|'hoverOut'|'change'|'animEnd'",
+        "on": "widget.on(event: WidgetEvent, handler): () => void — returns an unsubscribe function; events: 'click'|'hover'|'hoverOut'|'change'|'animEnd'",
         "off": "widget.off(event, handler): void",
         "animate": "widget.animate(name: AnimationName, opts?): void — names: 'fadeIn'|'fadeOut'|'slideIn'|'slideOut'|'pop'|'shake'; opts: { duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }",
         "triggerClick": "widget.triggerClick(): void",
@@ -1080,6 +1085,18 @@
       "getState": {
         "signature": "(index: number): GamepadState | null",
         "description": "Get the current state of gamepad at index (0-based). Returns null if not connected."
+      },
+      "isButtonPressed": {
+        "signature": "(padIndex: number, button: number): boolean",
+        "description": "True only on the frame the button went from not-pressed to pressed (fired once per press)."
+      },
+      "isButtonReleased": {
+        "signature": "(padIndex: number, button: number): boolean",
+        "description": "True only on the frame the button went from pressed to not-pressed (fired once per release)."
+      },
+      "isButtonDown": {
+        "signature": "(padIndex: number, button: number): boolean",
+        "description": "True every frame the button is held down."
       },
       "rumble": {
         "signature": "(index: number, intensity: number, duration: number): void",

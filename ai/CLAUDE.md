@@ -170,11 +170,29 @@ AudioSystem.stopMusic({ fade: 0.5 })
 ```typescript
 import { CameraSystem } from '@emptysock/engine'
 
-CameraSystem.follow(player, { lerp: 0.1, deadzone: { x: 80, y: 40 } })
-CameraSystem.shake({ intensity: 6, duration: 0.3 })
-CameraSystem.zoom(2.0, { duration: 0.4, ease: 'sineOut' })
-CameraSystem.fade({ to: 0x000000, duration: 0.5 })
-CameraSystem.unfade({ duration: 0.3 })
+// Create one CameraSystem per scene
+private _camera = new CameraSystem()
+
+override onLoad(): void {
+  this._camera.attach(this.stage)            // wire to PixiJS container — required
+  this._camera.setFollow(() => player.position)
+  this._camera.setLerpFactor(0.1)            // 0.05 = slow drift, 1.0 = instant
+  this._camera.setBounds({ minX: 0, minY: 0, maxX: 3200, maxY: 900 })
+}
+
+override onUpdate(dt: number): void {
+  this._camera.update(dt)                    // must be called every frame
+  // On hit:
+  this._camera.shake(6, 0.3)               // intensity px, duration seconds
+  this._camera.zoomTo(2.0)                 // smooth zoom toward target
+  // Convert coordinates:
+  const world = this._camera.screenToWorld(clickX, clickY)
+  const screen = this._camera.worldToScreen(entity.position.x, entity.position.y)
+}
+
+override onDestroy(): void {
+  this._camera.destroy()
+}
 ```
 
 ### Timers
@@ -208,7 +226,7 @@ entity.startCoroutine(function* boss_intro() {
   yield waitSeconds(1.0)
   dialogue.show('I have been waiting...')
   yield waitUntil(() => !dialogue.isVisible())
-  CameraSystem.shake({ intensity: 12, duration: 0.5 })
+  this._camera.shake(12, 0.5)
   yield waitSeconds(0.5)
   boss.activate()
 })
@@ -240,13 +258,17 @@ const SaveSchema = z.object({
 })
 type SaveData = z.infer<typeof SaveSchema>
 
-async function save(slot: string): Promise<void> {
-  await SaveSystem.save(slot, { scene: 'Level2', score: 4200, inventory: [], flags: {} })
+// Create one SaveSystem per scene (or share a scene-level instance)
+private _save = new SaveSystem()
+
+function saveGame(slot: string): boolean {
+  return this._save.save(slot, { scene: 'Level2', score: 4200, inventory: [], flags: {} })
 }
 
-async function load(slot: string): Promise<SaveData> {
-  const raw = await SaveSystem.load(slot)
-  return SaveSchema.parse(raw.data) // always validate — throws on corrupt data
+function loadGame(slot: string): SaveData | null {
+  const raw = this._save.load(slot)  // returns SaveSlot | null
+  if (raw === null) return null
+  return SaveSchema.parse(raw.data)  // always validate — throws on corrupt data
 }
 ```
 
@@ -361,7 +383,7 @@ if (this.isOffscreen()) pool.release(this)
 | `let x: any = getStuff()` | `let x: unknown = getStuff()` then narrow |
 | `document.getElementById('canvas')` | EmptySock UI / canvas system |
 | Forgetting `entity.destroy()` | Always destroy when done |
-| Forgetting timer cleanup in `onDestroy` | Always cancel stored `TimerHandle`s |
+| Forgetting timer cleanup in `onDestroy` | Call `tweens.destroy()` — cancels all pending timers |
 | Forgetting `input.detach()` in `onDestroy` | Always detach `InputSystem` when done |
 
 ---
