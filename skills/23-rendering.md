@@ -4,6 +4,8 @@
 
 **Attaching `Transform` + `Sprite` to an entity is the entire contract for "this shows up on screen." There is no second, separate registration step.**
 
+`RenderPipeline` only handles drawing at a fixed pixel size — pair it with `ViewportSystem` (see `skills/24-viewport-system.md`) to make that output fit the actual container across window sizes, orientations, and device pixel ratios: `RenderPipeline` draws, `ViewportSystem` scales what it drew.
+
 ---
 
 ## Setup (in onLoad)

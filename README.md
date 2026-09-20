@@ -63,6 +63,11 @@ emptysock-agent-pack/
 | `skills/21-post-process.md` | PostProcessSystem: full-screen effects and per-layer filters |
 | `skills/22-lighting-system.md` | LightingSystem: dynamic lights, ambient light, shadow casting |
 | `skills/23-rendering.md` | RenderPipeline: Transform+Sprite auto-rendering, tilemap mounting, layers |
+| `skills/24-viewport-system.md` | ViewportSystem: design-resolution scaling, safe-area insets, GPU-tier render defaults |
+| `skills/25-pointer-system.md` | PointerSystem: unified mouse/touch/pen input, gestures, wheel/trackpad classification |
+| `skills/26-animator-controller.md` | AnimatorController: named-state animation state machine, parameter/trigger transitions, cross-fade |
+| `skills/27-asset-manifest.md` | AssetManifest: declarative asset preloading with progress reporting |
+| `skills/28-accessibility-debugging.md` | InputBindings, DebugOverlaySystem, textScale, and the colourblind simulation filter |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |

@@ -131,6 +131,27 @@ this._render.destroy()
 
 `RenderPipeline.mountTilemap(tilemap, layerName?, autoTileSystem?)` draws a `Tilemap`'s tiles as real textured sprites — `Tilemap` has no rendering of its own. See `skills/23-rendering.md` for the full API.
 
+Pair `RenderPipeline` with `ViewportSystem` in every game that runs on more than one screen size — `RenderPipeline` draws, `ViewportSystem` scales what it drew to fit the container:
+
+```typescript
+import { ViewportSystem } from '@emptysock/engine'
+
+private _viewport = new ViewportSystem()
+
+override onLoad(): void {
+  this._viewport.init(
+    { designWidth: 1280, designHeight: 720, scaleMode: 'fit' },
+    { renderTarget: this._render, cameraSystem: this._camera },
+  )
+}
+
+override onDestroy(): void {
+  this._viewport.destroy()
+}
+```
+
+See `skills/24-viewport-system.md` for scale modes, safe-area insets, and GPU-tier render defaults.
+
 ### Input
 
 ```typescript
@@ -152,6 +173,8 @@ const y = this._input.mouseY   // mouse / pointer Y
 // In onDestroy:
 this._input.detach()
 ```
+
+For touch/mouse/pen gestures (tap, long-press, swipe, pinch), use `PointerSystem` alongside `InputSystem`/`GamepadSystem` rather than hand-rolling gesture detection — see `skills/25-pointer-system.md`. To let players remap controls, wrap `InputSystem`/`GamepadSystem` in `InputBindings` and query named actions (`bindings.isActionActive('jump')`) instead of raw key codes — see `skills/28-accessibility-debugging.md`.
 
 ### Character movement (platformer)
 
@@ -187,6 +210,14 @@ AudioSystem.play('footstep', { volume: 0.6, spatial: true, position: entity.posi
 AudioSystem.music('level_theme', { loop: true, fade: 0.5 })
 AudioSystem.setGroupVolume('sfx', 0.8)
 AudioSystem.stopMusic({ fade: 0.5 })
+
+// Mixer: duck the music bus while dialogue plays, then release it
+AudioSystem.duck('music', 0.3, 0.2)
+AudioSystem.endDuck('music')
+
+// Mixer: named volume snapshots (e.g. "combat", "explore")
+AudioSystem.defineSnapshot('combat', { music: 0.4, sfx: 1, ui: 1, voice: 0.8 })
+AudioSystem.transitionToSnapshot('combat', 0.5)
 ```
 
 ### Camera

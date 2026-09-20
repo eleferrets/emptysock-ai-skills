@@ -78,6 +78,11 @@ render.renderFrame(scene)                               // once per frame, after
 render.mountTilemap(tilemap)                             // draws real tile sprites
 render.destroy()                                         // in onDestroy
 
+// Viewport — pair with RenderPipeline for design-resolution scaling across screen sizes
+const viewport = new ViewportSystem()                    // in onLoad
+viewport.init({ designWidth: 1280, designHeight: 720, scaleMode: 'fit' }, { renderTarget: render, cameraSystem: camera })
+viewport.destroy()                                       // in onDestroy
+
 // Input — instanced; create in onLoad, detach in onDestroy
 // const input = new InputSystem(); input.attach();
 // In onUpdate: input.flush() first, then:
@@ -86,10 +91,24 @@ input.isKeyPressed('Space')     // true only on the frame the key went down
 input.isKeyReleased('Space')    // true only on the frame the key came up
 input.mouseX / input.mouseY     // pointer position
 
+// PointerSystem — unified mouse/touch/pen + gestures; pair with InputSystem/GamepadSystem
+const pointer = new PointerSystem()                      // in onLoad
+pointer.attach()
+pointer.onGesture((g) => { if (g.type === 'swipe') { /* ... */ } })
+// In onUpdate: pointer.update() to poll for long-press
+pointer.destroy()                                        // in onDestroy
+
+// InputBindings — named actions over InputSystem/GamepadSystem, remappable and persisted via SaveSystem
+const bindings = new InputBindings(input, { jump: [{ kind: 'key', code: 'Space' }] }, gamepad)
+bindings.isActionActive('jump')
+bindings.rebind('jump', [{ kind: 'key', code: 'ArrowUp' }])
+
 // Audio — static class, call directly
 AudioSystem.play('sfx_id', { volume: 0.8 })
 AudioSystem.music('track_id', { loop: true, fade: 0.5 })
 AudioSystem.setGroupVolume('sfx', 0.8)
+AudioSystem.duck('music', 0.3, 0.2)                      // duck a bus, e.g. during dialogue
+AudioSystem.transitionToSnapshot('combat', 0.5)          // named volume snapshot
 
 // Camera — instanced; create in onLoad, update in onUpdate, destroy in onDestroy
 const camera = new CameraSystem()

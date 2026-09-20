@@ -342,7 +342,11 @@
         "stop": "Audio.stop(id: string): void",
         "setGroupVolume": "Audio.setGroupVolume(group: 'music' | 'sfx' | 'ui' | 'voice', vol: number): void",
         "mute": "Audio.mute(group?: string): void",
-        "unmute": "Audio.unmute(group?: string): void"
+        "unmute": "Audio.unmute(group?: string): void",
+        "duck": "Audio.duck(bus: string, amount: number, fadeTime?: number): void — fades the bus's volume down by `amount` over fadeTime seconds (default 0.15) and holds until endDuck()",
+        "endDuck": "Audio.endDuck(bus: string): void — fades a ducked bus back to its pre-duck base volume",
+        "defineSnapshot": "Audio.defineSnapshot(name: string, busVolumes: Record<string, number>): void — stores a named target volume per bus",
+        "transitionToSnapshot": "Audio.transitionToSnapshot(name: string, duration?: number): void — transitions every bus in the snapshot to its stored volume over `duration` seconds (default 0.5)"
       },
       "PlayOptions": {
         "volume": "number 0–1",
@@ -568,8 +572,7 @@
     },
     "UISystem": {
       "import": "import { UISystem, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
-      "description": "Canvas 2D overlay for screen-space UI (menus, HUD, dialogue boxes). Renders on top of the PixiJS scene. Access via this.uiSystem inside any Scene subclass.",
-      "singleton": "UISystem — module-level singleton, shared across all scenes",
+      "description": "Canvas 2D overlay for screen-space UI (menus, HUD, dialogue boxes). Renders on top of the PixiJS scene. Instantiated per-scene (via Scene.ui), not a global singleton.",
       "methods": {
         "add": "UISystem.add(widget: Widget): void — add a root widget to the overlay",
         "removeWidget": "UISystem.removeWidget(widget: Widget): void — remove a root widget",
@@ -579,9 +582,15 @@
         "update": "UISystem.update(dt: number, pointerX?, pointerY?, cw?, ch?): void — tick animations + hover state",
         "render": "UISystem.render(ctx: IUIRenderer, cw: number, ch: number): void — draw all components and widgets",
         "handleClick": "UISystem.handleClick(x, y, cw, ch): boolean — hit-test and dispatch click",
-        "handlePointerMove": "UISystem.handlePointerMove(x, y, cw, ch): void — update hover state"
+        "handlePointerMove": "UISystem.handlePointerMove(x, y, cw, ch): void — update hover state",
+        "setScale": "UISystem.setScale(scale: number): void — sets the canvas-to-design-resolution scale factor used for widget positioning, sizing, and hit-testing (feed it from ViewportSystem's computed scale); applied to every root widget immediately. Use together with MIN_TOUCH_TARGET_SIZE (PointerSystem) to keep touch targets usable at small design resolutions.",
+        "dispatchPointerDown": "UISystem.dispatchPointerDown(x, y, canvasWidth, canvasHeight, pointerId?): boolean — hit-tests and begins a press (does not fire click)",
+        "dispatchPointerDrag": "UISystem.dispatchPointerDrag(x, y, pointerId?): void — marks an in-flight press as a drag once movement passes the click/drag threshold",
+        "dispatchPointerUp": "UISystem.dispatchPointerUp(x, y, canvasWidth, canvasHeight, pointerId?): boolean — completes a press; fires click only if it was not a drag and release lands back on the same widget",
+        "cancelPointer": "UISystem.cancelPointer(pointerId?): void — aborts an in-flight press without firing click, e.g. on pointercancel"
       },
-      "note": "UISystem constructs a default ImageLoader internally (fetch + createImageBitmap). No setup needed for the common case."
+      "note": "UISystem constructs a default ImageLoader internally (fetch + createImageBitmap). No setup needed for the common case.",
+      "constructor": "new UISystem()"
     },
     "Widget": {
       "import": "import { Widget, LabelWidget, ImageWidget, ButtonWidget, PanelWidget, ProgressBarWidget, SliderWidget, CheckboxWidget } from '@emptysock/engine'",
@@ -1281,7 +1290,11 @@
       }
     },
     "PostEffectType": "'bloom' | 'chromatic-aberration' | 'vignette' | 'scanlines' | 'pixelate' | 'colour-grade' | 'blur' | 'outline' | 'shockwave' | 'noise'",
-    "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'none'"
+    "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'colourblind' | 'none'",
+    "ColourblindMode": "'protanopia' | 'deuteranopia' | 'tritanopia' — used as LayerFilterOptions.mode when filter type is 'colourblind'",
+    "notes": [
+      "The 'colourblind' layer filter applies standard Brettel/Viénot/Machado *simulation* matrices — it shows a non-colourblind player what a colourblind player sees. It is not a correction/daltonisation filter that increases discriminability for a colourblind player."
+    ]
   },
   "LayerSystem": {
     "import": "import { LayerSystem, LAYER, type LayerConfig, type LayerSortKey } from '@emptysock/engine'",
@@ -1555,6 +1568,416 @@
       "BattleDatabase": "{ skills: SkillDef[]; statusEffects: StatusEffectDef[] }",
       "BattleAction": "{ type: 'attack'; targetId: string } | { type: 'skill'; skillId: string; targetId: string } | { type: 'flee' }",
       "BattleEvent": "{ kind: 'battle-start' } | { kind: 'round-start'; round: number } | { kind: 'action-needed'; combatantId: string } | { kind: 'damage'; sourceId: string; targetId: string; amount: number; isCrit: boolean } | { kind: 'heal'; sourceId: string; targetId: string; amount: number } | { kind: 'mp-cost'; combatantId: string; amount: number } | { kind: 'status-applied'; combatantId: string; effectId: string; name: string } | { kind: 'status-expired'; combatantId: string; effectId: string } | { kind: 'combatant-defeated'; combatantId: string } | { kind: 'victory' } | { kind: 'defeat' } | { kind: 'fled' }"
+    }
+  },
+  "ViewportSystem": {
+    "import": "import { ViewportSystem, computeViewportSize, gpuTierRenderDefaults, type ScaleMode, type ViewportConfig, type ViewportSize, type SafeAreaInsets } from '@emptysock/engine'",
+    "description": "Design-resolution scaling (fit/fill/stretch), window resize + orientation-change listening, and safe-area-inset exposure. Feeds resize() on a render target (RenderSystem or RenderPipeline) and CameraSystem.setViewSize() so they never go stale after the container changes size. The singleton export is `viewportSystem`; games may also construct their own instance.",
+    "constructor": "new ViewportSystem()",
+    "singleton": "viewportSystem",
+    "methods": {
+      "init": {
+        "signature": "(config: Partial<ViewportConfig>, systems?: { renderTarget?: ResizableRenderTarget, cameraSystem?: CameraSystem }): void",
+        "description": "Wires the render target and CameraSystem to keep in sync, starts resize/orientation listeners, and computes the initial viewport size. Call once in onLoad."
+      },
+      "recompute": {
+        "signature": "(): ViewportSize",
+        "description": "Recomputes the letterboxed/filled/stretched size and pushes it to the render target and CameraSystem. Called automatically on resize/orientation-change."
+      },
+      "setScaleMode": {
+        "signature": "(mode: ScaleMode): void",
+        "description": "Change scale mode and recompute."
+      },
+      "setDesignResolution": {
+        "signature": "(width: number, height: number): void",
+        "description": "Change the design resolution and recompute."
+      },
+      "getSafeAreaInsets": {
+        "signature": "(): SafeAreaInsets",
+        "description": "Reads CSS env(safe-area-inset-*) via a hidden probe element. Returns all-zero insets outside a browser or on platforms without notch/home-indicator insets."
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Removes all listeners. Call in onDestroy."
+      }
+    },
+    "properties": {
+      "size": "ViewportSize — read-only, last computed size",
+      "config": "Readonly<ViewportConfig> — read-only current config"
+    },
+    "ViewportConfig": {
+      "designWidth": "number — logical width the game is authored against",
+      "designHeight": "number — logical height the game is authored against",
+      "scaleMode": "ScaleMode — 'fit' | 'fill' | 'stretch'",
+      "container": "HTMLElement — optional; falls back to window dimensions"
+    },
+    "ViewportSize": {
+      "width": "number — rendered canvas width in CSS pixels",
+      "height": "number — rendered canvas height in CSS pixels",
+      "offsetX": "number — letterbox/pillarbox offset X",
+      "offsetY": "number — letterbox/pillarbox offset Y",
+      "scale": "number — scale factor from design resolution to rendered size"
+    },
+    "SafeAreaInsets": {
+      "top": "number",
+      "right": "number",
+      "bottom": "number",
+      "left": "number"
+    },
+    "ScaleMode": "'fit' | 'fill' | 'stretch' — fit letterboxes (never crops), fill cover-crops (never letterboxes), stretch fills exactly with no aspect correction",
+    "functions": {
+      "computeViewportSize": "(designWidth: number, designHeight: number, availableWidth: number, availableHeight: number, scaleMode: ScaleMode): ViewportSize — pure function, safe to unit test without a DOM",
+      "gpuTierRenderDefaults": "(tier: GPUTier, devicePixelRatio?: number): { antialias: boolean, resolution: number } — GPU-tier-appropriate defaults; pass the result's fields into RenderSystem/RenderPipeline init options"
+    }
+  },
+  "PointerSystem": {
+    "import": "import { PointerSystem, MIN_TOUCH_TARGET_SIZE, type PointerState, type Gesture, type GestureType, type SwipeDirection, type WheelEventInfo } from '@emptysock/engine'",
+    "description": "Unifies mouse, touch, and pen input into a single pointer stream using native Pointer Events, plus a dependency-free gesture recognizer (tap / long-press / swipe / pinch) and wheel/trackpad classification. Pair with InputSystem (keyboard/mouse buttons) and GamepadSystem (controllers), not as a replacement for either.",
+    "constructor": "new PointerSystem()",
+    "methods": {
+      "attach": {
+        "signature": "(target?: EventTarget): void",
+        "description": "Attach native pointerdown/pointermove/pointerup/pointercancel/wheel listeners. Defaults to window. No-op outside a browser-like environment."
+      },
+      "detach": {
+        "signature": "(): void",
+        "description": "Remove listeners and clear tracked pointers."
+      },
+      "destroy": {
+        "signature": "(): void",
+        "description": "Alias for detach(). Call in onDestroy."
+      },
+      "update": {
+        "signature": "(): void",
+        "description": "Call once per frame to poll for long-press (time-based gesture)."
+      },
+      "onPointerDown": {
+        "signature": "(handler: (p: PointerState) => void): () => void",
+        "description": "Subscribe; returns an unsubscribe function."
+      },
+      "onPointerMove": {
+        "signature": "(handler: (p: PointerState) => void): () => void"
+      },
+      "onPointerUp": {
+        "signature": "(handler: (p: PointerState) => void): () => void"
+      },
+      "onGesture": {
+        "signature": "(handler: (g: Gesture) => void): () => void",
+        "description": "Fires for tap, longpress, swipe, and pinch gestures."
+      },
+      "onWheel": {
+        "signature": "(handler: (w: WheelEventInfo) => void): () => void"
+      },
+      "getPointer": {
+        "signature": "(id: number): PointerState | undefined"
+      }
+    },
+    "properties": {
+      "pointerCount": "number",
+      "pointers": "ReadonlyArray<PointerState>",
+      "primaryPointer": "PointerState | undefined — mouse, or the first active touch"
+    },
+    "PointerState": {
+      "id": "number",
+      "x": "number",
+      "y": "number",
+      "dx": "number",
+      "dy": "number",
+      "startX": "number",
+      "startY": "number",
+      "startTime": "number",
+      "pointerType": "'mouse' | 'touch' | 'pen' | 'unknown'",
+      "isPrimary": "boolean",
+      "buttons": "number"
+    },
+    "Gesture": "TapGesture | LongPressGesture | SwipeGesture | PinchGesture, discriminated by `type`",
+    "TapGesture": {
+      "type": "'tap'",
+      "x": "number",
+      "y": "number",
+      "pointerId": "number"
+    },
+    "LongPressGesture": {
+      "type": "'longpress'",
+      "x": "number",
+      "y": "number",
+      "pointerId": "number"
+    },
+    "SwipeGesture": {
+      "type": "'swipe'",
+      "x": "number",
+      "y": "number",
+      "pointerId": "number",
+      "direction": "SwipeDirection",
+      "velocity": "number",
+      "distance": "number"
+    },
+    "PinchGesture": {
+      "type": "'pinch'",
+      "x": "number",
+      "y": "number",
+      "distance": "number",
+      "scale": "number",
+      "deltaScale": "number"
+    },
+    "SwipeDirection": "'up' | 'down' | 'left' | 'right'",
+    "WheelEventInfo": {
+      "deltaX": "number",
+      "deltaY": "number",
+      "deltaMode": "number — 0=pixel, 1=line, 2=page",
+      "source": "'trackpad' | 'mouse-wheel' — heuristic classification",
+      "isPinchZoom": "boolean — true for a trackpad pinch-to-zoom gesture"
+    },
+    "constants": {
+      "MIN_TOUCH_TARGET_SIZE": "44 — minimum recommended touch-target size in CSS pixels; pair with UISystem.setScale() for touch-target scaling"
+    }
+  },
+  "AnimatorController": {
+    "import": "import { AnimatorController, type AnimParamValue, type AnimTransitionOptions, type ActiveClipFrame } from '@emptysock/engine'",
+    "description": "Code-first animation state machine component: named states (each backed by an AnimationClip), parameter/trigger-gated transitions, and optional linear cross-fade blending. A separate component from the single-clip `Animator`, which is unchanged — use Animator for simple sprite-flipbook playback and AnimatorController when animation depends on named states and parameters (e.g. 'idle'/'run'/'jump' gated on a speed float and a grounded bool).",
+    "constructor": "new AnimatorController()",
+    "componentType": "AnimatorController.TYPE",
+    "methods": {
+      "addState": {
+        "signature": "(name: string, clip: AnimationClip): void",
+        "description": "Register a named state backed by a clip."
+      },
+      "addTransition": {
+        "signature": "(from: string, options: AnimTransitionOptions): void",
+        "description": "Register a transition. Pass '*' as `from` to match from any state."
+      },
+      "setFloat": {
+        "signature": "(name: string, value: number): void"
+      },
+      "setBool": {
+        "signature": "(name: string, value: boolean): void"
+      },
+      "setTrigger": {
+        "signature": "(name: string): void",
+        "description": "Arms a trigger; stays armed until a transition condition consumes it or resetTrigger() is called."
+      },
+      "resetTrigger": {
+        "signature": "(name: string): void"
+      },
+      "getParam": {
+        "signature": "(name: string): AnimParamValue | undefined"
+      },
+      "play": {
+        "signature": "(name: string): void",
+        "description": "Jump straight into a state with no transition/blend, e.g. on setup."
+      },
+      "getActiveClips": {
+        "signature": "(): ActiveClipFrame[]",
+        "description": "Clip(s)/frame(s)/weight(s) to composite this frame — one entry normally, two during a cross-fade with weights summing to 1."
+      }
+    },
+    "properties": {
+      "currentState": "string | null",
+      "isBlending": "boolean",
+      "speed": "number — playback speed multiplier, default 1"
+    },
+    "AnimTransitionOptions": {
+      "to": "string — target state name",
+      "condition": "(ctx: AnimTransitionContext) => boolean — evaluated every update",
+      "duration": "number — optional cross-fade duration in seconds; 0 (default) is an instant cut"
+    },
+    "AnimTransitionContext": {
+      "getParam": "(name: string) => AnimParamValue | undefined",
+      "isTriggered": "(name: string) => boolean"
+    },
+    "ActiveClipFrame": {
+      "state": "string",
+      "clip": "AnimationClip",
+      "frame": "number",
+      "weight": "number"
+    }
+  },
+  "AssetManifest": {
+    "import": "import { AssetManifest, type AssetDescriptor, type AssetType, type AssetLoadResult, type AssetLoadFailure } from '@emptysock/engine'",
+    "description": "Declarative asset preloader with progress reporting and per-asset failure handling. Loaded textures and audio warm the same caches RenderPipeline and AudioSystem read from, so gameplay code that touches them afterwards does not trigger a redundant fetch. The engine never renders a loading screen itself — build one in your own start scene and drive it from onProgress().",
+    "constructor": "new AssetManifest(options?: AssetManifestOptions)",
+    "AssetManifestOptions": {
+      "textureLoader": "TextureLoader — optional; pass the same loader given to RenderPipelineOptions.textureLoader so a preloaded texture lands in the identical cache",
+      "audioSystem": "AudioSystem — optional; required to load 'audio' type descriptors",
+      "fetchImpl": "typeof fetch — optional, defaults to global fetch; injectable for tests",
+      "continueOnError": "boolean — default true; when false, load() rejects on the first failure instead of continuing"
+    },
+    "methods": {
+      "add": {
+        "signature": "(descriptor: AssetDescriptor): this",
+        "description": "Register one asset. Chainable."
+      },
+      "addAll": {
+        "signature": "(descriptors: AssetDescriptor[]): this"
+      },
+      "onProgress": {
+        "signature": "(listener: (loaded: number, total: number, current: AssetDescriptor) => void): () => void",
+        "description": "Subscribe to progress; returns an unsubscribe function."
+      },
+      "load": {
+        "signature": "(): Promise<AssetLoadResult>",
+        "description": "Loads every registered asset in order. Per-asset failures are collected in `failures` rather than rejecting the batch, unless continueOnError is false."
+      },
+      "has": {
+        "signature": "(id: string): boolean"
+      },
+      "get": {
+        "signature": "(id: string): unknown | undefined"
+      }
+    },
+    "properties": {
+      "total": "number — count of registered descriptors",
+      "failures": "readonly AssetLoadFailure[]"
+    },
+    "AssetDescriptor": {
+      "id": "string — cache key, and AudioSystem sound id for audio assets",
+      "path": "string",
+      "type": "AssetType"
+    },
+    "AssetType": "'texture' | 'audio' | 'json' | 'font'",
+    "AssetLoadResult": {
+      "loaded": "string[] — ids loaded successfully",
+      "failed": "AssetLoadFailure[]"
+    },
+    "AssetLoadFailure": {
+      "id": "string",
+      "path": "string",
+      "type": "AssetType",
+      "error": "unknown"
+    }
+  },
+  "InputBindings": {
+    "import": "import { InputBindings, createBindingsSaveSystem, BindingsSaveSlotSchema, type ActionMap, type Binding, type BindingsSaveSlot } from '@emptysock/engine'",
+    "description": "Named-action control remapping layered over InputSystem/GamepadSystem. Games should query `bindings.isActionActive('jump')` rather than a raw key code so players can rebind controls without gameplay code branching on physical keys. Persisted via SaveSystem's generic schema API, not the default save slot shape.",
+    "constructor": "new InputBindings(input: InputSystem, defaults: ActionMap, gamepad?: GamepadSystem | null)",
+    "methods": {
+      "isActionActive": {
+        "signature": "(action: string): boolean",
+        "description": "True if any binding for the action is currently active (held)."
+      },
+      "isActionPressed": {
+        "signature": "(action: string): boolean",
+        "description": "True the frame a key-bound action transitions from inactive to active. Gamepad/mouse bindings do not support edge detection at this layer."
+      },
+      "rebind": {
+        "signature": "(action: string, bindings: Binding[]): void",
+        "description": "Replace all bindings for an action."
+      },
+      "addBinding": {
+        "signature": "(action: string, binding: Binding): void"
+      },
+      "getBindings": {
+        "signature": "(action: string): ReadonlyArray<Binding>"
+      },
+      "resetToDefaults": {
+        "signature": "(): void"
+      },
+      "save": {
+        "signature": "(save: SaveSystem<BindingsSaveSlot>, slotId?: string): void",
+        "description": "Persist current bindings via a SaveSystem<BindingsSaveSlot> (e.g. from createBindingsSaveSystem())."
+      },
+      "load": {
+        "signature": "(save: SaveSystem<BindingsSaveSlot>, slotId?: string): boolean",
+        "description": "Returns true if persisted bindings were found and applied."
+      }
+    },
+    "properties": {
+      "actions": "ReadonlyArray<string>"
+    },
+    "functions": {
+      "createBindingsSaveSystem": "(prefix?: string): SaveSystem<BindingsSaveSlot> — a SaveSystem pre-configured with the bindings slot schema"
+    },
+    "Binding": "KeyBinding | MouseButtonBinding | GamepadButtonBinding | GamepadAxisBinding, discriminated by `kind`",
+    "KeyBinding": {
+      "kind": "'key'",
+      "code": "string"
+    },
+    "MouseButtonBinding": {
+      "kind": "'mouseButton'",
+      "button": "number"
+    },
+    "GamepadButtonBinding": {
+      "kind": "'gamepadButton'",
+      "index": "number",
+      "padIndex": "number — optional"
+    },
+    "GamepadAxisBinding": {
+      "kind": "'gamepadAxis'",
+      "axis": "number",
+      "threshold": "number — sign matters",
+      "padIndex": "number — optional"
+    },
+    "ActionMap": "Record<string, Binding[]>",
+    "BindingsSaveSlot": {
+      "id": "string",
+      "bindings": "ActionMap"
+    }
+  },
+  "DebugOverlaySystem": {
+    "import": "import { DebugOverlaySystem, type DebugLogEntry, type LogLevel } from '@emptysock/engine'",
+    "description": "Shippable in-game FPS/entity-count overlay and dev console, disabled by default. Renders through the existing UI widget tree (PanelWidget + LabelWidget), so add its `root` widget to a scene's UISystem — no separate rendering path.",
+    "constructor": "new DebugOverlaySystem()",
+    "methods": {
+      "enable": {
+        "signature": "(): void"
+      },
+      "disable": {
+        "signature": "(): void"
+      },
+      "toggle": {
+        "signature": "(): void"
+      },
+      "update": {
+        "signature": "(dt: number, entityCount: number): void",
+        "description": "Call once per frame with delta time and current entity count."
+      },
+      "log": {
+        "signature": "(message: string): void"
+      },
+      "warn": {
+        "signature": "(message: string): void"
+      },
+      "logError": {
+        "signature": "(message: string): void",
+        "description": "Intended to be wired to the engine's error hook so runtime errors surface in-overlay."
+      },
+      "registerCommand": {
+        "signature": "(name: string, handler: (args: string[]) => string | void): void",
+        "description": "Register a console command. 'help' and 'clear' are registered by default."
+      },
+      "unregisterCommand": {
+        "signature": "(name: string): void"
+      },
+      "runCommand": {
+        "signature": "(line: string): string",
+        "description": "Parses 'name arg1 arg2' and dispatches to a registered command."
+      }
+    },
+    "properties": {
+      "enabled": "boolean",
+      "root": "PanelWidget — add to a scene's UISystem",
+      "history": "ReadonlyArray<DebugLogEntry>",
+      "commandNames": "ReadonlyArray<string>"
+    },
+    "DebugLogEntry": {
+      "level": "LogLevel",
+      "message": "string",
+      "timestamp": "number"
+    },
+    "LogLevel": "'log' | 'warn' | 'error'"
+  },
+  "AccessibilitySettings": {
+    "import": "import { accessibilitySettings } from '@emptysock/engine'",
+    "description": "Module-level singleton (like pluginSystem) holding a global text-scale multiplier that every LabelWidget reads at render time — a settings-menu slider can affect all on-screen text without threading a prop through every widget's constructor.",
+    "singleton": "accessibilitySettings",
+    "properties": {
+      "textScale": "number — get/set; clamped to [0.5, 3], default 1"
+    },
+    "methods": {
+      "reset": {
+        "signature": "(): void",
+        "description": "Resets textScale to 1."
+      }
     }
   }
 }
