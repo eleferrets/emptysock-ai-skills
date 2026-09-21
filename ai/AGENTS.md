@@ -122,9 +122,13 @@ camera.update(dt)                        // call every frame in onUpdate
 
 // Scene navigation
 SceneManager.load('SceneName')
-SceneManager.transition('SceneName', { effect: 'fade', duration: 0.4 })
+SceneManager.transition('SceneName', { effect: 'fade', duration: 0.4 })  // 'none'|'fade'|'wipe'|'slide'
 SceneManager.push('OverlayScene')
 SceneManager.pop()
+// transition()'s effect is only timed/tracked here — it never touches pixi/DOM.
+// Call SceneManagerInstance.attachPostProcess(postProcess) once (a PostProcessSystem
+// instance), then pass that instance into RenderPipeline.renderFrame(scene, postProcess)
+// (or call renderTransitionOverlay(postProcess) yourself) each frame to actually paint it.
 
 // Timers — use TweenManager instance (create in onLoad, destroy in onDestroy)
 tweens.after(2.0, fn)    // one-shot; cancelled when tweens.destroy() is called
@@ -134,7 +138,7 @@ tweens.every(0.5, fn)    // repeating; cancelled when tweens.destroy() is called
 entity.startCoroutine(function* () {
   yield waitSeconds(1.0)
   yield waitUntil(() => player.isGrounded())
-  SceneManager.transition('WinScene', { effect: 'iris' })
+  SceneManager.transition('WinScene', { effect: 'wipe' })
 })
 
 // Saves — instanced, synchronous. No schema given → default GameSaveSlot shape
@@ -154,9 +158,14 @@ localisation.t('key.score', { score: 100 })
 const map = TilemapSystem.load('level.esmap')
 map.getLayer('Collision').enablePhysics()
 
-// Physics events
-entity.onCollisionEnter((other, contact) => {})
-entity.onSensorEnter((other) => {})
+// Physics events — prefer registering on the PhysicsBody you already hold:
+const body = entity.requireComponent(PhysicsBody)
+body.onCollisionEnter((other, contact) => {})   // contact.impactForce: number
+body.onCollisionExit((other, contact) => {})
+body.onSensorEnter((other) => {})
+body.onSensorExit((other) => {})
+body.onSensorStay((other) => {})   // fires every step while inside
+// entity.onCollisionEnter()/entity.onSensorEnter() also still fire, side by side
 
 // Tweens (TweenManager — one per scene, must call update(dt) in onUpdate)
 const tweens = new TweenManager()                                         // in onLoad

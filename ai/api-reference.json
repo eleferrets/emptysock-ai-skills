@@ -124,9 +124,11 @@
       },
       "TransitionOptions": {
         "duration": "number (seconds) — delay before scene switch. Default 0.3",
-        "colour": "number (hex) — reserved for future transition overlay use"
+        "colour": "number (hex) — overlay colour for 'fade'/'wipe'/'slide'. Default 0x000000",
+        "effect": "TransitionEffect — 'none' | 'fade' | 'wipe' | 'slide'. Default 'none'"
       },
-      "note_transition_effects": "Transition visual effects (fade, wipe, iris, etc.) are not yet implemented. transition() currently introduces a timed delay only. The effect option has been removed from the public API."
+      "attachPostProcess": "SceneManager.attachPostProcess(postProcess: PostProcessSystem): void — wires transition() to drive that PostProcessSystem's transition state via a minimal TransitionEffectSink interface (beginTransition/transitionProgress/endTransition); SceneManager never imports pixi",
+      "note_transition_effects": "SceneManager only tracks and times the effect — it never touches pixi/DOM. Call attachPostProcess() once, then call RenderPipeline.renderTransitionOverlay(postProcess) (or renderFrame(scene, postProcess)) each frame to paint it: a full-screen overlay rect on top of the current frame, not a true two-scene crossfade."
     },
     "Entity": {
       "import": "import { Entity } from '@emptysock/engine'",
@@ -205,23 +207,33 @@
         }
       },
       "PhysicsBody": {
-        "import": "import { PhysicsBody } from '@emptysock/engine'",
+        "import": "import { PhysicsBody, type CollisionCallback, type SensorCallback, type ContactInfo } from '@emptysock/engine'",
+        "description": "Value component describing the shape and material of a rigid body, and the place to register real collision/sensor callbacks. PhysicsSystem owns the Rapier world and dispatches to these callbacks when it drains real Rapier collision/intersection events each step() — game code registers callbacks but never calls the dispatch* methods itself.",
+        "constructor": "new PhysicsBody(options?: { bodyType?: RigidBodyType, shape?: ColliderShape, width?: number, height?: number, radius?: number, density?: number, friction?: number, restitution?: number, isSensor?: boolean })",
         "props": {
-          "shape": "'cuboid' | 'ball' | 'capsule' | 'polygon' | 'compound'",
-          "bodyType": "'fixed' | 'dynamic' | 'kinematicPosition' | 'kinematicVelocity'",
-          "mass": "number",
-          "friction": "number — 0–1",
-          "restitution": "number — 0–1 (bounciness)",
-          "ccd": "boolean — continuous collision detection, for fast objects",
-          "sensor": "boolean — trigger volume, no physical response",
-          "collisionGroups": "string[] — named group labels"
+          "bodyType": "'dynamic' | 'fixed' | 'kinematicPositionBased' | 'kinematicVelocityBased' — default 'dynamic'",
+          "shape": "'box' | 'circle' | 'capsule' — default 'box'",
+          "width": "number — default 32 (box)",
+          "height": "number — default 32 (box/capsule)",
+          "radius": "number — default 16 (circle/capsule)",
+          "density": "number — default 1",
+          "friction": "number — 0–1, default 0.5",
+          "restitution": "number — 0–1 (bounciness), default 0.2",
+          "isSensor": "boolean — detect overlaps without generating forces, default false",
+          "bodyHandle": "number | null — Rapier rigid body handle; set by PhysicsSystem.registerEntity(), null until registered",
+          "colliderHandle": "number | null — Rapier collider handle; set by PhysicsSystem.registerEntity(), null until registered"
         },
         "methods": {
-          "applyImpulse": "body.applyImpulse(force: Vector2): void",
-          "applyForce": "body.applyForce(force: Vector2): void",
-          "setVelocity": "body.setVelocity(vel: Vector2): void",
-          "getVelocity": "body.getVelocity(): Vector2"
-        }
+          "onCollisionEnter": "body.onCollisionEnter(cb: (other: PhysicsBody, contact: ContactInfo) => void): void — fires when this body starts touching another (non-sensor) body",
+          "onCollisionExit": "body.onCollisionExit(cb: (other: PhysicsBody, contact: ContactInfo) => void): void — fires when this body stops touching another (non-sensor) body",
+          "onSensorEnter": "body.onSensorEnter(cb: (other: PhysicsBody) => void): void — fires when another body enters this sensor",
+          "onSensorExit": "body.onSensorExit(cb: (other: PhysicsBody) => void): void — fires when another body exits this sensor",
+          "onSensorStay": "body.onSensorStay(cb: (other: PhysicsBody) => void): void — fires every step while another body remains inside this sensor"
+        },
+        "ContactInfo": {
+          "impactForce": "number — approximate impact force, in Newtons"
+        },
+        "note": "PhysicsSystem._drainCollisionEvents() also still emits entity.emit('collisionEnter'/'collisionExit'/'sensorEnter'/'sensorExit', other) on the entity for the older entity-event path (see skills/03-physics-3d.md's 2D section) — both fire side by side; prefer PhysicsBody.onCollisionEnter()/onSensorEnter() etc. for new code since you already hold the component reference."
       },
       "CharacterController": {
         "import": "import { CharacterController } from '@emptysock/engine'",
@@ -642,8 +654,12 @@
           "description": "Initializes the underlying renderer. Await in onLoad."
         },
         "renderFrame": {
-          "signature": "(scene: Scene): void",
-          "description": "Sync every Transform+Sprite entity in scene to its PixiJS sprite, then render the frame. Call once per frame after scene update logic."
+          "signature": "(scene: Scene, postProcess?: PostProcessSystem): void",
+          "description": "Sync every Transform+Sprite entity in scene to its PixiJS sprite, then render the frame. Call once per frame after scene update logic. Pass the scene's PostProcessSystem and it also calls renderTransitionOverlay(postProcess) for you."
+        },
+        "renderTransitionOverlay": {
+          "signature": "(postProcess: PostProcessSystem): void",
+          "description": "Paints SceneManager.transition()'s active effect as a full-screen Graphics overlay on top of the current frame, reading postProcess.transitionEffect/transitionProgress/transitionColour: a triangle-wave alpha for 'fade', a growing rect for 'wipe', a rect sweeping across the screen for 'slide'. No-op when no transition is active. Called automatically by renderFrame() when a PostProcessSystem is passed; call it directly for a custom render loop."
         },
         "syncEntities": {
           "signature": "(scene: Scene): void",
@@ -1292,6 +1308,12 @@
     "PostEffectType": "'bloom' | 'chromatic-aberration' | 'vignette' | 'scanlines' | 'pixelate' | 'colour-grade' | 'blur' | 'outline' | 'shockwave' | 'noise'",
     "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'colourblind' | 'none'",
     "ColourblindMode": "'protanopia' | 'deuteranopia' | 'tritanopia' — used as LayerFilterOptions.mode when filter type is 'colourblind'",
+    "transitionProperties": {
+      "transitionEffect": "TransitionEffect — 'none' | 'fade' | 'wipe' | 'slide'; set by SceneManager.transition() through attachPostProcess(), read by RenderPipeline.renderTransitionOverlay()",
+      "transitionProgress": "number — 0..1, driven by SceneManager each update()",
+      "transitionColour": "number (hex) — overlay colour, from TransitionOptions.colour"
+    },
+    "note_scene_transitions": "PostProcessSystem structurally satisfies SceneManager's TransitionEffectSink interface, so passing it to SceneManagerInstance.attachPostProcess() is enough to wire SceneManager.transition({ effect, duration, colour }) through to these three properties — no extra glue code. See docs/manual/21-scene-manager.md and skills/21-post-process.md.",
     "notes": [
       "The 'colourblind' layer filter applies standard Brettel/Viénot/Machado *simulation* matrices — it shows a non-colourblind player what a colourblind player sees. It is not a correction/daltonisation filter that increases discriminability for a colourblind player."
     ]
@@ -1979,5 +2001,64 @@
         "description": "Resets textScale to 1."
       }
     }
+  },
+  "VisualScriptComponent": {
+    "import": "import { VisualScriptComponent, VisualScriptGraphBuilder, type VisualScriptGraph } from '@emptysock/engine'",
+    "description": "ECS Component that holds a serialized node graph and interprets it each frame or on a fired event — the runtime counterpart to the Visual Script Editor panel, which authors the same VisualScriptGraph shape.",
+    "constructor": "new VisualScriptComponent(options: { graph: VisualScriptGraph, variableStore?: VariableStore, actorSystem?: ActorSystem }) — variableStore defaults to a private instance; actorSystem is required only if the graph contains sendMessage nodes",
+    "staticType": "VisualScriptComponent.TYPE: ComponentType<VisualScriptComponent> — the string \"VisualScript\" used as the ComponentType key by addComponent/getComponent",
+    "nodeTypes": {
+      "onUpdate": "Entry point, fires every update() call",
+      "onEvent": "Entry point, fires when fireEvent(eventType) is called — fields: eventType",
+      "sequence": "Passes execution straight through",
+      "branch": "Reads a VariableStore variable and compares it — fields: variableIndex, comparator ('eq'|'neq'|'gt'|'lt'|'gte'|'lte'), value; next[0] = true edge, next[1] = false edge",
+      "getVariable": "Reads a VariableStore variable into the per-tick evaluation scope — fields: variableIndex, outputKey",
+      "setVariable": "Writes a literal or a scoped value into VariableStore — fields: variableIndex, value: number | { fromKey: string }",
+      "getSwitch": "Same as getVariable for VariableStore boolean switches — fields: switchIndex, outputKey",
+      "setSwitch": "Same as setVariable for VariableStore boolean switches — fields: switchIndex, value",
+      "sendMessage": "Sends a real Message through ActorSystem.send() — fields: targetActorId, messageType, payload?"
+    },
+    "note_next": "Every node carries a next: string[] array of node ids it wires forward to (execution-output ports). branch is the only node with two ports; every other node kind uses next[0].",
+    "VisualScriptGraphBuilder": "Produces the exact VisualScriptGraph shape the panel round-trips, for hand-authoring a graph in code. Methods mirror node kinds: b.onUpdate(), b.onEvent(eventType), b.branch(variableIndex, comparator, value), b.setVariable(variableIndex, value), b.getVariable(variableIndex, outputKey), b.setSwitch(switchIndex, value), b.getSwitch(switchIndex, outputKey), b.sendMessage(targetActorId, messageType, payload?) — each returns a node id. b.connect(fromId, toId, port?: 0 | 1) wires an edge (port only meaningful for branch). b.build(): VisualScriptGraph.",
+    "methods": {
+      "update": "vs.update(deltaTime: number): void — runs every onUpdate node's chain once. Not async — see the engine-wide 'onUpdate must not be async' rule.",
+      "fireEvent": "vs.fireEvent(eventType: string): void — runs every onEvent node whose eventType matches",
+      "setGraph": "vs.setGraph(graph: VisualScriptGraph): void — swap the graph",
+      "setActorSystem": "vs.setActorSystem(actorSystem: ActorSystem): void — wire an ActorSystem after construction"
+    },
+    "properties": {
+      "graph": "VisualScriptGraph — the live graph",
+      "variableStore": "VariableStore — the live store the interpreter is bound to"
+    },
+    "note_execution": "A trigger fires and execution walks next edges synchronously node-by-node until a node has no outgoing edge for the taken port. A per-tick evaluation scope (cleared at the start of each trigger) lets getVariable/getSwitch results flow into a later setVariable via { fromKey }. A defensive step cap (10,000 steps per trigger) stops a graph wired back into itself from hanging the frame — it logs a warning and returns rather than looping forever, mirroring the ActorSystem mailbox-drain guidance."
+  },
+  "CustomShaderFilter": {
+    "import": "import { createCustomShaderFilter, DEFAULT_CUSTOM_SHADER_VERTEX, type CustomShaderFilterOptions } from '@emptysock/engine'",
+    "description": "A user-authored GLSL post-process filter — the runtime counterpart to the IDE's ShaderEditor panel. A shader written and previewed there compiles through this exact function, so the panel's preview and a game's actual render use one shader-compile path.",
+    "uniformContract": {
+      "attributes": "aPosition (vec2), aUV (vec2)",
+      "vertexUniforms": "uProjectionMatrix, uWorldTransformMatrix, uTransformMatrix (mat3) — standard PixiJS v8 filter uniforms, the same ones LightingFilter uses",
+      "fragmentUniforms": "uTexture (sampler2D, the filtered input), uTime (float, seconds — update it yourself via setTime())"
+    },
+    "note_glsl": "Shaders are GLSL ES 3.00 style (in/out, not attribute/varying; texture(), not texture2D()).",
+    "functions": {
+      "createCustomShaderFilter": "createCustomShaderFilter(options: { fragmentSrc: string, vertexSrc?: string }): Filter — vertexSrc defaults to DEFAULT_CUSTOM_SHADER_VERTEX. The returned Filter has setTime(seconds: number): void."
+    },
+    "usage": "renderSystem.addLayerShaderFilter(layerName: string, filter: Filter): void attaches the filter to a named layer's container; renderSystem.removeLayerShaderFilter(layerName: string, filter: Filter): void detaches it. Both live on RenderSystem (exported standalone from '@emptysock/engine'), not on RenderPipeline. Call filter.setTime(elapsedSeconds) each frame if the shader reads uTime."
+  },
+  "SequenceSystem": {
+    "import": "import { TweenManager, SequenceSystem, evaluateTrackAt, type SequenceDefinition, type SequenceTrackDef, type SequenceKeyframe } from '@emptysock/engine'",
+    "description": "Plays a keyframe SequenceDefinition — a list of tracks, each a target property plus keyframes and an optional easing — against a plain numeric target object, by scheduling real TweenManager.to() calls. This is the runtime the IDE's Sequence Editor panel drives; a sequence exported from the panel and a hand-written TweenManager chain produce identical playback, because play() schedules exactly the calls a developer would write by hand.",
+    "types": {
+      "SequenceKeyframe": "{ time: number, value: number }",
+      "SequenceTrackDef": "{ property: string, keyframes: SequenceKeyframe[], ease?: EasingName }  — property is a key set on the target object, e.g. 'x', 'rotation'; ease defaults to 'linear'",
+      "SequenceDefinition": "{ duration: number, tracks: SequenceTrackDef[] }"
+    },
+    "constructor": "new SequenceSystem()",
+    "methods": {
+      "play": "seq.play(tweens: TweenManager, target: Record<string, number>, def: SequenceDefinition, startAt?: number): void — sets target[property] to the exact value at startAt immediately, then schedules one to() per remaining keyframe segment with delay measured from startAt, so resuming mid-playback doesn't jump",
+      "stop": "seq.stop(): void — cancels all scheduled tweens"
+    },
+    "evaluateTrackAt": "evaluateTrackAt(track: SequenceTrackDef, time: number): number — a pure, side-effect-free evaluation of a single track at an arbitrary time, using the same per-segment easing math play() schedules; useful for scrubbing/preview without touching a TweenManager instance"
   }
 }

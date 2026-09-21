@@ -196,7 +196,7 @@ entity.startCoroutine(function* () {
   yield waitSeconds(2.0)             // pause for 2 seconds
   spawnBoss()
   yield waitForEvent('boss_dead')    // pause until a custom event fires
-  SceneManager.transition('WinScene', { effect: 'iris' })
+  SceneManager.transition('WinScene', { effect: 'wipe' })
 })
 ```
 

@@ -52,7 +52,7 @@ Ports are colour-coded by type. Connecting incompatible types shows a red error 
 
 `Ctrl+S` or the **Save** toolbar button writes a `.esvs` JSON file.
 
-> **Note:** A runtime `VisualScriptComponent` for attaching `.esvs` scripts to entities via TypeScript is not yet part of the `@emptysock/engine` public API. Visual scripts are currently triggered through the IDE's graph interpreter during development play. Check `ai/api-reference.json` for the current exported API surface.
+> **Note:** `VisualScriptComponent` is the runtime that attaches a graph to an entity via TypeScript and interprets it every `update()`/`fireEvent()` call — see `skills/29-visual-script-component.md` for its full API and `VisualScriptGraphBuilder` for hand-authoring the same graph shape in code.
 
 ---
 

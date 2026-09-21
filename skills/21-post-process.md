@@ -124,3 +124,24 @@ this._post.clearLayerFilter('Background')
 - Effects composite in add order — `bloom` before `colour-grade` grades the bloomed result.
 - `PostProcessSystem` uses a second WebGL framebuffer. On `'potato'` and `'low'` GPU tiers, disable `bloom` and `blur`.
 - Per-layer filters use CSS compositing; they do not require the WebGL framebuffer.
+
+## Scene transitions
+
+`SceneManagerInstance.transition()` (see `skills/00-quickstart.md`) only times and tracks a `TransitionEffect` (`'none' | 'fade' | 'wipe' | 'slide'`) — it never imports pixi, so it stays inside the engine's environment boundary. Attach a `PostProcessSystem` and let `RenderPipeline` paint the overlay each frame:
+
+```typescript
+import { SceneManagerInstance, PostProcessSystem, RenderPipeline } from '@emptysock/engine'
+
+// In onLoad:
+private _postProcess = new PostProcessSystem()
+SceneManagerInstance.attachPostProcess(this._postProcess)
+
+// In onUpdate:
+this._postProcess.update(dt)
+this._render.renderFrame(this, this._postProcess)   // paints the transition overlay too
+
+// Or paint it yourself without going through renderFrame's second argument:
+this._render.renderTransitionOverlay(this._postProcess)
+```
+
+`PostProcessSystem.transitionEffect` / `.transitionProgress` / `.transitionColour` are set by `transition()` through `attachPostProcess()` and read by `RenderPipeline.renderTransitionOverlay()`. This paints a full-screen overlay rect on top of the current frame (a triangle-wave alpha for `'fade'`, a growing rect for `'wipe'`, a sweeping rect for `'slide'`) — it is not a true two-scene crossfade, since `RenderPipeline` does not keep two scenes' sprites live at once.

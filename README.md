@@ -68,6 +68,9 @@ emptysock-agent-pack/
 | `skills/26-animator-controller.md` | AnimatorController: named-state animation state machine, parameter/trigger transitions, cross-fade |
 | `skills/27-asset-manifest.md` | AssetManifest: declarative asset preloading with progress reporting |
 | `skills/28-accessibility-debugging.md` | InputBindings, DebugOverlaySystem, textScale, and the colourblind simulation filter |
+| `skills/29-visual-script-component.md` | VisualScriptComponent: node-graph interpreter, VisualScriptGraphBuilder, ActorSystem bridging |
+| `skills/30-custom-shader-filter.md` | CustomShaderFilter: custom GLSL post-process filters on a render layer |
+| `skills/31-sequence-system.md` | SequenceSystem: keyframe sequences played through TweenManager, plus pure scrubbing |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |

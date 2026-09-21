@@ -298,6 +298,23 @@ SceneManager.push('PauseScene')   // overlay; previous scene pauses
 SceneManager.pop()                 // return to previous scene
 ```
 
+`transition()`'s `effect` (`'none' | 'fade' | 'wipe' | 'slide'`) is only timed and tracked by `SceneManager` — it never touches pixi/DOM. To actually paint it, attach a `PostProcessSystem` once and pass it into your render call each frame:
+
+```typescript
+import { SceneManagerInstance, PostProcessSystem, RenderPipeline } from '@emptysock/engine'
+
+private _postProcess = new PostProcessSystem()
+
+override onLoad(): void {
+  SceneManagerInstance.attachPostProcess(this._postProcess)
+}
+
+override onUpdate(dt: number): void {
+  this._postProcess.update(dt)
+  this._render.renderFrame(this, this._postProcess)   // paints the transition overlay too
+}
+```
+
 ### Saving & loading
 
 ```typescript
@@ -349,14 +366,25 @@ const spawns = map.getLayer('Spawns').entities   // placed entity objects
 
 ### Physics events
 
+Register real collision/sensor callbacks directly on the `PhysicsBody` you already hold — no second lookup:
+
 ```typescript
-entity.onCollisionEnter((other, contact) => {
-  if (other.hasTag('hazard')) player.takeDamage(10)
+import { PhysicsBody } from '@emptysock/engine'
+
+const hazard = player.requireComponent(PhysicsBody)
+hazard.onCollisionEnter((other, contact) => {
+  if (contact.impactForce > 50) player.takeDamage(10)
 })
-entity.onSensorEnter((other) => {
-  if (other.hasTag('player')) openDoor()
+
+const sensor = door.requireComponent(PhysicsBody)
+sensor.onSensorEnter((other) => {
+  openDoor()
 })
+sensor.onSensorExit((other) => { closeDoor() })
+sensor.onSensorStay((other) => { /* fires every step while inside */ })
 ```
+
+`entity.onCollisionEnter()` / `entity.onSensorEnter()` still work (an older entity-event path that fires side by side with the `PhysicsBody` callbacks above) but prefer the `PhysicsBody` methods in new code.
 
 ### Dynamic lighting (requires `lighting: true` in SceneConfig)
 

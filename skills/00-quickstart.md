@@ -145,6 +145,13 @@ else this._vy = 0
 if (ctrl.isGrounded() && this.input.isKeyPressed('Space')) this._vy = -600
 const h = this.input.isKeyDown('ArrowRight') ? 1 : this.input.isKeyDown('ArrowLeft') ? -1 : 0
 ctrl.moveAndSlide({ x: h * 200 * dt, y: this._vy * dt })
+
+// Collision/sensor callbacks register on the PhysicsBody you already hold:
+const body = player.requireComponent(PhysicsBody)
+body.onCollisionEnter((other, contact) => {
+  if (contact.impactForce > 50) console.log('Ouch.')
+})
+body.onSensorEnter((other) => { /* trigger volume entered */ })
 ```
 
 ---
