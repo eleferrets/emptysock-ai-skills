@@ -953,7 +953,7 @@
     }
   },
   "VNSystem": {
-    "import": "import { VNSystem, type IVNListener, type DialogueNode, type DialogueTree } from '@emptysock/engine'",
+    "import": "import { VNSystem, type IVNListener, type DialogueNode, type DialogueTree } from '@emptysock/vn'",
     "description": "Standalone visual novel runtime. Loads a DialogueTree (converted from Story Graph JSON via storyGraphToDialogueTree). Used by VNTextbox as its data source.",
     "constructor": "new VNSystem(store?: VariableStore) \u2014 defaults to the shared variableStore singleton. The store backs 'condition' nodes and a choice option's `when` field.",
     "DialogueNode": "type DialogueNode = { type: 'dialogue'; speaker: string; text: string; voice?: string; next?: string; cgPath?: string } | { type: 'choice'; text: string; options: Array<{ label: string; next: string; when?: VariableCondition }>; cgPath?: string } | { type: 'event'; eventName: string; data?: Record<string, unknown>; next?: string; cgPath?: string } | { type: 'jump'; target: string; cgPath?: string } | { type: 'variable-set'; variableKey: string; variableValue: unknown; next?: string; cgPath?: string } | { type: 'condition'; condition: VariableCondition; ifTrue: string; ifFalse?: string; cgPath?: string }",
@@ -1001,7 +1001,7 @@
     "variables": "Map<string, unknown> (readonly) \u2014 all variables set by 'variable-set' nodes during playback"
   },
   "VNTextbox": {
-    "import": "import { VNTextbox, type VNTextboxOptions } from '@emptysock/engine'",
+    "import": "import { VNTextbox, type VNTextboxOptions } from '@emptysock/vn'",
     "description": "Pre-built dialogue box rendered by UISystem. Bind to a VNSystem instance to auto-update. Clicking the textbox automatically calls VNSystem.advance(). Call destroy() in onDestroy.",
     "constructor": "new VNTextbox({ canvasWidth, canvasHeight, height?, namePlateHeight?, paddingX?, panelColor?, namePlateColor?, textColor?, fontSize? })",
     "methods": {
@@ -1019,7 +1019,7 @@
     }
   },
   "VNScriptConvert": {
-    "import": "import { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from '@emptysock/engine'",
+    "import": "import { storyGraphToDialogueTree, dialogueTreeToStoryGraph } from '@emptysock/vn'",
     "description": "Converts between Story Graph (.storyGraph.json, visual-editor format) and the DialogueTree format consumed by VNSystem.load().",
     "functions": {
       "storyGraphToDialogueTree": {
