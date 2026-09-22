@@ -1,6 +1,6 @@
 # VariableStore
 
-`VariableStore` (and the module-level singleton `variableStore`) provides numbered integer variables and boolean switches that persist across sessions, mirroring the RPG Maker MV database concept. It is backed by `localStorage` and integrates with the IDE's Variables panel.
+**Use this when** you need global game state that persists across sessions and needs to gate dialogue or map events — numbered variables and switches, the same idea as the RPG Maker MV database if you've used it. `VariableStore` (and its module-level singleton `variableStore`) is backed by `localStorage` and shows up in the IDE's Variables panel automatically.
 
 ---
 
@@ -114,7 +114,7 @@ The **Variables** panel (enable via **Module → Variables**) shows all named va
 
 ## Rules
 
-- `variableStore` is the shared default singleton — use it unless you specifically need an isolated store (per-save-slot state, tests), in which case construct your own `VariableStore` and pass it explicitly to `VNSystem` / `MapEventSystem`.
+- `variableStore` is the shared default singleton — use it unless you genuinely need an isolated store (per-save-slot state, tests), in which case construct your own `VariableStore` and pass it explicitly to `VNSystem` / `MapEventSystem`.
 - Call `load()` once in your entry scene's `onLoad()`, not on every scene transition.
-- Call `save()` after any meaningful state change (checkpoint, item collected, boss defeated) — do not call every frame.
-- Indices are 1-based. Index 0 is accepted but treated as the same slot as 1 internally; use 1+ for clarity.
+- Call `save()` after a meaningful state change (checkpoint, item collected, boss defeated) — not every frame. Nobody needs gold saved 60 times a second.
+- Indices are 1-based. Index 0 works but quietly aliases to slot 1 internally, so stick to 1+ to avoid confusing yourself later.

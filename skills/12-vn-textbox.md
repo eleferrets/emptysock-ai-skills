@@ -1,11 +1,13 @@
 # VNTextbox
 
-`VNTextbox` is a pre-built dialogue box rendered by a scene's `UISystem`. It creates a panel anchored to the bottom of the canvas with a speaker name plate and a text area. Call `bind(vn)` to wire it to a `VNSystem` instance — it updates automatically whenever the current node changes. Clicking the textbox calls `vn.advance()` automatically.
+**Use this when** you need a ready-made dialogue box for a Story Graph scene instead of building your own from `UISystem` widgets. `VNTextbox` is a pre-built panel anchored to the bottom of the canvas, with a speaker name plate and a text area. Call `bind(vn)` to wire it to a `VNSystem` instance — from there it updates itself whenever the current node changes, and clicking it calls `vn.advance()` for you.
 
 ## Import
 
+`VNTextbox` and `VNSystem` both live in the optional `@emptysock/vn` package (see `skills/08-story-graph.md`), not the core engine:
+
 ```typescript
-import { VNTextbox, VNSystem, type VNTextboxOptions } from '@emptysock/engine'
+import { VNTextbox, VNSystem, type VNTextboxOptions } from '@emptysock/vn'
 ```
 
 ## Quick start
@@ -94,7 +96,7 @@ VNTextbox sets `visible` automatically based on the current node:
 ## .storyGraph ↔ DialogueTree round-trip
 
 ```typescript
-import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/engine'
+import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/vn'
 
 // Story Graph JSON (editor format) → runtime format:
 const tree: DialogueTree = storyGraphToDialogueTree(graph)
@@ -106,7 +108,7 @@ const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
 
 ## Rules
 
-- Always pass `ui: this.ui` — VNTextbox needs a UISystem instance to register its widgets.
-- Call `destroy()` in `onDestroy()` — widgets persist until removed.
-- Bind before calling `vn.load()` if you want the textbox to show the first node immediately.
-- VNSystem has no `destroy()` — release the reference and it is garbage-collected.
+- Always pass `ui: this.ui` — VNTextbox needs a UISystem instance to hang its widgets on.
+- Call `destroy()` in `onDestroy()`. Widgets don't remove themselves.
+- Bind before calling `vn.load()` if you want the textbox showing the first node right away.
+- VNSystem has no `destroy()` — just drop the reference and let it get garbage-collected.

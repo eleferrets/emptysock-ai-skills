@@ -1,12 +1,12 @@
 # Accessibility & Debugging
 
-Covers three related additions: `InputBindings` (control remapping), `DebugOverlaySystem` (shippable FPS/console overlay), and the accessibility primitives (`accessibilitySettings.textScale`, `PostProcessSystem`'s `'colourblind'` layer filter).
+**Use this when** you need remappable controls, a debug console you can actually ship, or accessibility settings like text scale and colourblind simulation. Covers three related pieces: `InputBindings` (control remapping), `DebugOverlaySystem` (a shippable FPS/console overlay), and the accessibility primitives (`accessibilitySettings.textScale`, `PostProcessSystem`'s `'colourblind'` layer filter).
 
 ---
 
 ## InputBindings — remappable controls
 
-Games should query named actions instead of raw key codes, so a player can rebind controls without gameplay code ever branching on a physical key:
+Query named actions instead of raw key codes, and rebinding becomes a settings-menu problem instead of a "rewrite half the gameplay code" problem:
 
 ```typescript
 import { InputBindings, InputSystem, GamepadSystem, type ActionMap } from '@emptysock/engine'
@@ -52,7 +52,7 @@ bindings.load(bindingsSave)   // returns false if nothing was persisted yet
 
 ## DebugOverlaySystem — shippable in-game debug console
 
-Disabled by default — gate `enable()` behind a dev flag your game defines (a query param, a build-time constant):
+Off by default. Gate `enable()` behind whatever dev flag your game already defines (a query param, a build-time constant) so it never accidentally ships live:
 
 ```typescript
 import { DebugOverlaySystem } from '@emptysock/engine'
@@ -78,7 +78,7 @@ override onUpdate(dt: number): void {
 
 ## accessibilitySettings.textScale
 
-A global text-scale multiplier every `LabelWidget` reads at render time — one settings-menu slider affects every label already on screen, in every scene:
+A global text-scale multiplier every `LabelWidget` reads at render time. One settings-menu slider, and every label already on screen, in every scene, follows along:
 
 ```typescript
 import { accessibilitySettings } from '@emptysock/engine'
@@ -98,7 +98,7 @@ accessibilitySettings.reset()           // back to 1
 postProcess.setLayerFilter('ui', { type: 'colourblind', mode: 'deuteranopia' })
 ```
 
-**This is a simulation, not a correction.** It shows a non-colourblind player what a colourblind player sees, for design review — it does not increase discriminability for an actual colourblind player. A full daltonisation/correction filter is a separate, unimplemented feature; do not describe this filter as one.
+**This is a simulation, not a correction.** It shows a non-colourblind player what a colourblind player sees, for design review — it doesn't make colours any easier for an actual colourblind player to tell apart. A real daltonisation/correction filter is a separate feature that doesn't exist yet; don't describe this one as that.
 
 ---
 
@@ -107,7 +107,7 @@ postProcess.setLayerFilter('ui', { type: 'colourblind', mode: 'deuteranopia' })
 | Wrong | Right |
 |---|---|
 | Checking `input.isKeyDown('Space')` directly in gameplay code | Check `bindings.isActionActive('jump')` so remapping works everywhere at once |
-| Persisting `InputBindings` through the default `SaveSystem` slot | Use `createBindingsSaveSystem()` / `BindingsSaveSlotSchema` — a different schema |
+| Persisting `InputBindings` through the default `SaveSystem` slot | Use `createBindingsSaveSystem()` / `BindingsSaveSlotSchema` — a different schema entirely |
 | Shipping `DebugOverlaySystem` always enabled | Gate `enable()` behind a dev flag the game itself defines |
-| Scaling text by hand per-widget for accessibility | Set `accessibilitySettings.textScale` once — every `LabelWidget` reads it |
-| Calling the `'colourblind'` filter a correction/fix for colourblind players | It is a simulation for sighted designers to preview, not a correction |
+| Scaling text by hand, per widget, for accessibility | Set `accessibilitySettings.textScale` once — every `LabelWidget` reads it |
+| Calling the `'colourblind'` filter a correction/fix for colourblind players | It's a preview for sighted designers, not a correction |

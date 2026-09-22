@@ -1,6 +1,6 @@
 # UISystem
 
-`UISystem` is the EmptySock 2D UI overlay. It renders `Widget` nodes on top of the PixiJS scene using Canvas 2D. Each `Scene` owns a `UISystem` instance at `scene.ui` — there is no global singleton. Widgets added to `scene.ui` are automatically cleared when the scene is destroyed.
+**Use this when** you're building screen-space UI — HUDs, menus, dialogue boxes — as opposed to in-world objects that live in the PixiJS scene. `UISystem` renders `Widget` nodes over the scene using Canvas 2D. Every `Scene` owns its own instance at `scene.ui`; there's no global singleton to reach for by mistake, and widgets on `scene.ui` clear themselves automatically when the scene goes away.
 
 ---
 
@@ -185,9 +185,9 @@ class MyScene extends Scene {
 
 ## Rules
 
-- Each `Scene` has its own `UISystem` at `this.ui`. Never import or reference the class directly to get a shared instance — each scene is isolated.
-- Never call `this.ui.add()` inside `onUpdate()` — create widgets in `onLoad()`, update properties in `onUpdate()`.
-- Call `this.ui.clear()` in `onDestroy()` — or widgets linger until the next scene's clear call.
-- Use `widget.visible = false` to hide temporarily; `this.ui.remove(w)` to fully remove.
+- Each `Scene` has its own `UISystem` at `this.ui`. There's no shared instance to reach for — every scene is isolated, and that's on purpose.
+- Don't call `this.ui.add()` inside `onUpdate()`. Build widgets once in `onLoad()`; just update their properties in `onUpdate()`.
+- Call `this.ui.clear()` in `onDestroy()`, or your widgets outlive the scene until something else happens to clear them.
+- `widget.visible = false` for a temporary hide; `this.ui.remove(w)` when you actually want it gone.
 - `widget.children` is a plain mutable array — push onto a `PanelWidget` to nest widgets.
-- Never use definite-assignment `!` on widget fields; use `T | null = null` and check before use.
+- Skip the `!` on widget fields — use `T | null = null` and check before you touch it.

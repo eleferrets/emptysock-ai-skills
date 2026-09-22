@@ -1,6 +1,6 @@
 # Touch & Pointer Input
 
-Touch events, pointer (mouse/first-touch) state, and keyboard input are all handled by `InputSystem`. Create one instance in `onLoad`, call `attach()`, and call `flush()` at the start of each `onUpdate` before reading state.
+**Use this when** you're reading touch, mouse, or keyboard state directly through `InputSystem` (for multi-touch gestures, see `PointerSystem` in `skills/25-pointer-system.md` instead — it unifies the three into one stream). Create one `InputSystem` instance in `onLoad`, call `attach()`, and call `flush()` at the start of every `onUpdate` before reading anything.
 
 ## Import and setup
 
@@ -114,7 +114,7 @@ override onUpdate(dt: number): void {
 
 ## Notes
 
-- Always call `input.flush()` at the start of `onUpdate` — without it, `isMousePressed` and `isKeyPressed` will fire on every frame instead of just once.
-- `input.mouseX/mouseY` report the most recent mouse position in `clientX/clientY` space — transform to canvas coordinates if your canvas is scaled.
+- Always call `input.flush()` at the start of `onUpdate`. Skip it and `isMousePressed`/`isKeyPressed` fire every single frame instead of once — a "tap to jump" that launches the player into orbit.
+- `input.mouseX/mouseY` report the most recent mouse position in `clientX/clientY` space — convert to canvas coordinates yourself if your canvas is scaled.
 - For keyboard input, see `input.isKeyDown(code)`, `input.isKeyPressed(code)`, `input.isKeyReleased(code)` — they take `KeyboardEvent.code` values (`'Space'`, `'ArrowLeft'`, `'KeyA'`, etc.).
 - For gamepad axis and button input, use `GamepadSystem` alongside `InputSystem`.

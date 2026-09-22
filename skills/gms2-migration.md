@@ -1,6 +1,6 @@
 # GMS2 Migration
 
-This skill guides migrating a GameMaker Studio 2 project to EmptySock Engine. Work through the steps in order. The importer has been validated end to end against a real, moderately complex GMS2 export (59 objects, 202 sprites, 10 rooms): it now actually converts objects, scripts, sprites, and rooms — not just objects and scripts. GML → TypeScript logic translation is still always manual review, even for the events it transpiles automatically.
+**Use this when** you're bringing a GameMaker Studio 2 project over to EmptySock. Work through the steps in order. The importer's been validated end to end against a real, moderately complex GMS2 export (59 objects, 202 sprites, 10 rooms) — it actually converts objects, scripts, sprites, and rooms now, not just objects and scripts. That said, GML → TypeScript logic translation always needs a manual review pass, even for the events it transpiles automatically.
 
 ---
 
@@ -25,7 +25,7 @@ Open `migration-report.md` before touching any stub. It lists:
 - Room dimensions and layer structure for manual reconstruction (tile layers and instance placement are read, but only instance placement is re-emitted).
 - Extracted shader files that need porting to `PostProcessSystem`.
 
-Fix the highest-confidence mappings first; leave uncertain ones for later.
+Fix the highest-confidence mappings first and leave the uncertain ones for later — no point guessing your way through a mapping the report itself isn't sure about.
 
 Object logic is regex-transpiled where a direct pattern match exists, and this now covers more than `Create`/`Step`/`Draw`/`Destroy`: collision events (`Collision_<other object>.gml`) become `onCollideWith<Other>()`, and keyboard events (`KeyPress_<vk code>.gml` / `KeyRelease_<vk code>.gml`) become `onKeyPress<Name>()` / `onKeyRelease<Name>()`. Object inheritance (a GMS2 object's parent) carries over as TypeScript class extension in the generated stubs.
 
@@ -73,7 +73,7 @@ GML.ds_list_add(l, v);
 GML.ds_list_find_value(l, i);
 ```
 
-Replace shim calls with idiomatic TypeScript as each object stabilises. The shim is a migration bridge, not a production dependency.
+Replace shim calls with idiomatic TypeScript as each object settles down. The shim is a bridge to get you across, not something to ship.
 
 ---
 
@@ -95,9 +95,9 @@ Replace shim calls with idiomatic TypeScript as each object stabilises. The shim
 
 ## Common pitfalls
 
-- **Dynamic typing:** GML stubs compile but will have implicit `any` chains. Add TypeScript types file by file.
-- **Room system:** GMS2's room/depth/layer model differs from EmptySock's `LayerSystem`. Do not expect a 1:1 mapping.
-- **`ds_grid`, `ds_priority`, `ds_stack`:** No equivalents — use TypeScript arrays and `Map`.
-- **GML event order (Step Begin / Step / Step End):** Split into separate coroutines or actor messages if order matters.
-- **`persistent` objects:** Use a module-level singleton or `SceneManager.load()` options to carry state across scenes.
-- **`async` events (HTTP, dialog):** Use `fetch` directly; re-enter game logic via actor messages.
+- **Dynamic typing:** GML stubs compile, but they'll be riddled with implicit `any` chains. Go add real TypeScript types, file by file.
+- **Room system:** GMS2's room/depth/layer model doesn't map 1:1 onto EmptySock's `LayerSystem`. Don't expect it to.
+- **`ds_grid`, `ds_priority`, `ds_stack`:** Nothing equivalent exists — reach for TypeScript arrays and `Map` instead.
+- **GML event order (Step Begin / Step / Step End):** If the order matters, split the logic into separate coroutines or actor messages.
+- **`persistent` objects:** A module-level singleton, or `SceneManager.load()` options, carries state across scenes the same way.
+- **`async` events (HTTP, dialog):** Use `fetch` directly, and re-enter game logic through actor messages.

@@ -1,8 +1,8 @@
 # LayerSystem
 
-`LayerSystem` controls draw order: entities are assigned to a named layer at an explicit depth; `RenderSystem` draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers are created by the constructor — add more with `defineLayer`.
+**Use this when** you need custom render layers or manual layer visibility control, rather than the everyday case of "put this sprite in front of that one" (which `RenderPipeline` already handles for you). `LayerSystem` controls draw order: entities get assigned to a named layer at an explicit depth, and `RenderSystem` draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers exist out of the box — add more with `defineLayer`.
 
-> Most games never call `addEntity` directly. `RenderPipeline` (see `skills/23-rendering.md`) reads `layer`/`depth` straight off each entity's `Sprite` component and calls `addEntity`/`setDepth` for you every frame. Call `LayerSystem` methods yourself only when you need custom layers (`defineLayer`) or manual visibility control (`setVisible`) — `RenderPipeline` shares the same `LayerSystem` instance via its `layers` getter, or you can pass your own in via `RenderPipelineOptions.layers`.
+> Most games never call `addEntity` directly. `RenderPipeline` (see `skills/23-rendering.md`) reads `layer`/`depth` straight off each entity's `Sprite` component and calls `addEntity`/`setDepth` for you every frame. Reach for `LayerSystem` methods yourself only for custom layers (`defineLayer`) or manual visibility control (`setVisible`) — `RenderPipeline` shares the same `LayerSystem` instance through its `layers` getter, or you can pass your own in via `RenderPipelineOptions.layers`.
 
 ## Import
 
@@ -108,6 +108,6 @@ const sorted = this._layers.getLayersSorted()
 
 ## Notes
 
-- Use index gaps (−1000, 0, 50, 80, 100, 1000) so you can insert layers later without renumbering everything.
-- `depth` within a layer controls fine-grained draw order (which tree is in front of which). Use it instead of changing a layer.
-- Unregistered entities (never passed to `addEntity`) get `LAYER.DEFAULT, depth 0` from `getSortKey`.
+- Leave gaps in your index numbers (−1000, 0, 50, 80, 100, 1000) so you can slot new layers in later without renumbering everything.
+- `depth` inside a layer is your fine-grained draw order (which tree is in front of which). Reach for that before you reach for a whole new layer.
+- An entity never passed to `addEntity` gets `LAYER.DEFAULT, depth 0` from `getSortKey` — nothing breaks, it just draws at the default spot.

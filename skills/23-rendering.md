@@ -1,6 +1,6 @@
 # RenderPipeline
 
-`RenderPipeline` is the batteries-included way to get something on screen. It owns a `RenderSystem` (the raw renderer) and a `LayerSystem` (draw order), and on every `renderFrame(scene)` call it walks the scene for entities carrying both `Transform` and `Sprite`, keeps a synced sprite for each one (position, rotation, scale, tint, alpha, anchor, visibility, layer, depth), loads its texture, and draws the frame. It also draws real tile sprites for a mounted `Tilemap`.
+**Use this when** you need something to actually show up on screen and don't want to hand-roll PixiJS wiring. `RenderPipeline` is the batteries-included renderer. It owns a `RenderSystem` (the raw renderer) and a `LayerSystem` (draw order), and every `renderFrame(scene)` call walks the scene for entities carrying both `Transform` and `Sprite`, keeps each one's sprite in sync (position, rotation, scale, tint, alpha, anchor, visibility, layer, depth), loads its texture, and draws the frame. It also draws real tile sprites for a mounted `Tilemap`.
 
 **Attaching `Transform` + `Sprite` to an entity is the entire contract for "this shows up on screen." There is no second, separate registration step.**
 
@@ -141,8 +141,8 @@ const render = new RenderPipeline({
 | Wrong | Right |
 |---|---|
 | Manually creating a PixiJS `Sprite` and adding it to a container | Attach `Transform` + `Sprite` components and let `RenderPipeline` draw it |
-| Calling `layers.addEntity()` for a rendered entity | `RenderPipeline` calls it for you from `Sprite.layer`/`Sprite.depth` every frame |
-| Forgetting `renderFrame()`/`syncEntities()` each frame | Nothing appears — `RenderPipeline` only syncs and draws when called |
-| Skipping `render.destroy()` in `onDestroy` | Always call it — frees PixiJS sprites, mounted tilemaps, and the renderer |
-| `entity.getComponent(Sprite)` | `entity.getComponent(Sprite.TYPE)` — infers `Sprite \| undefined` and catches typos |
-| Expecting `Tilemap` to draw itself | It is pure data — `mountTilemap()` is what puts tiles on screen |
+| Calling `layers.addEntity()` for a rendered entity | `RenderPipeline` already does this for you, every frame, from `Sprite.layer`/`Sprite.depth` |
+| Forgetting `renderFrame()`/`syncEntities()` each frame | Nothing shows up — `RenderPipeline` only syncs and draws when you actually call it |
+| Skipping `render.destroy()` in `onDestroy` | Always call it — it frees PixiJS sprites, mounted tilemaps, and the renderer itself |
+| `entity.getComponent(Sprite)` | `entity.getComponent(Sprite.TYPE)` — infers `Sprite \| undefined` and catches typos for you |
+| Expecting `Tilemap` to draw itself | It's pure data. `mountTilemap()` is what actually puts tiles on screen |

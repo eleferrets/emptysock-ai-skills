@@ -1,6 +1,6 @@
 # LightingSystem
 
-`LightingSystem` manages a GPU-accelerated GLSL lighting pass (point lights, directional lights, optional normal maps). It is instance-based — create one per scene and call `update(dt)` each frame to upload light positions to the GPU.
+**Use this when** you want dynamic 2D lighting — torches, a day/night cycle, spotlights — instead of baked-in lighting on your sprites. `LightingSystem` drives a GPU-accelerated GLSL lighting pass (point lights, directional lights, optional normal maps). Instance-based: create one per scene and call `update(dt)` every frame to push light positions up to the GPU.
 
 ## Import
 
@@ -127,8 +127,8 @@ interface Light {
 
 ## Notes
 
-- `attachFilter()` must be called before lights affect rendering — without it, lights are registered but not drawn.
-- Normal maps: if `hero.png` exists and `hero_n.png` exists beside it, pass `useNormalMap: true` to `attachFilter` and the engine applies it automatically. The normal map must be a tangent-space normal map (blue-dominant).
-- Limit shadow-casting lights (`castShadows: true`) — each casts an extra GPU pass.
-- On `'potato'` and `'low'` GPU tiers (`Engine.gpuTier`), keep `castShadows: false` and use at most 1–4 point lights.
-- Up to 16 point lights and 4 directional lights per scene (GPU uniform array limits).
+- Call `attachFilter()` before lights can actually affect rendering — without it, lights are registered but invisible.
+- Normal maps: drop a `hero_n.png` beside `hero.png` and pass `useNormalMap: true` to `attachFilter`, and the engine picks it up automatically. It needs to be a proper tangent-space normal map (blue-dominant), not just a bump texture.
+- Go easy on shadow-casting lights (`castShadows: true`) — each one costs an extra GPU pass.
+- On `'potato'` and `'low'` GPU tiers (`Engine.gpuTier`), keep `castShadows: false` and cap it at 1–4 point lights.
+- Hard limits: 16 point lights and 4 directional lights per scene, courtesy of GPU uniform array sizes.

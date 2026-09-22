@@ -1,6 +1,6 @@
 # Plugin System
 
-Install optional engine extensions at runtime. Plugins can register services, wrap systems, or add global utilities.
+**Use this when** you're wiring up something process-global that only needs to exist once for the whole app's life — an analytics SDK, an ads library, a platform achievements hook. `pluginSystem` installs optional engine extensions at runtime; plugins can register services, wrap systems, or add global utilities.
 
 ## Usage
 
@@ -32,6 +32,6 @@ console.log(pluginSystem.registeredPlugins); // ['analytics']
 ```
 
 ## Notes
-- `install()` may be async (returns `Promise<void>`).
-- `pluginSystem` is a singleton — import and use directly, no instantiation needed.
-- Registering a plugin with a duplicate name throws.
+- `install()` can be async (returns `Promise<void>`) if setup needs it.
+- `pluginSystem` is a singleton — import it and use it directly, nothing to construct.
+- Registering two plugins under the same name throws. Names are the whole identity here, so pick one that won't collide.

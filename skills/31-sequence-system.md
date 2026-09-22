@@ -1,6 +1,6 @@
 # SequenceSystem
 
-Plays a keyframe `SequenceDefinition` — a list of tracks, each a target property plus keyframes and an optional easing — against a plain numeric target object, by scheduling real `TweenManager.to()` calls. This is the runtime the IDE's **Sequence Editor** panel drives; a sequence exported from the panel and a hand-written `TweenManager` chain produce identical playback, because `play()` schedules exactly the calls a developer would write by hand.
+**Use this when** you're playing back a keyframed animation authored in the IDE's **Sequence Editor**, or building keyframe playback in code. `SequenceSystem` plays a `SequenceDefinition` — a list of tracks, each a target property plus keyframes and an optional easing — against a plain numeric target object, by scheduling real `TweenManager.to()` calls under the hood. A sequence exported from the panel and a hand-written `TweenManager` chain play back identically, because `play()` schedules exactly the calls you'd write by hand anyway.
 
 ---
 
@@ -63,7 +63,7 @@ Resume mid-sequence by passing `startAt`:
 this._seq.play(this._tweens, target, def, /* startAt */ 1.5)
 ```
 
-`play(tweens, target, def, startAt)` sets `target[property]` to the exact value at `startAt` immediately, then schedules one `to()` per remaining keyframe segment with `delay` measured from `startAt` — resuming mid-playback never jumps to a wrong value first.
+`play(tweens, target, def, startAt)` sets `target[property]` to the exact value at `startAt` right away, then schedules one `to()` per remaining keyframe segment with `delay` measured from `startAt` — resuming mid-playback never flashes the wrong value first.
 
 ---
 
@@ -83,7 +83,7 @@ const previewX = evaluateTrackAt(def.tracks[0], scrubberTime)
 
 | Wrong | Right |
 |---|---|
-| Forgetting `tweens.update(dt)` in `onUpdate` | `SequenceSystem.play()` only schedules `TweenManager` calls — nothing advances without `update(dt)` |
+| Forgetting `tweens.update(dt)` in `onUpdate` | `SequenceSystem.play()` only schedules `TweenManager` calls — nothing moves without `update(dt)` |
 | Calling `play()` again mid-playback to "restart" | Call `seq.stop()` first, or pass the current elapsed time as `startAt` to resume cleanly |
-| Sampling a value for a scrubber via `play()` + `stop()` on every drag frame | Use `evaluateTrackAt()` — it has no side effects and no `TweenManager` involved |
-| Assuming keyframes must be sorted or evenly spaced | Keyframes are ordered by `time`; segments between them can have any length and any `ease` |
+| Sampling a value for a scrubber via `play()` + `stop()` on every drag frame | Use `evaluateTrackAt()` instead — no side effects, no `TweenManager` involved |
+| Assuming keyframes must be sorted or evenly spaced | Keyframes sort by `time`; the segments between them can be any length with any `ease` |

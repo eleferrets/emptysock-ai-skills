@@ -1,21 +1,20 @@
 # CharacterStage
 
-`CharacterStage` manages left/centre/right position slots for visual novel character sprites. Characters fade in and out, can be swapped per expression variant, and are rendered via Canvas 2D before the UISystem pass.
+**Use this when** you're staging character sprites for a visual novel scene — left/centre/right slots, fade transitions, expression swaps. `CharacterStage` handles all of it, rendering via Canvas 2D ahead of the UISystem pass.
 
 ---
 
 ## Quick start
 
 ```typescript
+import { UISystem, CharacterStage } from '@emptysock/engine'
 import {
-  CharacterStage,
   VNBackgroundLayer,
   VNSystem,
   VNTextbox,
-  UISystem,
   storyGraphToDialogueTree,
   type StoryGraph,
-} from '@emptysock/engine'
+} from '@emptysock/vn'
 
 class NarrativeScene extends Scene {
   private _vn: VNSystem | null = null
@@ -133,7 +132,7 @@ Always render in this order per frame:
 
 ## Rules
 
-- Call `CharacterStage.update(dt)` and `VNBackgroundLayer.update(dt)` each frame to tick fade animations.
-- `CharacterStage` and `VNBackgroundLayer` draw directly to a `CanvasRenderingContext2D` — they do not use the PixiJS renderer.
-- Do not call `show()` inside `onUpdate()` — call it in response to VNSystem node transitions.
-- `clear()` removes all characters immediately (no fade). Call it in `onDestroy()`.
+- Call `CharacterStage.update(dt)` and `VNBackgroundLayer.update(dt)` every frame, or fade animations just sit frozen.
+- `CharacterStage` and `VNBackgroundLayer` draw straight to a `CanvasRenderingContext2D` — no PixiJS renderer involved.
+- Don't call `show()` inside `onUpdate()`. Call it in response to VNSystem node transitions, where it belongs.
+- `clear()` removes every character instantly, no fade. Call it in `onDestroy()`.

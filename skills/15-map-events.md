@@ -1,6 +1,6 @@
 # MapEventSystem
 
-`MapEventSystem` handles RPG Maker MV-style tile-bound events on a Tilemap. Each event occupies one tile and carries a trigger type and a list of commands. The system drives command execution sequentially, awaiting async commands before moving to the next.
+**Use this when** you're wiring up tile-bound triggers on a Tilemap — chests, cutscene tiles, doors that only open once a switch flips. `MapEventSystem` is the RPG Maker MV-style event runtime: each event sits on one tile with a trigger type and a list of commands, run one at a time, awaiting each async command before starting the next.
 
 ---
 
@@ -172,7 +172,7 @@ if (slot !== null) {
 ## Rules
 
 - Call `setHandler` before any `update` call.
-- `autorun` and `player-touch` events run at most once per `loadEvents` call — they do not re-fire until `loadEvents` is called again (i.e., on a new map load).
-- `action-button` events can be re-triggered once their command list finishes.
-- `parallel` events re-trigger every frame — keep their command lists short (one command) or they will queue faster than they execute.
-- The system runs one event at a time. A second event will not start until the current one finishes.
+- `autorun` and `player-touch` events fire at most once per `loadEvents` call — they won't fire again until `loadEvents` runs again, i.e. a new map load.
+- `action-button` events can retrigger once their command list finishes.
+- `parallel` events retrigger every frame — keep their command lists short (one command, ideally) or they'll queue up faster than they can run.
+- The system runs one event at a time. A second event waits for the first to finish, no matter how impatient it is.

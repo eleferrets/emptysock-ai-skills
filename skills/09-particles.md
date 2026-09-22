@@ -1,6 +1,6 @@
 # Particles
 
-`ParticleEmitter` is a component that spawns and animates short-lived visual particles. Attach it to an entity and configure it before calling `start()`.
+**Use this when** you need sparks, smoke, confetti, or any other short-lived visual flourish. `ParticleEmitter` is a component that spawns and animates those particles for you — attach it to an entity, configure it, then call `start()`.
 
 ---
 
@@ -49,7 +49,7 @@ const emitter = entity.addComponent(ParticleEmitter, {
 emitter.start()
 ```
 
-The texture is sampled once per particle at spawn time. Animated sprite-sheets are not supported — use `textureName` with a single-frame sprite for best performance.
+The texture is sampled once per particle at spawn time. Animated sprite-sheets aren't a thing here — stick to a single-frame sprite for `textureName` if you want good performance.
 
 ---
 
@@ -67,7 +67,7 @@ emitter.burst(50)  // fire exactly 50 particles immediately, ignores rate
 
 ## Cleaning up in onDestroy
 
-`ParticleEmitter` holds an internal particle pool. Call `stop()` in `onDestroy` and then destroy the entity to release the pool:
+`ParticleEmitter` keeps an internal particle pool alive. Call `stop()` in `onDestroy`, then let the entity get destroyed to release it:
 
 ```typescript
 override onDestroy(): void {
@@ -77,7 +77,7 @@ override onDestroy(): void {
 }
 ```
 
-Forgetting to stop an emitter before scene teardown does not leak memory — the component is destroyed with its entity — but stopping it first prevents a frame of stray particle updates.
+Forgetting to stop an emitter before scene teardown won't leak memory (the component dies with its entity), but stopping it first avoids one stray frame of particle updates on the way out.
 
 ---
 
@@ -144,7 +144,7 @@ private spawnCoinExplosion(x: number, y: number): void {
 
 ## Performance notes
 
-- Keep `count` as low as visually acceptable — each particle is updated every frame.
-- Prefer `burst()` for one-shot effects rather than `start()` + `stop()` with a very short duration.
-- Particles share a single draw call when they share the same `textureName` (or both use the default). Mixing textures across emitters adds extra draw calls.
-- Destroy emitter entities when they are no longer needed; do not leave stopped emitters alive in the scene indefinitely.
+- Keep `count` as low as it can be while still looking good — every particle gets updated every frame, and that adds up fast.
+- Prefer `burst()` over `start()` + `stop()` on a tiny timer for one-shot effects. It's what `burst()` is for.
+- Particles sharing the same `textureName` (or both on the default) share one draw call. Mix textures across emitters and you're paying for extra draw calls.
+- Destroy emitter entities once they're done. A stopped emitter just sitting around in the scene isn't doing anyone any favors.

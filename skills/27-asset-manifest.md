@@ -1,6 +1,6 @@
 # AssetManifest
 
-`AssetManifest` is a declarative list of assets to preload — textures, audio, JSON, and fonts — with progress reporting and per-asset failure handling. The engine never renders a loading screen itself (see `skills/00-quickstart.md`): build your own in a start scene and drive it from `onProgress()`.
+**Use this when** you need to preload textures, audio, JSON, or fonts up front with a progress bar and graceful per-asset failure handling, instead of hoping everything loads in time. The engine never renders a loading screen for you (see `skills/00-quickstart.md`) — build your own start scene and drive it off `AssetManifest.onProgress()`.
 
 ---
 
@@ -68,7 +68,7 @@ if (manifest.has('level1')) {
 
 | Wrong | Right |
 |---|---|
-| Building a bespoke Promise.all loader per project | Use `AssetManifest` — it already handles progress and per-asset failure |
-| Assuming a failed asset aborts everything | Default behaviour continues past failures; check `result.failed` / `manifest.failures` |
-| Loading `'audio'` descriptors without passing `audioSystem` | `AssetManifest` throws for audio assets without an `AudioSystem` reference |
+| Building a bespoke `Promise.all` loader per project | Use `AssetManifest` — it already handles progress and per-asset failure |
+| Assuming a failed asset aborts everything | By default it keeps going past failures; check `result.failed` / `manifest.failures` |
+| Loading `'audio'` descriptors without passing `audioSystem` | `AssetManifest` throws for audio assets if there's no `AudioSystem` reference to hand them to |
 | Expecting the engine to show a loading UI | It never does — read `onProgress()` and build your own scene |

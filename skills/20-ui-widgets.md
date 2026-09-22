@@ -1,6 +1,6 @@
 # Skill 20 — UI Widgets
 
-Use this skill when building screen-space UI: menus, HUD elements, dialogue boxes, settings panels.
+**Use this when** you're building screen-space UI beyond a single widget — menus, HUD layouts, dialogue boxes, settings panels — and want patterns for wiring several widgets together.
 
 ---
 
@@ -180,6 +180,6 @@ const vol = new SliderWidget({
 | Wrong | Right |
 |-------|-------|
 | Forgetting `onDestroy` cleanup | Always `uiSystem.removeWidget(widget)` in `onDestroy` |
-| Mutating `widget.children` is not reactive | Re-add widget to UISystem after structural changes |
-| Using UISystem for in-world UI | Use PixiJS scene objects for in-world positions |
-| `panel.children = [btn]` | `panel.children.push(btn)` — array is readonly ref |
+| Mutating `widget.children` and expecting it to react | Re-add the widget to UISystem after structural changes |
+| Using UISystem for in-world UI | Use PixiJS scene objects for anything positioned in game space |
+| `panel.children = [btn]` | `panel.children.push(btn)` — the array reference is fixed, mutate in place |

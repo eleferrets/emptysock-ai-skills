@@ -1,6 +1,6 @@
 # 3D Physics (Rapier3D)
 
-Full Rapier3D integration via `@dimforge/rapier3d-compat`. Dynamic import + async init required.
+**Use this when** you need real 3D collisions and rigid bodies, not the 2D `PhysicsBody` component. Full Rapier3D integration, loaded via dynamic import so games that never touch 3D don't pay for it. Requires an async `init()` before you can add a single body — Rapier's WASM has to spin up first.
 
 ## Usage
 
@@ -52,6 +52,6 @@ physics.destroy(); // free WASM resources on scene unload
 `kinematic` — moved manually, pushes dynamics
 
 ## Notes
-- Always `await physics.init()` before adding bodies — Rapier WASM must initialize.
-- `physics.destroy()` must be called when the scene unloads to free WASM memory.
-- Sensor bodies (`isSensor: true`) detect overlaps without generating forces.
+- Always `await physics.init()` before adding bodies — Rapier's WASM has to be up and running first.
+- Call `physics.destroy()` when the scene unloads. Rapier's memory lives outside the JS heap, so the garbage collector has no idea it exists — skip this and it just piles up.
+- Sensor bodies (`isSensor: true`) detect overlaps without pushing anything around — good for trigger volumes.

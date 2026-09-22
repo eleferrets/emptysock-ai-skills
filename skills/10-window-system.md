@@ -1,6 +1,6 @@
 # WindowSystem — window management
 
-Wraps Tauri's native window API with a transparent browser fallback. Game code never touches Tauri directly.
+**Use this when** you need to control the game window: fullscreen toggles, resizing, title changes, that kind of thing. `windowSystem` wraps Tauri's native window API with a transparent browser fallback, so your game code never has to know or care which one it's running under.
 
 ---
 
@@ -64,7 +64,7 @@ if (this.input.isKeyPressed('KeyF')) {
 }
 ```
 
-F11 in the browser toggles native fullscreen automatically — no extra code needed.
+F11 toggles native fullscreen in the browser automatically — nothing for you to wire up.
 
 ---
 
@@ -125,7 +125,7 @@ async function applyQuality(preset: keyof typeof resolutions): Promise<void> {
 
 ## Top-level async/await
 
-Game scripts support `await` at module level — the build pipeline wraps the bundle correctly.
+Game scripts can `await` at module level — the build pipeline wraps the bundle so this just works.
 
 ```typescript
 // game.ts — top-level await is fine

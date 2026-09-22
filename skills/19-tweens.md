@@ -1,6 +1,6 @@
 # TweenManager
 
-`TweenManager` animates numeric object properties over time with easing curves, and provides scene-local timers. Create one instance per scene, call `update(dt)` every frame, and it is garbage-collected with the scene — no explicit teardown needed.
+**Use this when** you need something to smoothly animate over time, or a timer that cleans itself up with the scene. `TweenManager` animates numeric object properties with easing curves and doubles as a scene-local timer. Make one per scene, call `update(dt)` every frame, and forget about teardown — it's garbage-collected along with the scene.
 
 ## Import
 
@@ -100,7 +100,7 @@ timer.cancel()
 
 ## Notes
 
-- `TweenManager` only animates **numeric** properties. Non-numeric properties are silently ignored.
-- Do not call `to()` inside `onUpdate()` every frame — call it once when you want to start a tween.
-- For complex sequences, use coroutines (`yield waitSeconds(n)`) — they express multi-step time logic more clearly than chained `onComplete` callbacks.
-- `after()` and `every()` timers are tied to this `TweenManager` instance; they stop automatically when the scene is done.
+- `TweenManager` only touches **numeric** properties. Anything else is silently skipped.
+- Don't call `to()` every frame inside `onUpdate()` — call it once, when you actually want the tween to start.
+- For anything with multiple steps, coroutines (`yield waitSeconds(n)`) read a lot more clearly than a pile of chained `onComplete` callbacks.
+- `after()` and `every()` timers belong to the `TweenManager` instance that created them — they stop automatically once the scene is done.

@@ -1,6 +1,6 @@
 # AnimatorController
 
-`AnimatorController` is a code-first animation state machine component: named states (each backed by an `AnimationClip`), transitions gated by parameters or triggers, and optional cross-fade blending between states. It is a separate component from `Animator`, which is unchanged — `Animator` stays the minimal single-clip player for straightforward flipbook playback; reach for `AnimatorController` when animation depends on named states and parameters (e.g. `idle`/`run`/`jump` gated on a speed float and a grounded bool).
+**Use this when** an entity's animation depends on named states and parameters, like `idle`/`run`/`jump` gated on a speed float and a grounded bool. `AnimatorController` is a code-first animation state machine: named states (each backed by an `AnimationClip`), transitions gated by parameters or triggers, and optional cross-fade blending between them. It's a separate component from `Animator`, which stays the minimal single-clip player for plain flipbook playback and hasn't changed.
 
 ---
 
@@ -42,7 +42,7 @@ override onUpdate(dt: number): void {
 }
 ```
 
-A trigger set with `setTrigger()` stays armed until a transition condition consumes it (or `resetTrigger()` clears it) — it does not auto-clear on its own until the next `update()` pass evaluates transitions.
+A trigger set with `setTrigger()` stays armed until a transition condition consumes it, or `resetTrigger()` clears it by hand. It won't auto-clear until the next `update()` pass evaluates transitions.
 
 ---
 
@@ -67,7 +67,7 @@ anim.speed = 1.5     // playback speed multiplier
 
 | Wrong | Right |
 |---|---|
-| Branching on raw animation frame numbers in gameplay code | Query `anim.currentState` or gate logic on the same parameters the transitions use |
-| Expecting `Animator`'s API on `AnimatorController` (or vice versa) | They are separate components — pick one per entity based on whether you need states |
-| Calling `anim.play()` every frame to "hold" a state | `play()` is for a one-time jump (e.g. initial setup); let transitions handle ongoing state changes |
-| Forgetting `duration` on an interrupt transition | Without it, the cut is instant — set `duration` for a cross-fade |
+| Branching on raw animation frame numbers in gameplay code | Query `anim.currentState`, or gate logic on the same parameters your transitions already use |
+| Expecting `Animator`'s API on `AnimatorController` (or vice versa) | They're separate components — pick one per entity based on whether you actually need states |
+| Calling `anim.play()` every frame to "hold" a state | `play()` is for a one-time jump (initial setup, say); let transitions carry ongoing state changes |
+| Forgetting `duration` on an interrupt transition | Without it the cut is instant — set `duration` if you want a cross-fade instead |

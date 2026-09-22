@@ -1,6 +1,6 @@
 # IDE Panel Editors
 
-The EmptySock IDE includes full editor panels accessible via the docked layout. All panels are dockable, re-arrangeable tabs.
+**Use this when** you need to know what an IDE panel does before pointing someone at it, or before wiring game code up to whatever it exports. The EmptySock IDE ships these as dockable, re-arrangeable tabs — drag any of them wherever you like.
 
 ## TilemapEditor
 Canvas-based tile painter. Palette on the left, canvas on the right.
@@ -45,7 +45,7 @@ Spreadsheet-like table for managing translation strings.
 **Usage:** Keys are looked up at runtime via `t('key')` from `@emptysock/engine` — see `skills/07-save-localisation.md`.
 
 ## GitPanel
-Built-in lightweight Git commit helper.
+Built-in lightweight Git commit helper, for when you don't want to leave the IDE to commit something.
 
 **Shows:** modified/staged/untracked files (from Tauri shell commands)  
 **Actions:** stage file, unstage, commit with message  

@@ -1,6 +1,6 @@
 # ViewportSystem
 
-`ViewportSystem` handles design-resolution scaling so a game authored at one fixed resolution fits any container: browser window, IDE preview pane, or a phone in either orientation. Pair it with `RenderPipeline` in every game that runs on more than one screen size — `RenderPipeline` draws, `ViewportSystem` scales what it drew to fit.
+**Use this when** your game is authored at one fixed resolution but needs to fit whatever container it lands in — a browser window, the IDE preview pane, a phone flipped sideways. `ViewportSystem` handles that scaling. Pair it with `RenderPipeline` for any game that runs on more than one screen size: `RenderPipeline` draws, `ViewportSystem` scales what it drew to fit.
 
 ---
 
@@ -91,7 +91,7 @@ await this._render.init({ width: 1280, height: 720, ...defaults })
 
 | Wrong | Right |
 |---|---|
-| Reading `window.innerWidth`/`innerHeight` directly for layout | Read `viewport.size` after `init()`/`recompute()` |
-| Skipping `viewport.destroy()` in `onDestroy` | Always call it — removes the resize/orientation listeners |
-| Assuming safe-area insets are non-zero in tests/Node | `getSafeAreaInsets()` returns all zeros outside a browser context by design |
-| Hardcoding `antialias`/`resolution` for all devices | Use `gpuTierRenderDefaults(tier)` so low-end GPUs get a usable frame rate |
+| Reading `window.innerWidth`/`innerHeight` directly for layout | Read `viewport.size` after `init()`/`recompute()` instead |
+| Skipping `viewport.destroy()` in `onDestroy` | Always call it — it removes the resize/orientation listeners |
+| Assuming safe-area insets are non-zero in tests/Node | `getSafeAreaInsets()` returns all zeros outside a real browser, by design |
+| Hardcoding `antialias`/`resolution` for every device | Use `gpuTierRenderDefaults(tier)` so low-end GPUs still get a playable frame rate |

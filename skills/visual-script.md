@@ -1,6 +1,6 @@
 # Visual Script Editor
 
-The Visual Script Editor is an IDE panel for wiring component logic without writing TypeScript. It produces `.esvs` files that run through a graph interpreter at runtime.
+**Use this when** you're authoring node-graph logic in the IDE panel itself, rather than driving `VisualScriptComponent` from code (see `skills/29-visual-script-component.md` for that side). The Visual Script Editor lets you wire up component logic without writing TypeScript, and produces `.esvs` files that a graph interpreter runs at runtime.
 
 ---
 
@@ -58,13 +58,13 @@ Ports are colour-coded by type. Connecting incompatible types shows a red error 
 
 ## Performance guidance
 
-Visual scripts run through a graph interpreter — expect roughly 10× slower execution than native TypeScript for hot paths. Use visual scripts for event-driven, low-frequency logic: cutscenes, dialogue triggers, UI flows, puzzle mechanics. Move anything that runs every frame with heavy computation to a TypeScript scene or actor.
+Visual scripts run through a graph interpreter, so expect roughly 10x slower execution than native TypeScript on hot paths. They're a great fit for event-driven, low-frequency logic: cutscenes, dialogue triggers, UI flows, puzzle mechanics. Anything running every frame with real computation belongs in a TypeScript scene or actor instead.
 
 ---
 
 ## Tips
 
-- Organise complex graphs into sub-graphs: right-click selected nodes → Collapse to Subgraph.
-- Use `Comment` nodes (right-click → Add Comment) to annotate intent for collaborators.
-- The `On Message` node works with the Actor Model — pair it with `actor.send()` from TypeScript to bridge the two systems.
-- Visual scripts are plain JSON — they can be diffed and reviewed in version control.
+- Break up complex graphs into sub-graphs: right-click selected nodes → Collapse to Subgraph. Your future self will thank you.
+- Use `Comment` nodes (right-click → Add Comment) to leave notes for whoever opens this graph next, including you in six months.
+- The `On Message` node plugs into the Actor Model — pair it with `actor.send()` from TypeScript to bridge the two systems.
+- Visual scripts are plain JSON, so they diff and review in version control just like any other file.

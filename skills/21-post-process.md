@@ -1,6 +1,6 @@
 # PostProcessSystem
 
-`PostProcessSystem` manages full-screen post-processing effects and per-layer CSS filters. Create one instance per scene; call `update(dt)` each frame for transient effects to decay correctly.
+**Use this when** you want screen-wide visual effects — bloom, vignette, a hit-flash, a scene transition overlay — or a CSS filter on one render layer. `PostProcessSystem` handles both. One instance per scene, and call `update(dt)` every frame so transient effects (flashes, shockwaves) decay properly.
 
 ## Import
 
@@ -121,9 +121,9 @@ this._post.clearLayerFilter('Background')
 
 ## Notes
 
-- Effects composite in add order — `bloom` before `colour-grade` grades the bloomed result.
-- `PostProcessSystem` uses a second WebGL framebuffer. On `'potato'` and `'low'` GPU tiers, disable `bloom` and `blur`.
-- Per-layer filters use CSS compositing; they do not require the WebGL framebuffer.
+- Effects composite in the order you added them — `bloom` before `colour-grade` means the grade acts on the already-bloomed result.
+- `PostProcessSystem` needs a second WebGL framebuffer to do its thing. On `'potato'` and `'low'` GPU tiers, turn off `bloom` and `blur` — they're the expensive ones.
+- Per-layer filters ride on CSS compositing instead, so they skip the WebGL framebuffer entirely.
 
 ## Scene transitions
 

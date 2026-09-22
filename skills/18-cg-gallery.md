@@ -1,6 +1,6 @@
 # CGGallery
 
-`CGGallery` tracks which full-screen CG images the player has unlocked, persists that state via `SaveSystem`, and exposes counts and entries for building a gallery screen. Unlock happens automatically from Story Graph nodes or manually in code.
+**Use this when** you're building the "unlockables" screen for a visual novel's CG art. `CGGallery` tracks which full-screen images the player has seen, persists it through `SaveSystem`, and gives you counts and entries to build a gallery UI from. Unlocking happens automatically from Story Graph nodes, or you can call it manually.
 
 ## Import
 
@@ -44,7 +44,8 @@ const count    = gallery.unlockedCount    // how many are unlocked
 Pass the CG id from your `VNSystem` node callback when a CG is shown:
 
 ```typescript
-import { VNSystem, CGGallery, VNBackgroundLayer } from '@emptysock/engine'
+import { CGGallery } from '@emptysock/engine'
+import { VNSystem, VNBackgroundLayer } from '@emptysock/vn'
 
 vn.onNode((node) => {
   if (node.type === 'dialogue' && node.cgPath !== undefined) {
@@ -78,6 +79,6 @@ vn.onNode((node) => {
 ## Notes
 
 - Call `gallery.load()` in `onLoad` before checking any unlock state.
-- `unlock()` and `unlockFromNode()` write to `SaveSystem` immediately — no manual save call needed.
-- `CGGallery` does not render anything — use `VNBackgroundLayer.showCG()` to display a CG image.
-- One `CGGallery` instance should be kept alive for the lifetime of the application (store it in a module-level variable or a long-lived scene).
+- `unlock()` and `unlockFromNode()` write straight to `SaveSystem` — no manual save call needed.
+- `CGGallery` doesn't render anything itself. Use `VNBackgroundLayer.showCG()` to actually show an image.
+- Keep one `CGGallery` instance alive for the whole app's lifetime — a module-level variable or a long-lived scene works.

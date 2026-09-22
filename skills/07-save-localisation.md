@@ -4,7 +4,7 @@
 
 ## SaveSystem
 
-`SaveSystem` is generic key-value persistence for save slots, backed by `localStorage`. All operations are synchronous. It only knows how to store, retrieve, and validate an opaque JSON object per slot under a prefixed key — it does not decide what a "save slot" contains; that shape is supplied to the constructor as a Zod schema.
+**Use this when** you're persisting player progress across sessions — this is the v1 `SaveSystem`, `localStorage`-backed and fully synchronous. (For the v2 ECS core's SaveSystem, with a pluggable storage adapter and component versioning, see `skills/33-save-system.md` instead.) It stores, retrieves, and validates an opaque JSON blob per slot under a prefixed key — it has no opinion on what a "save slot" actually contains. You hand it that shape as a Zod schema.
 
 ```typescript
 import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'
@@ -76,19 +76,19 @@ const hero = characterSaves.load('hero-1')  // CharacterSave | null
 The constructor's first argument, `prefix`, sets the `localStorage` key prefix (default `"emptysock_save_"`). Use a different prefix per `SaveSystem` instance to keep unrelated slot shapes from colliding in storage.
 
 ### Notes
-- If the assembled slot does not validate against the configured schema, `save()` logs a warning and does not write anything — it never silently drops unknown fields or partially persists invalid data.
-- `load()` returns `null` for a missing slot, corrupted stored JSON, or a slot that no longer matches the configured schema (e.g. written by an older game version with a different shape) — never throws.
-- `listSlots()` skips malformed or foreign-shaped entries rather than throwing.
-- Never cast a loaded slot `as MySaveType` — `load()` already validates against the schema you gave the constructor, so a non-null result is guaranteed to match `TSlot`.
-- Slot names are arbitrary strings. Use a consistent naming convention (`slot-1`, `autosave`, `checkpoint-{level}`) to avoid collisions.
-- `SaveSystem` has no `destroy()` method.
+- If the assembled slot fails validation, `save()` logs a warning and writes nothing at all — no silently dropped fields, no half-saved data sitting around to confuse future-you.
+- `load()` returns `null` for a missing slot, corrupted JSON, or a slot that no longer matches the schema (say, one written by an older build with a different shape). It never throws.
+- `listSlots()` quietly skips anything malformed or foreign-shaped instead of blowing up.
+- Don't cast a loaded slot `as MySaveType` — `load()` already validated it against the schema you gave the constructor, so a non-null result is guaranteed to match `TSlot` already.
+- Slot names are arbitrary strings. Pick a consistent scheme (`slot-1`, `autosave`, `checkpoint-{level}`) so you don't collide with yourself later.
+- `SaveSystem` has no `destroy()` method — there's nothing to tear down.
 - To persist `VariableStore` state alongside a save, embed `variableStore.snapshot()` inside the slot's `data` field and call `variableStore.restore(...)` after loading — see `skills/13-variable-store.md`.
 
 ---
 
 ## Localisation
 
-`LocalisationSystem` is instanced — create one in `onLoad` and keep a reference. Load locale data via `addTranslations()` before calling `setLocale()`.
+**Use this when** your game needs to speak more than one language. `LocalisationSystem` is instanced, not a singleton — create one in `onLoad` and hang onto the reference. Load locale data with `addTranslations()` before calling `setLocale()`.
 
 ```typescript
 import { LocalisationSystem } from '@emptysock/engine'
@@ -160,7 +160,7 @@ The IDE's LocalisationEditor panel manages these files visually:
 Export from the panel and place the JSON files in `assets/i18n/`.
 
 ### Notes
-- `localisation.t()` falls back to returning the key itself when a translation is missing — it never throws. Typos in key names are silent at runtime; use the LocalisationEditor's filter to catch missing translations before shipping.
-- Template tokens use `{{name}}` syntax. Pass them as `{ name: value }` in the second argument.
-- `setLocale()` takes an IETF language tag string (`'en'`, `'fr'`, `'ja'`). The locale must correspond to a locale you have registered with `addTranslations()`.
-- Always validate fetched JSON with a Zod schema before passing it to `addTranslations()` — locale files can be corrupt or edited externally.
+- `localisation.t()` falls back to returning the key itself when a translation is missing — it never throws. That also means a typo'd key fails silently at runtime, so lean on the LocalisationEditor's filter to catch gaps before shipping, not the console.
+- Template tokens use `{{name}}` syntax. Pass values as `{ name: value }` in the second argument.
+- `setLocale()` takes an IETF language tag string (`'en'`, `'fr'`, `'ja'`) and it needs to be one you've actually registered with `addTranslations()` first.
+- Always validate fetched JSON with a Zod schema before handing it to `addTranslations()` — locale files get hand-edited and go stale, and a bad one shouldn't take down the whole UI.

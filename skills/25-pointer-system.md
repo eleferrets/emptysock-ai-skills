@@ -1,6 +1,6 @@
 # PointerSystem
 
-`PointerSystem` unifies mouse, touch, and pen input into a single pointer stream via native Pointer Events, plus a small built-in gesture recognizer (tap / long-press / swipe / pinch) and wheel/trackpad classification. It complements `InputSystem` (keyboard + mouse buttons) and `GamepadSystem` (controllers) — use whichever fits the interaction, not all three for the same input.
+**Use this when** you want one input stream that covers mouse, touch, and pen without three separate code paths — plus gestures (tap, long-press, swipe, pinch) and wheel/trackpad classification for free. `PointerSystem` unifies all of that via native Pointer Events. It complements `InputSystem` (keyboard + mouse buttons) and `GamepadSystem` (controllers) — pick whichever fits the interaction, not all three stacked on the same input.
 
 ---
 
@@ -62,7 +62,7 @@ const unsubscribe = this._pointer.onGesture((g) => {
 })
 ```
 
-`longpress` only fires from `update()` being called each frame — it is polled against the game loop's own timing rather than a `setTimeout`, so it stays correct even if the frame rate drops.
+`longpress` only fires because `update()` is called every frame — it's polled against the game loop's own clock rather than a `setTimeout`, so it stays accurate even when the frame rate tanks.
 
 ## Wheel / trackpad
 
@@ -78,7 +78,7 @@ this._pointer.onWheel((w) => {
 })
 ```
 
-`source` is a heuristic: trackpads deliver small fractional deltas continuously; mouse wheels deliver large, discrete deltas per click.
+`source` is a best guess, not a certainty: trackpads deliver small fractional deltas continuously, mouse wheels deliver large discrete deltas per click.
 
 ---
 
@@ -102,8 +102,8 @@ const button = new ButtonWidget({
 
 | Wrong | Right |
 |---|---|
-| Listening for `touchstart`/`mousedown` separately | Use `PointerSystem` — one event stream for mouse, touch, and pen |
-| Using `setTimeout` to detect a long-press | Call `pointer.update()` every frame; long-press is polled against the game loop |
-| Assuming `ctrlKey` on a wheel event means the Ctrl key is held | Browsers synthesize `ctrlKey: true` for trackpad pinch-to-zoom — read `isPinchZoom` instead |
+| Listening for `touchstart`/`mousedown` separately | Use `PointerSystem` — one event stream covers mouse, touch, and pen |
+| Using `setTimeout` to detect a long-press | Call `pointer.update()` every frame; long-press is polled against the game loop instead |
+| Assuming `ctrlKey` on a wheel event means Ctrl is actually held | Browsers fake `ctrlKey: true` for trackpad pinch-to-zoom — check `isPinchZoom` instead |
 | Sizing touch controls below 44px | Use `MIN_TOUCH_TARGET_SIZE` as a floor |
-| Forgetting `pointer.destroy()` in `onDestroy` | Always call it — removes native listeners and clears tracked pointers |
+| Forgetting `pointer.destroy()` in `onDestroy` | Always call it — clears native listeners and tracked pointers |
