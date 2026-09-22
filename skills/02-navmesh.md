@@ -1,6 +1,10 @@
-# PathfindingSystem
+# PathfindingSystem and NavMeshSystem
 
-Grid-based A* pathfinding and scene NavMesh construction. All methods are static — no instantiation needed.
+**Use this when** you need enemy/NPC pathfinding — grid-based A* for a tile grid, or polygon NavMesh for open terrain.
+
+Grid-based A* pathfinding (`PathfindingSystem`) is a core engine system. Polygon `NavMeshSystem` and `Tilemap` live in the optional `@emptysock/tilemap` package. All `PathfindingSystem` methods are static — no instantiation needed.
+
+`NavMeshSystem.load()` takes a pre-built polygon graph — there's no runtime path from raw tile data to a navmesh. Building one from tiles at runtime means Delaunay triangulation and polygon merging, which is genuinely slow enough (hundreds of milliseconds on a real level) to stall the main thread if you tried to do it live. Build the navmesh offline (in the level editor, or a preprocessing step) and ship it as a JSON asset.
 
 ## Import
 
@@ -13,7 +17,8 @@ import { PathfindingSystem } from '@emptysock/engine'
 Load a tilemap layer as a grid and call `PathfindingSystem.findPath()`:
 
 ```typescript
-import { TilemapSystem, PathfindingSystem } from '@emptysock/engine'
+import { PathfindingSystem } from '@emptysock/engine'
+import { TilemapSystem } from '@emptysock/tilemap'
 
 // In onLoad:
 const map  = TilemapSystem.load('level1.esmap')
@@ -70,7 +75,8 @@ PathfindingSystem.debugDraw(true)
 ## Import
 
 ```typescript
-import { NavMeshSystem, type NavMeshData, type Vec2 } from '@emptysock/engine'
+import { NavMeshSystem, type NavMeshData } from '@emptysock/tilemap'
+import type { Vec2 } from '@emptysock/engine'
 ```
 
 ## Setup

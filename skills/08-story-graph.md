@@ -1,6 +1,10 @@
 # Story Graph / VNSystem
 
+**Use this when** you're building branching dialogue, visual novel scenes, or cutscenes — anything the Story Graph panel authors. `VNSystem` and its helpers live in the optional `@emptysock/vn` package, not the core engine — install and import it only if the game actually has dialogue.
+
 The Story Graph is the EmptySock IDE panel for authoring branching dialogue trees (visual novels, cutscenes, quest dialogue). Scripts are exported as `.storyGraph.json` (the editor format) and converted to `DialogueTree` at runtime by `storyGraphToDialogueTree()`, then played by `VNSystem`.
+
+`VNSystem`'s constructor defaults to the engine's global `variableStore` singleton (`constructor(store: VariableStore = variableStore)`) — a VN choice gated on switch 12 shares state with anything else in the game touching that same switch. Usually what you want; pass your own `VariableStore` instance if you need an isolated store (e.g. per save slot, or in a test).
 
 ---
 
@@ -52,7 +56,7 @@ import {
   type DialogueNode,
   type DialogueTree,
   type StoryGraph,
-} from '@emptysock/engine'
+} from '@emptysock/vn'
 
 // In onLoad — fetch the exported graph, convert, and load:
 override async onLoad(): Promise<void> {
@@ -151,7 +155,8 @@ vn.setListener({
 `'condition'` dialogue nodes and a choice option's `when` field both branch on the shared `VariableStore` (see `skills/13-variable-store.md`), so a Story Graph can react to what happened elsewhere in the game — a boss fight, a switch flipped by a map event — without any special-case code in the scene.
 
 ```typescript
-import { variableStore, VNSystem, type DialogueTree } from '@emptysock/engine'
+import { variableStore } from '@emptysock/engine'
+import { VNSystem, type DialogueTree } from '@emptysock/vn'
 
 variableStore.setSwitchName(10, 'bossDefeated')
 
@@ -187,7 +192,8 @@ A choice option works the same way — add `when: { kind: 'variable', index: 4, 
 VNSystem has no internal save state. Store enough to recreate position yourself:
 
 ```typescript
-import { SaveSystem, VNSystem, storyGraphToDialogueTree } from '@emptysock/engine'
+import { SaveSystem } from '@emptysock/engine'
+import { VNSystem, storyGraphToDialogueTree } from '@emptysock/vn'
 import { z } from 'zod'
 
 const progressSaves = new SaveSystem<{ id: string; nodeId: string }>(
@@ -211,7 +217,7 @@ function saveProgress(currentNodeId: string): void {
 ## Story Graph ↔ DialogueTree round-trip
 
 ```typescript
-import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/engine'
+import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/vn'
 
 // Editor format → runtime format:
 const tree: DialogueTree = storyGraphToDialogueTree(graph)

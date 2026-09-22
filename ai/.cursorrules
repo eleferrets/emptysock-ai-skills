@@ -1,93 +1,67 @@
 # EmptySock Engine — Cursor / Windsurf Rules
 
 You are working on a game built with EmptySock (@emptysock/engine).
-TypeScript strict mode. 2D primary (PixiJS v8 + Rapier2D + Howler.js). Optional 3D via Three.js. Tauri v2 shell.
+TypeScript preferred, JavaScript fully supported. bitECS-backed entity/component core, PixiJS rendering, Rapier2D/3D physics, Howler.js audio. Tauri v2 desktop shell.
 
 ## Absolute rules
 
-NEVER import pixi.js, @dimforge/rapier2d, howler, or three directly.
+NEVER import pixi.js, @dimforge/rapier2d/3d, or howler directly.
 NEVER use `any` type. Use `unknown` + Zod or type guards.
 NEVER use `!` non-null assertions. Use `?.` and `?? fallback`.
-NEVER use setTimeout or setInterval in game logic. Use Timer.after() or Timer.every().
-NEVER use async/await inside onUpdate() or onFixedUpdate(). Use function* coroutines.
-NEVER access the DOM directly. Use the engine UI system.
-ALWAYS call entity.destroy() when entities are no longer needed.
-ALWAYS cancel TimerHandles in onDestroy() if they reference scene objects.
-ALWAYS parse external/saved JSON through a Zod schema before use.
+NEVER use setTimeout or setInterval in game logic. Use the engine's own Timer/TweenManager.
+NEVER write `async onUpdate()` — it's a type error in TS (onUpdate is `(dt: number) => void`) and a loud runtime warning in JS. Use entity.startCoroutine() for multi-frame work.
+NEVER access the DOM directly in game/scene code.
+ALWAYS call scene.destroy(entity) when an entity is no longer needed — this is the same call whether or not the entity was pooled.
+ALWAYS parse external/saved JSON through a Zod schema or explicit guard before use.
 ALWAYS add explicit return types to functions.
 ALWAYS commit with conventional format: feat/fix/refactor/chore(scope): message
 
 ## Core API — quick reference
 
-Engine.create({ scenes, startScene, gameSpeed }) then engine.start()
+new Game() then game.loadScene(sceneDefinition) — Game creates/destroys that scene's ActorSystem/PhysicsSystem for you.
 
-Scene base class:
-  onLoad(): Promise<void>     — async setup, awaited before render
-  onUpdate(dt: number): void  — every frame, dt = seconds
-  onDestroy(): void           — cleanup before unload
+defineScene({ onLoad(scene, {actors, physics, input, audio}), onUpdate(dt), onUnload(scene) })
 
-entity = scene.createEntity('name')
-entity.addComponent(Type, props)
-entity.getComponent(Type)          → T | undefined
-entity.requireComponent(Type)      → T | throws
-entity.hasTag(tag)                 → boolean
-entity.destroy()
+Entities are handles, not classes:
+  entity = scene.spawn('name')          — or scene.spawn(somePrefab, props, { pool?: true })
+  entity.add(ComponentDef, overrides?)  → live component data
+  entity.get(ComponentDef)              → T | undefined
+  entity.has(ComponentDef)              → boolean
+  entity.isAlive                        → boolean (see pooling note below)
+  scene.destroy(entity)
+  scene.each(CompA, CompB, (a, b, entity) => {...})   — bulk path, skips per-entity proxy overhead
 
-InputSystem (instanced — new InputSystem(); input.attach() in onLoad; input.detach() in onDestroy)
-input.flush()              — call once per frame before reading any state
-input.isKeyDown(key)       — held
-input.isKeyPressed(key)    — just pressed this frame
-input.isKeyReleased(key)   — just released this frame
-input.mouseX / input.mouseY — pointer position
+defineComponent(name, () => defaults, { version?, schema? }) — name is load-bearing across hot-reload.
+Component fields must be JSON-serializable — no functions, no class instances. A callback-shaped
+property (like PhysicsBody's collision handlers) lives in a side-table, assigned like a normal field.
 
-Audio.play(id, opts?)
-Audio.music(id, opts?)
-Audio.setGroupVolume(group, vol)
+Pooling: scene.spawn(prefab, props, { pool: true }); scene.destroy(entity) recycles it.
+Gotcha: a pooled-and-destroyed entity's isAlive stays true — check .has()/.get() instead, not isAlive.
 
-Camera.follow(entity, opts?)
-Camera.shake(opts)
-Camera.zoom(scale, opts?)
-Camera.fade(opts) / Camera.unfade(opts?)
+Physics: player.get(PhysicsBody).onCollisionEnter = (other, contact) => {...} — assigning IS registering.
+Bodies collide with everything by default; collision groups are opt-in.
 
-SceneManager.load(name)
-SceneManager.transition(name, { effect, duration })
-SceneManager.push(name) / SceneManager.pop()
+Saving: new SaveSystem(scene, [ComponentDef, ...]); await save.save('slot'); await save.load('slot').
+Version-bump a component (defineComponent(name, defaults, {version: 2})) + save.registerMigration(name, fn)
+when its shape changes. No migration registered → that one component's data is dropped with a warning,
+not the whole save.
 
-Timer.after(seconds, fn)   → TimerHandle
-Timer.every(seconds, fn)   → TimerHandle
-handle.cancel()
+Input (InputManager, game.input): snapshot is frozen for the whole frame — isDown()/keyboard/gamepad()/
+touches all read that frozen copy. game.input.attach() is called by your bootstrap code, never by Game itself.
 
-entity.startCoroutine(function* () {
-  yield waitSeconds(1.0)
-  yield waitUntil(() => condition)
-  yield waitForEvent('eventName')
-})
+Optional module packages (never auto-imported by the core engine):
+  @emptysock/network  — Colyseus multiplayer, networked(componentDef, ['field', ...])
+  @emptysock/vn       — VNSystem / Story Graph
+  @emptysock/battle   — BattleSystem, turn-based combat
+  @emptysock/tilemap  — TilemapSystem, NavMeshSystem
 
-SaveSystem.save(slot, data)
-SaveSystem.load(slot)       → { data: unknown } — always Zod parse before use
+## Commit examples
 
-LocalisationSystem (instanced — new LocalisationSystem(); addTranslations(); setLocale())
-localisation.t(key, vars?)  — translate key; returns key if not found
-localisation.setLocale(code) / localisation.currentLocale
+feat(player): add wall-jump mechanic
+fix(save): migrate Inventory component from v1 to v2 shape
+refactor(enemy): extract patrol logic into PatrolComponent
 
-TilemapSystem.load(file)    → map
-map.getLayer(name).enablePhysics()
+## Further reference
 
-TweenManager (instanced — new TweenManager(); tweens.update(dt) in onUpdate)
-tweens.to(target, props, { duration, ease })
-Profiler.getStats()         → { fps, drawCalls, frameTime, memoryMB }
-Engine.gpuTier              → 'potato' | 'low' | 'mid' | 'high' | 'ultra'
-
-## Performance — Pi 4 and mobile targets
-
-Keep draw calls under 50/frame on 'low' tier.
-Use texture atlases to batch sprites sharing the same texture.
-Use ObjectPool for high-frequency entities (bullets, particles).
-Avoid object allocation inside onUpdate() — reuse private fields.
-Disable soft shadows on 'potato' and 'low' GPU tiers.
-
-## Full reference
-
-skills/          — per-system skill files
-docs/            — human-readable guides
-ai/api-reference.json — full typed API
+Full API: ai/api-reference.json (this repo)
+Per-system guides: skills/ (this repo)

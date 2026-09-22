@@ -1,102 +1,62 @@
 # EmptySock — Quickstart
 
-Everything you need for a typical game task, in one page.
+Everything you need for a typical game task, in one page. For the full story on the entity/component/scene core, see `skills/32-ecs-core.md`.
 
 ---
 
-## Engine boot
+## Engine boot and scene skeleton
 
 ```typescript
-import { Engine } from '@emptysock/engine'
+import { Game, defineScene } from '@emptysock/engine'
 
-const engine = await Engine.create({
-  scenes: { MenuScene, GameScene },
-  startScene: 'MenuScene',
-  gameSpeed: 60,
+const GameScene = defineScene({
+  async onLoad(scene, { actors, physics, input, audio }) {
+    // build world here — awaited before first frame. actors/physics already
+    // exist for you; Game created them, never `new ActorSystem()` yourself.
+  },
+  onUpdate(dt) {
+    // runs every frame, after physics/actor/collision, before render.
+    // no async here — it's a type error. Use entity.startCoroutine() instead.
+  },
+  onUnload(scene) {
+    // called before this scene's actors/physics are torn down (automatically)
+  },
 })
-await engine.start()
+
+const game = new Game()
+await game.loadScene(GameScene)
+// each frame, from your host's render loop: game.update(dt)
 ```
 
----
-
-## Scene skeleton
-
-```typescript
-import { Scene, type SceneConfig } from '@emptysock/engine'
-
-export class GameScene extends Scene {
-  static readonly config: SceneConfig = { renderMode: '2d', gameSpeed: 60 }
-
-  override async onLoad(): Promise<void> {
-    // build world here — awaited before first frame
-  }
-
-  override onStart(): void {
-    // called once after onLoad resolves — safe to reference entities created in onLoad
-  }
-
-  override onUpdate(dt: number): void {
-    // runs every frame — dt = seconds since last frame
-    // no async/await here — use coroutines
-  }
-
-  override onFixedUpdate(dt: number): void {
-    // runs at fixed timestep — use for physics / authoritative simulation
-  }
-
-  override onPause(): void {
-    // called when another scene is pushed on top via SceneManager.push()
-  }
-
-  override onResume(): void {
-    // called when that pushed scene is popped and this one becomes active again
-  }
-
-  override onDestroy(): void {
-    // cancel timers, remove listeners, call physics3d.destroy()
-  }
-}
-```
+`game.loadOverlay(HudScene)` stacks an independent scene on top (HUD, pause menu) that survives a main-scene reload underneath it. `game.services` is a typed registry for process-global state — see `skills/32-ecs-core.md`.
 
 ---
 
 ## Entities and components
 
+Entities are handles, not classes to subclass. Components are plain data from `defineComponent`.
+
 ```typescript
-import { Transform, Sprite, PhysicsBody, CharacterController, Animator } from '@emptysock/engine'
+import { defineComponent, Transform, Sprite, PhysicsBody } from '@emptysock/engine'
 
-const player = scene.createEntity('Player')
-player.addComponent(new Transform({ x: 0, y: 0 }))
-player.addComponent(new Sprite({ texturePath: 'hero.png', anchorX: 0.5, anchorY: 1.0 }))
-player.addComponent(new PhysicsBody({ shape: 'capsule', bodyType: 'dynamic' }))
-player.addComponent(new CharacterController({ slopeAngle: 45 }))
-player.addComponent(new Animator({ spritesheet: 'hero.esanim', defaultClip: 'idle' }))
+const player = scene.spawn('Player')
+player.add(Transform, { x: 0, y: 0 })
+player.add(Sprite, { texturePath: 'hero.png', anchorX: 0.5, anchorY: 1.0 })
+player.add(PhysicsBody, { shape: 'capsule', type: 'dynamic' })
 
-// Built-in components expose a typed ComponentType token as `.TYPE` — use it
-// with getComponent/requireComponent to infer the right type and catch typos:
-const sprite = player.getComponent(Sprite.TYPE)          // Sprite | undefined
-const body   = player.requireComponent(PhysicsBody.TYPE) // PhysicsBody | throws
+player.has(PhysicsBody)              // boolean
+const body = player.get(PhysicsBody) // T | undefined — proxy onto live data
 
-// Transform — position, rotation (radians), scale:
-player.position = { x: 100, y: 200 }
-player.setPosition(100, 200)  // chainable
-player.rotation = Math.PI / 4
-player.scale = { x: 1.5, y: 1.5 }
-
-// Events — on() returns an unsubscriber:
-const unsub = player.on('hit', (data) => { console.log('hit', data) })
-player.emit('hit', { damage: 10 })
-unsub()  // stop listening
-
-// Coroutines on the entity:
+// Coroutines on the entity — still the escape hatch for multi-frame work:
 player.startCoroutine(function* () {
   yield waitSeconds(1.0)
-  player.emit('ready')
 })
 
-// Destroy — removes from scene, destroys children, emits 'destroy':
-player.destroy()
+// Destroy — same call whether or not the entity was spawned pooled:
+scene.destroy(player)
 ```
+
+Define your own components with `defineComponent(name, () => defaults, options?)` — see `skills/32-ecs-core.md` for the full rules (serializable fields only, name is the real identity across hot-reload). For touching many entities at once, use `scene.each(Transform, PhysicsBody, (t, b, entity) => {...})` instead of per-entity `.get()` — same objects, just the bulk path.
 
 ---
 
@@ -128,31 +88,36 @@ this._render.destroy()
 
 ---
 
-## 2D physics (sync, no init required)
+## 2D physics
 
 ```typescript
 import { PhysicsBody, CharacterController } from '@emptysock/engine'
 
-player.addComponent(PhysicsBody, { shape: 'capsule', bodyType: 'dynamic' })
-player.addComponent(CharacterController, { slopeAngle: 45 })
+player.add(PhysicsBody, { shape: 'capsule', type: 'dynamic' })
+player.add(CharacterController, { slopeAngle: 45 })
 
 // Declare in the class body: private _vy = 0
-// In onUpdate (assuming this.input is an InputSystem attached in onLoad):
-this.input.flush()
-const ctrl = player.requireComponent(CharacterController)
-if (!ctrl.isGrounded()) this._vy += 980 * dt
-else this._vy = 0
-if (ctrl.isGrounded() && this.input.isKeyPressed('Space')) this._vy = -600
-const h = this.input.isKeyDown('ArrowRight') ? 1 : this.input.isKeyDown('ArrowLeft') ? -1 : 0
-ctrl.moveAndSlide({ x: h * 200 * dt, y: this._vy * dt })
+// In onUpdate (input is the frozen snapshot from game.input, passed in via SceneLifecycle):
+const ctrl = player.get(CharacterController)
+if (ctrl !== undefined) {
+  if (!ctrl.isGrounded()) this._vy += 980 * dt
+  else this._vy = 0
+  if (ctrl.isGrounded() && input.isPressed('Space')) this._vy = -600
+  const h = input.isDown('ArrowRight') ? 1 : input.isDown('ArrowLeft') ? -1 : 0
+  ctrl.moveAndSlide({ x: h * 200 * dt, y: this._vy * dt })
+}
 
-// Collision/sensor callbacks register on the PhysicsBody you already hold:
-const body = player.requireComponent(PhysicsBody)
-body.onCollisionEnter((other, contact) => {
-  if (contact.impactForce > 50) console.log('Ouch.')
-})
-body.onSensorEnter((other) => { /* trigger volume entered */ })
+// Collision/sensor callbacks are a direct property assignment — assigning IS registering:
+const body = player.get(PhysicsBody)
+if (body !== undefined) {
+  body.onCollisionEnter = (other, contact) => {
+    if (contact.impactForce > 50) console.log('Ouch.')
+  }
+  body.onSensorEnter = (other) => { /* trigger volume entered */ }
+}
 ```
+
+Bodies collide with everything by default — collision groups are opt-in tuning, not a setup requirement.
 
 ---
 
@@ -205,6 +170,8 @@ system.send('enemy-1', { type: 'TAKE_DAMAGE', amount: 25 })
 system.update(dt)   // flush mailboxes then run update() on all actors
 system.destroy()    // in onDestroy
 ```
+
+In a normal scene you don't construct `ActorSystem` yourself at all — `Game.loadScene()` creates and destroys one per scene automatically and hands it to you as `actors` in `onLoad`/`onUpdate`. The snippet above is what that automatic system does under the hood, useful to know if you're debugging message ordering.
 
 ---
 
@@ -364,16 +331,16 @@ gamepad.destroy()
 ## Save and load
 
 ```typescript
-import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'
+import { SaveSystem } from '@emptysock/engine'
 
-// No schema given → uses the default GameSaveSlot shape: { id, scene, data, timestamp, playtime }
-const save = new SaveSystem()
-save.save('slot-1', { scene: 'Level2', data: { score: 4200, flags: {} } })
-const slot = save.load('slot-1')   // GameSaveSlot | null — already validated, never throws
-if (slot !== null) loadScene(slot.scene)
-
-// Pass a Zod schema for a custom slot shape — see skills/07-save-localisation.md
+// Bind to a scene and an explicit list of save-aware components — zero
+// per-component save code required, since components are plain serializable data.
+const save = new SaveSystem(scene, [Transform, Health, Inventory])
+await save.save('slot-1')
+await save.load('slot-1')
 ```
+
+See `skills/33-save-system.md` for migrations and storage adapters, and `skills/07-save-localisation.md` for `LocalisationSystem`.
 
 ---
 
@@ -504,11 +471,12 @@ injected from project settings — use them freely, no import needed.
 | `import * as PIXI from 'pixi.js'` | Only `@emptysock/engine` |
 | `setTimeout(() => fn(), 2000)` | `Timer.after(2.0, fn)` |
 | `async onUpdate() {}` | Coroutines only |
-| `entity.getComponent(Sprite)!` | `entity.getComponent(Sprite)?.prop` |
+| `entity.get(Sprite)!` | `entity.get(Sprite)?.prop` |
 | `JSON.parse(x) as MyType` | `MySchema.parse(JSON.parse(x))` |
 | `let x: any` | `let x: unknown` then narrow |
-| Forgetting `entity.destroy()` | Always destroy when done |
+| Forgetting `scene.destroy(entity)` | Always destroy when done — same call whether pooled or not |
 | Forgetting `handle.cancel()` | Always cancel timers in `onDestroy` |
+| Mutating a `networked()` field in place | Reassign a new value — see `skills/35-network-package.md` |
 | Skip `physics3d.destroy()` | Always call in `onDestroy` — leaks WASM |
 | Engine-owned loading screen | Not a thing — build one as a scene if needed |
 | Engine-owned splash screen | Not a thing — build one as a scene if needed |

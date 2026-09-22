@@ -1,6 +1,8 @@
 # AutoTileSystem
 
-`AutoTileSystem` selects tile variants automatically based on an 8-neighbour bitmask, eliminating hand-placed transition tiles. Define rule sets that map neighbour patterns to tile indices; call `resolve()` when painting or regenerating a layer.
+**Use this when** you're painting tilemap terrain and want transition tiles (grass-to-dirt edges, wall corners) chosen automatically instead of hand-placed.
+
+`AutoTileSystem` is a core engine system; `Tilemap` (the thing it resolves tiles onto) lives in the optional `@emptysock/tilemap` package. `AutoTileSystem` selects tile variants automatically based on an 8-neighbour bitmask, eliminating hand-placed transition tiles. Define rule sets that map neighbour patterns to tile indices; call `resolve()` when painting or regenerating a layer.
 
 ## Import
 
@@ -11,7 +13,8 @@ import { AutoTileSystem } from '@emptysock/engine'
 ## Quick start
 
 ```typescript
-import { AutoTileSystem, TilemapSystem } from '@emptysock/engine'
+import { AutoTileSystem } from '@emptysock/engine'
+import { TilemapSystem } from '@emptysock/tilemap'
 
 // In onLoad — define a rule set for tile index 1 (grass):
 AutoTileSystem.addRuleSet({

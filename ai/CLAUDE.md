@@ -1,483 +1,260 @@
 # EmptySock — Claude Code Instructions
 
-You are building a game with **EmptySock** (`@emptysock/engine`) — a TypeScript-first
-2D game engine (with optional 3D) that targets web, desktop, mobile, and Raspberry Pi.
+You're building a game with **EmptySock** (`@emptysock/engine`), a TypeScript-first 2D game engine (with optional 3D) that targets web, desktop, mobile, and Raspberry Pi.
 
-Read this file fully before writing any code.
+Read this file fully before writing any code. It covers the current engine — a bitECS-backed core (call it "v2" if you like, though nobody outside the engine repo needs to care about the version number) plus a handful of v1 systems that never needed rewriting and are still exactly as they were: audio, input devices, rendering, particles, tweens, and the rest. Nothing here is legacy-flavored just because it's old; it's here because it's still the real API.
 
 ---
 
-## Engine at a Glance
+## Engine at a glance
 
 | Layer | Technology |
 |---|---|
-| 2D Renderer | PixiJS v8 (WebGL2 → WebGPU) |
-| 3D Renderer | Three.js (optional, hybrid scenes) |
-| Physics | Rapier2D WASM |
+| ECS core | bitECS, wrapped in a friendly `Entity`/`Scene` handle API |
+| 2D Renderer | PixiJS |
+| Physics | Rapier2D / Rapier3D (WASM) |
 | Audio | Howler.js |
-| Shell | Tauri v2 (desktop / mobile) |
-| Language | TypeScript — strict mode, zero `any` |
+| Shell | Tauri v2 (desktop) |
+| Language | TypeScript — strict mode, zero `any` (JavaScript works fine too, see below) |
 
 ---
 
-## Absolute Rules — Never Break These
+## Absolute rules — never break these
 
 ### Types
-- Zero `any`. Use `unknown` with Zod parsing or explicit type guards.
+- Zero `any`. Use `unknown` with a type guard, or Zod if the data's coming from outside the program (a JSON file, save data, a network payload).
 - Zero `!` non-null assertions. Use `?.` and `?? defaultValue`.
-- Zero `// @ts-ignore`. Use `// @ts-expect-error` with a reason comment if unavoidable.
-- Every function needs an explicit return type.
-- Use `import type` for type-only imports.
-- All external data (JSON files, save data, API responses) must go through a **Zod schema** before use.
+- Zero `// @ts-ignore`. If you truly can't avoid a type error, `// @ts-expect-error` with a reason.
+- `import type` for type-only imports.
 
 ### Engine usage
-- Never import PixiJS, Rapier, Howler, or Three.js directly. Use `@emptysock/engine` only.
-- Never touch the DOM directly (`document.querySelector`, etc.). Use the EmptySock UI system.
-- Never use `setTimeout` or `setInterval` in game logic. Use `TweenManager.after()` / `TweenManager.every()` on a per-scene instance.
-- Never use `async/await` inside `onUpdate()` or `onFixedUpdate()`. Use coroutines (`function*`).
-- Always call `entity.destroy()` when an entity is no longer needed.
-- Always cancel timers in `onDestroy()` if they reference scene objects.
+- Never import PixiJS, Rapier, or Howler directly. Everything you need is exported from `@emptysock/engine`.
+- Never touch the DOM directly in game logic.
+- Never use `setTimeout`/`setInterval` in game logic — use `Timer`/`TweenManager` (whatever's scene-scoped) so it actually respects pause/scene-unload.
+- **`onUpdate` cannot be `async`.** This isn't a style rule, it's the type checker: `onUpdate` is typed `(dt: number) => void`, and `defineScene({ async onUpdate() {...} })` is a compile error, on purpose. The game loop calls it synchronously and never awaits it — anything scheduled after an `await` inside would run at a random, frame-budget-detached time, and the engine couldn't catch an error thrown after that point either. For work that spans multiple frames, use `entity.startCoroutine(...)`. Writing plain JavaScript instead of TypeScript? You lose the compile-time catch, but the engine still warns loudly at runtime if `onUpdate` returns something Promise-shaped — it's degraded, not silent.
+- Always `scene.destroy(entity)` when an entity is done. If it was spawned with `{ pool: true }`, this returns it to its prefab's pool instead of actually deallocating it — same call either way, you never need to know which happened.
+
+### JavaScript is first-class
+You don't have to use TypeScript. Both languages run against the exact same API, and there's no "simple" surface for JS and a "real" one for TS — they're the same objects and the same methods. TypeScript gets you the async-`onUpdate` compile error above and full autocomplete; JavaScript gets a console warning instead of a compile error for that one case, and otherwise loses nothing. Don't apologize for writing JS, and don't add TypeScript ceremony to a JS project just because the docs happen to show `.ts` snippets.
 
 ### Commits
-- Conventional commit format: `feat(scope): message`, `fix(scope): message`, `refactor(scope): message`
+- Conventional commit format: `feat(scope): message`, `fix(scope): message`, `refactor(scope): message`.
 - Commit after every working addition. Never commit broken code.
 
 ---
 
-## Core Patterns
+## The object model: entities are handles, not classes
 
-### Boot
+There's no `class Player extends Entity`. An entity is a lightweight, cheap-to-copy handle — `scene.spawn()` hands you one, and it stays valid until `scene.destroy()`. Behavior comes from attaching components (plain data, defined with `defineComponent`) and reading/writing them; there's no inheritance ceremony to opt into.
 
 ```typescript
-import { Engine } from '@emptysock/engine'
-import { MenuScene } from './scenes/MenuScene'
-import { GameScene } from './scenes/GameScene'
+import { defineComponent, Scene } from '@emptysock/engine'
 
-const engine = await Engine.create({
-  scenes: { MenuScene, GameScene },
-  startScene: 'MenuScene',
-  gameSpeed: 60,
-})
-await engine.start()
+const Health = defineComponent('Health', () => ({ current: 100, max: 100 }))
+
+const scene = new Scene()
+const goblin = scene.spawn('Goblin')
+goblin.add(Health, { current: 30 })
+
+const health = goblin.get(Health)   // proxy onto the real component data, or undefined
+if (health !== undefined) health.current -= 10   // writes straight through
+goblin.has(Health)                                // true
+scene.destroy(goblin)
 ```
 
-### Scene
+`defineComponent(name, createDefaults, options?)` — the `name` string is load-bearing: it's how the engine recognizes "the same" component across a hot-reload, which re-evaluates the module and hands you a brand-new object reference every time. Two components with the same name are treated as one; don't reuse a name for two unrelated shapes. `options.version` (default `1`) and `options.schema` (an optional per-field description used by the IDE's Inspector, and only the Inspector) are both optional and purely additive — most components need neither.
+
+Component fields must be `Serializable` — strings, numbers, booleans, `null`, arrays, and plain objects of the same, no functions or class instances. This is what lets `SaveSystem` serialize any component generically with zero per-component save code (see the save section below). If a component genuinely needs a callback-shaped property (collision callbacks are the standing example), it lives in a side-table behind a small wrapper, not as a component field — `PhysicsBody`'s `onCollisionEnter` etc. work this way and read exactly like an ordinary property assignment even though the callback itself never touches component storage.
+
+**For touching thousands of entities at once**, skip per-entity `.get()` and use `scene.each(...)` — same components, same object, just the bulk-iteration path:
 
 ```typescript
-import { Scene, type SceneConfig } from '@emptysock/engine'
-
-export class GameScene extends Scene {
-  static readonly config: SceneConfig = {
-    renderMode: '2d',
-    gameSpeed: 60,
-    lighting: false,
-  }
-
-  override async onLoad(): Promise<void> {
-    // Load assets, build entities. Awaited before scene renders.
-  }
-
-  override onUpdate(dt: number): void {
-    // Every frame. dt = seconds since last frame.
-    // No async/await here — use coroutines.
-  }
-
-  override onDestroy(): void {
-    // Called before scene unloads. Cancel timers, remove listeners.
-  }
-}
-```
-
-### Entity & Components
-
-```typescript
-import { Transform, Sprite, PhysicsBody, CharacterController, Animator } from '@emptysock/engine'
-
-const player = scene.createEntity('Player')
-player.addComponent(new Transform({ x: 0, y: 0 }))
-player.addComponent(new Sprite({ texturePath: 'hero.png', anchorX: 0.5, anchorY: 1.0 }))
-player.addComponent(new PhysicsBody({ shape: 'capsule', bodyType: 'dynamic' }))
-player.addComponent(new CharacterController({ slopeAngle: 45, snapToGround: 0.5 }))
-player.addComponent(new Animator({ spritesheet: 'hero.esanim', defaultClip: 'idle' }))
-
-// Access — built-in components expose a typed `.TYPE` token for getComponent/requireComponent
-const sprite = player.getComponent(Sprite.TYPE)  // Sprite | undefined
-const body   = player.requireComponent(PhysicsBody.TYPE) // PhysicsBody | throws
-
-// Destroy
-player.destroy()
-```
-
-### Rendering (RenderPipeline)
-
-Attaching `Transform` + `Sprite` to an entity is the entire contract for "this shows up on screen" — `RenderPipeline` finds every such entity each frame, keeps a synced sprite, and draws it. There is no manual PixiJS wiring, ever.
-
-```typescript
-import { RenderPipeline, Transform, Sprite } from '@emptysock/engine'
-
-// In onLoad:
-private _render = new RenderPipeline()
-await this._render.init({ width: 1280, height: 720 })
-document.body.appendChild(this._render.canvas)
-
-// Call once per frame, after game logic:
-override onUpdate(dt: number): void {
-  this._render.renderFrame(this)
-}
-
-// In onDestroy:
-this._render.destroy()
-```
-
-`RenderPipeline.mountTilemap(tilemap, layerName?, autoTileSystem?)` draws a `Tilemap`'s tiles as real textured sprites — `Tilemap` has no rendering of its own. See `skills/23-rendering.md` for the full API.
-
-Pair `RenderPipeline` with `ViewportSystem` in every game that runs on more than one screen size — `RenderPipeline` draws, `ViewportSystem` scales what it drew to fit the container:
-
-```typescript
-import { ViewportSystem } from '@emptysock/engine'
-
-private _viewport = new ViewportSystem()
-
-override onLoad(): void {
-  this._viewport.init(
-    { designWidth: 1280, designHeight: 720, scaleMode: 'fit' },
-    { renderTarget: this._render, cameraSystem: this._camera },
-  )
-}
-
-override onDestroy(): void {
-  this._viewport.destroy()
-}
-```
-
-See `skills/24-viewport-system.md` for scale modes, safe-area insets, and GPU-tier render defaults.
-
-### Input
-
-```typescript
-import { InputSystem } from '@emptysock/engine'
-
-// In onLoad — create and attach:
-private _input = new InputSystem()
-this._input.attach()   // registers listeners on window
-
-// In onUpdate(dt) — call flush() first, then read state:
-this._input.flush()
-if (this._input.isKeyDown('ArrowRight'))   { /* held every frame */ }
-if (this._input.isKeyPressed('Space'))     { /* fired once on key-down */ }
-if (this._input.isKeyReleased('Space'))    { /* fired once on key-up */ }
-
-const x = this._input.mouseX   // mouse / pointer X
-const y = this._input.mouseY   // mouse / pointer Y
-
-// In onDestroy:
-this._input.detach()
-```
-
-For touch/mouse/pen gestures (tap, long-press, swipe, pinch), use `PointerSystem` alongside `InputSystem`/`GamepadSystem` rather than hand-rolling gesture detection — see `skills/25-pointer-system.md`. To let players remap controls, wrap `InputSystem`/`GamepadSystem` in `InputBindings` and query named actions (`bindings.isActionActive('jump')`) instead of raw key codes — see `skills/28-accessibility-debugging.md`.
-
-### Character movement (platformer)
-
-```typescript
-// In a custom Component's onUpdate(dt):
-// Assumes this._input is an InputSystem instance attached in onLoad.
-private vy = 0
-
-override onUpdate(dt: number): void {
-  this._input.flush()
-  const ctrl  = this.entity.requireComponent(CharacterController)
-  const anim  = this.entity.requireComponent(Animator)
-  const h = (this._input.isKeyDown('ArrowRight') ? 1 : this._input.isKeyDown('ArrowLeft') ? -1 : 0)
-
-  if (!ctrl.isGrounded()) this.vy += 980 * dt  // gravity
-  else                    this.vy  = 0
-
-  if (this._input.isKeyPressed('Space') && ctrl.isGrounded()) this.vy = -600
-
-  ctrl.moveAndSlide({ x: h * 200 * dt, y: this.vy * dt })
-  anim.play(Math.abs(h) > 0.1 ? 'run' : ctrl.isGrounded() ? 'idle' : 'fall')
-  if (h !== 0) this.entity.scale.x = h > 0 ? 1 : -1
-}
-```
-
-### Audio
-
-```typescript
-import { AudioSystem } from '@emptysock/engine'
-
-AudioSystem.play('jump_sfx')
-AudioSystem.play('footstep', { volume: 0.6, spatial: true, position: entity.position })
-AudioSystem.music('level_theme', { loop: true, fade: 0.5 })
-AudioSystem.setGroupVolume('sfx', 0.8)
-AudioSystem.stopMusic({ fade: 0.5 })
-
-// Mixer: duck the music bus while dialogue plays, then release it
-AudioSystem.duck('music', 0.3, 0.2)
-AudioSystem.endDuck('music')
-
-// Mixer: named volume snapshots (e.g. "combat", "explore")
-AudioSystem.defineSnapshot('combat', { music: 0.4, sfx: 1, ui: 1, voice: 0.8 })
-AudioSystem.transitionToSnapshot('combat', 0.5)
-```
-
-### Camera
-
-```typescript
-import { CameraSystem } from '@emptysock/engine'
-
-// Create one CameraSystem per scene
-private _camera = new CameraSystem()
-
-override onLoad(): void {
-  this._camera.attach(this.stage)            // wire to PixiJS container — required
-  this._camera.setFollow(() => player.position)
-  this._camera.setLerpFactor(0.1)            // 0.05 = slow drift, 1.0 = instant
-  this._camera.setBounds({ minX: 0, minY: 0, maxX: 3200, maxY: 900 })
-}
-
-override onUpdate(dt: number): void {
-  this._camera.update(dt)                    // must be called every frame
-  // On hit:
-  this._camera.shake(6, 0.3)               // intensity px, duration seconds
-  this._camera.zoomTo(2.0)                 // smooth zoom toward target
-  // Convert coordinates:
-  const world = this._camera.screenToWorld(clickX, clickY)
-  const screen = this._camera.worldToScreen(entity.position.x, entity.position.y)
-}
-
-override onDestroy(): void {
-  this._camera.destroy()
-}
-```
-
-### Timers
-
-```typescript
-import { TweenManager } from '@emptysock/engine'
-
-// Create one TweenManager per scene; call update(dt) in onUpdate
-private _tweens = new TweenManager()
-
-override onLoad(): void {
-  this._tweens.every(3.0, () => { this.spawnEnemy() })
-}
-
-override onUpdate(dt: number): void {
-  this._tweens.update(dt)
-}
-
-override onDestroy(): void {
-  this._tweens.destroy()   // cancels all pending tweens and timers
-}
-```
-
-### Coroutines
-
-```typescript
-import { waitSeconds, waitUntil } from '@emptysock/engine'
-
-// Sequences over time — use instead of async/await in game logic
-entity.startCoroutine(function* boss_intro() {
-  yield waitSeconds(1.0)
-  dialogue.show('I have been waiting...')
-  yield waitUntil(() => !dialogue.isVisible())
-  this._camera.shake(12, 0.5)
-  yield waitSeconds(0.5)
-  boss.activate()
+scene.each(Transform, PhysicsBody, (transform, body, entity) => {
+  transform.x += body.velocity.x * dt
 })
 ```
 
-### Scene navigation
-
-```typescript
-import { SceneManager } from '@emptysock/engine'
-
-SceneManager.load('GameScene')
-SceneManager.transition('MenuScene', { effect: 'fade', duration: 0.4 })
-SceneManager.push('PauseScene')   // overlay; previous scene pauses
-SceneManager.pop()                 // return to previous scene
-```
-
-`transition()`'s `effect` (`'none' | 'fade' | 'wipe' | 'slide'`) is only timed and tracked by `SceneManager` — it never touches pixi/DOM. To actually paint it, attach a `PostProcessSystem` once and pass it into your render call each frame:
-
-```typescript
-import { SceneManagerInstance, PostProcessSystem, RenderPipeline } from '@emptysock/engine'
-
-private _postProcess = new PostProcessSystem()
-
-override onLoad(): void {
-  SceneManagerInstance.attachPostProcess(this._postProcess)
-}
-
-override onUpdate(dt: number): void {
-  this._postProcess.update(dt)
-  this._render.renderFrame(this, this._postProcess)   // paints the transition overlay too
-}
-```
-
-### Saving & loading
-
-```typescript
-import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'
-
-// No schema given → SaveSystem uses the default GameSaveSlot shape:
-// { id, scene, data, timestamp, playtime }. save()/load() are synchronous.
-private _save = new SaveSystem()
-
-function saveGame(slot: string): void {
-  this._save.save(slot, { scene: 'Level2', data: { score: 4200, inventory: [], flags: {} } })
-}
-
-function loadGame(slot: string): GameSaveSlot | null {
-  return this._save.load(slot)   // already validated against the schema — never throws
-}
-```
-
-Pass a custom Zod schema as the second constructor argument (`new SaveSystem(prefix, schema)`) for a save shape that doesn't fit `{ scene, data, timestamp, playtime }` — the schema must require an `id: string` field, which `save()` fills in automatically. See `skills/07-save-localisation.md`.
-
-### Localisation
-
-```typescript
-import { LocalisationSystem } from '@emptysock/engine'
-import { z } from 'zod'
-
-// In onLoad — create instance and load locale files:
-const localisation = new LocalisationSystem()
-const TranslationMapSchema = z.record(z.string())
-const enRaw = await (await fetch('assets/i18n/en.json')).json()
-localisation.addTranslations('en', TranslationMapSchema.parse(enRaw))
-localisation.setLocale('en')
-
-// Translate:
-const label = localisation.t('menu.start')                   // "Start Game"
-const text  = localisation.t('hud.score', { score: 1200 })  // "Score: 1200"
-const lang  = localisation.currentLocale                     // 'en'
-```
-
-### Tilemap
-
-```typescript
-import { TilemapSystem } from '@emptysock/engine'
-
-const map = TilemapSystem.load('level1.esmap')
-map.getLayer('Collision').enablePhysics()
-const spawns = map.getLayer('Spawns').entities   // placed entity objects
-```
-
-### Physics events
-
-Register real collision/sensor callbacks directly on the `PhysicsBody` you already hold — no second lookup:
-
-```typescript
-import { PhysicsBody } from '@emptysock/engine'
-
-const hazard = player.requireComponent(PhysicsBody)
-hazard.onCollisionEnter((other, contact) => {
-  if (contact.impactForce > 50) player.takeDamage(10)
-})
-
-const sensor = door.requireComponent(PhysicsBody)
-sensor.onSensorEnter((other) => {
-  openDoor()
-})
-sensor.onSensorExit((other) => { closeDoor() })
-sensor.onSensorStay((other) => { /* fires every step while inside */ })
-```
-
-`entity.onCollisionEnter()` / `entity.onSensorEnter()` still work (an older entity-event path that fires side by side with the `PhysicsBody` callbacks above) but prefer the `PhysicsBody` methods in new code.
-
-### Dynamic lighting (requires `lighting: true` in SceneConfig)
-
-```typescript
-import { LightingSystem } from '@emptysock/engine'
-
-private _lighting: LightingSystem | null = null
-
-override onLoad(): void {
-  this._lighting = new LightingSystem()
-  this._lighting.attachFilter(this.stage)   // wire GPU filter — required
-  this._lighting.setAmbient(0x111133, 0.08)
-
-  this._lighting.addLight({
-    id:          'torch-1',
-    type:        'point',
-    x:           300,
-    y:           200,
-    colour:      0xffaa44,
-    intensity:   1.4,
-    radius:      280,
-    castShadows: false,
-  })
-}
-
-override onUpdate(dt: number): void {
-  if (this._lighting === null) return
-  // Mutate position in-place — no remove/re-add needed
-  const torch = this._lighting.lights.get('torch-1')
-  if (torch !== undefined) {
-    torch.x = this._player.position.x
-    torch.y = this._player.position.y - 20
-  }
-  this._lighting.update(dt)   // upload to GPU uniforms
-}
-```
-
-### Object pool (bullets, particles, enemies)
-
-```typescript
-import { ObjectPool } from '@emptysock/engine'
-
-const pool = new ObjectPool(BulletEntity, { size: 200 })
-
-function fire(): void {
-  const b = pool.acquire()
-  b.launch(player.position, aimDirection)
-}
-
-// Inside BulletEntity.onUpdate(dt):
-if (this.isOffscreen()) pool.release(this)
-```
+There's exactly one component system here, not a beginner one and a "real" one underneath it. `each` is just the faster way to touch a lot of entities, the way `Array.forEach` is the faster way to touch a lot of array elements. It reads the raw arrays directly and skips the proxy allocation `.get()` does, which matters once you're iterating hundreds of entities a frame and doesn't matter at all for one enemy's `onUpdate`.
 
 ---
 
-## Performance Quick Rules
+## Scenes and lifecycle
+
+A `Scene` owns one ECS world and nothing else — no physics, no actors, no rendering. `Game` is what wires those things to a scene's lifecycle, and it does so automatically:
+
+```typescript
+import { Game, defineScene } from '@emptysock/engine'
+
+const GameScene = defineScene({
+  onLoad(scene, { actors, physics, input, audio }) {
+    // Build the world. actors/physics were created for you — never `new ActorSystem()` yourself.
+  },
+  onUpdate(dt) {
+    // Runs every frame, after physics/actors/collision, before render.
+  },
+  onUnload(scene) {
+    // Called before the engine tears actors/physics down.
+  },
+})
+
+const game = new Game()
+await game.loadScene(GameScene)
+// each frame: game.update(dt)
+```
+
+**The engine owns everything it creates.** `loadScene` constructs that scene's `ActorSystem` and `PhysicsSystem`; `unloadScene`/loading a different scene tears them down unconditionally, before you can forget to. There's no code path where you construct those systems by hand unless you explicitly opt out with `game.loadScene(def, { manageLifecycle: false })` — a real escape hatch for advanced cases (e.g. sharing one physics world across a seamless open-world boundary), never the default.
+
+The fixed per-frame order, same every frame, no exceptions for node type or tree depth:
+
+1. Input snapshot (frozen for the whole frame — see Input below)
+2. Actor mailbox flush, then actor `update()`
+3–4. Physics step + collision/sensor dispatch
+5. `onUpdate(dt)`
+6. Camera/viewport resolve
+7. Render
+
+**Overlays** stack an independently-lifecycled scene on top of the main one — HUD, pause menu, minimap — and survive the main scene reloading underneath them:
+
+```typescript
+await game.loadOverlay(HudScene)          // no PhysicsSystem unless you pass { physics: {...} }
+await game.unloadOverlay()                // pops the most recently loaded overlay
+```
+
+`Game.services` is a typed, explicit registry for process-global state (a `ScoreService`, an analytics wrapper, anything that would've been a Godot autoload) — register once, get anywhere, with real types, no ambient globals:
+
+```typescript
+class ScoreService { score = 0; add(n: number) { this.score += n } }
+game.services.register(ScoreService)
+game.services.get(ScoreService).add(10)
+```
+
+`game.input` and `game.audio` are the exceptions to "scene-scoped" — they're `Game`-owned singletons that live for the whole process, because held-down keys and playing music don't have anything to do with which scene happens to be loaded right now.
+
+---
+
+## Prefabs and pooling
+
+A prefab is a named template — components plus optionally other prefabs — spawned onto one entity as a unit. There's no live nested-scene tree to override-resolve; `extends` just flattens everything onto that one entity at spawn time.
+
+```typescript
+import { definePrefab } from '@emptysock/engine'
+
+const Physical = definePrefab('Physical', [{ def: Transform }, { def: PhysicsBody }])
+const Enemy = definePrefab('Enemy', [{ def: Health, overrides: { max: 50 } }], { extends: [Physical] })
+
+scene.spawn(Enemy, { x: 100 })                       // Transform + PhysicsBody + Health, one entity
+scene.spawn(Enemy, { x: 100 }, { pool: true })        // pooled — scene.destroy() recycles it instead
+```
+
+Pooling folds straight into spawn/destroy — there's no separate `ObjectPool` class to learn. `scene.destroy(pooledEntity)` strips its components and parks it for reuse by the same prefab; game code never branches on whether an entity was pooled. One real wrinkle worth knowing: a pooled-and-destroyed entity's `isAlive` reads `true`, not `false` — the id is deliberately held onto for that prefab's own pool rather than released back for reuse elsewhere. Don't check `isAlive` to ask "was this destroyed" for a pooled entity; check `.has()`/`.get()` on the components you actually care about instead.
+
+See `skills/32-prefabs-pooling.md` for prop-override matching rules and the toolchain's `.d.ts` codegen for JSON-authored prefabs.
+
+---
+
+## Physics
+
+Rapier2D/3D underneath, plain-language properties on top — `velocity`, `type: 'dynamic' | 'static' | 'kinematic'`, `shape` — you never touch a Rapier handle directly.
+
+```typescript
+player.add(PhysicsBody, { type: 'dynamic', shape: 'capsule' })
+```
+
+Collision/sensor callbacks are a property assignment, not a separate registration call — assigning it *is* registering it:
+
+```typescript
+const body = player.get(PhysicsBody)
+body.onCollisionEnter = (other, contact) => { if (contact.impactForce > 50) console.log('ouch') }
+body.onSensorEnter = (other) => { /* trigger volume entered */ }
+```
+
+Two bodies collide unless you tell them not to — collision groups are opt-in tuning, not a prerequisite for anything colliding at all.
+
+3D physics (`PhysicsSystem3D`) needs `await physics.init(...)` and, on scene unload, `physics.destroy()` — the engine calls this for you as part of normal scene teardown when you're not managing lifecycle yourself. Skipping it when you *are* managing it manually leaks WASM linear memory the JS garbage collector can't see, which shows up as an out-of-memory crash on long play sessions with frequent scene changes, not immediately.
+
+---
+
+## Rendering
+
+Attaching `Transform` + a sprite component is the entire contract for "this shows up on screen." No manual PixiJS wiring, ever. `RenderPipeline.mountTilemap()` takes anything shaped like a tile layer, so it works with `@emptysock/tilemap`'s `Tilemap` without the core engine depending on that package.
+
+---
+
+## Input
+
+`InputManager`'s snapshot is frozen for the whole frame — `isDown()`, `keyboard`, `gamepad()`, and `touches` all read that one frozen copy, never live device state mid-frame. This means input can't change out from under your `onUpdate` logic partway through, no matter what else is going on that frame. `Game` never calls `input.attach()` itself; your bootstrap code does that once, which is also what keeps a headless `Game` (tests, server-side logic) from ever touching `window`.
+
+---
+
+## Saving
+
+`SaveSystem` is generic — bind it to a scene and an explicit list of "save-aware" component defs, and it serializes/deserializes them with zero per-component code:
+
+```typescript
+import { SaveSystem } from '@emptysock/engine'
+
+const save = new SaveSystem(scene, [Transform, Health, Inventory])
+await save.save('slot-1')
+await save.load('slot-1')            // migrations run automatically per component, see below
+```
+
+If you bump a component's shape, bump `defineComponent(name, defaults, { version: 2 })` and register a migration:
+
+```typescript
+save.registerMigration('Health', (oldData, oldVersion) => ({ ...oldData, shield: 0 }))
+```
+
+No migration registered for a version mismatch means that one component's data is dropped (with a warning) for that one entity — the rest of the save still loads fine. A schema change never corrupts or aborts the whole load.
+
+With no adapter given, `SaveSystem` defaults to an in-memory store — nothing persists across restarts, which is exactly what you want under tests. The IDE preview and the desktop shell each inject their own real storage adapter (IndexedDB, Tauri's fs plugin) — you never write that adapter code yourself in game logic.
+
+---
+
+## Actors (message-passing)
+
+Unchanged from before, still useful for NPC dialogue, quest triggers, and turn-based messaging where two entities shouldn't hold direct references to each other:
+
+```typescript
+class EnemyActor extends Actor {
+  receive(msg) { if (msg.type === 'TAKE_DAMAGE') { /* ... */ } }
+}
+```
+
+`ActorSystem` drains every actor's inbox before any actor's `update()` runs for that frame — a message sent inside `receive()` gets processed in the *same* flush pass, not deferred to next frame. If an actor's message loop sends back to itself unconditionally, that's an infinite loop, not a next-frame deferral. One `ActorSystem` per scene, created and destroyed for you by `Game` — never construct your own unless you've opted out of lifecycle management.
+
+---
+
+## The module packages
+
+Four optional packages sit alongside the core engine. None of them are imported by `@emptysock/engine` itself — you reach for them explicitly, and a game that doesn't need one pays nothing for it.
+
+- **`@emptysock/network`** — Colyseus-backed multiplayer. Mark fields with `networked(componentDef, ['x', 'y'])`, sync with `NetworkSystem.sync()` at a low fixed cadence (not every frame). See `skills/35-network-package.md`.
+- **`@emptysock/vn`** — `VNSystem`, the Story Graph runtime for branching dialogue. See `skills/08-story-graph.md`.
+- **`@emptysock/battle`** — turn-based `BattleSystem`. See `skills/16-battle-system.md`.
+- **`@emptysock/tilemap`** — `TilemapSystem` and `NavMeshSystem`. See `skills/02-navmesh.md` and `skills/17-auto-tile.md`.
+
+Full breakdown of each, plus the trigger for when to reach for it, in the matching skill file above.
+
+---
+
+## Visual scripting compiles to the same API you'd hand-write
+
+A node graph made in the Visual Script Editor compiles down to literal calls against the same public API a code-first dev would write — `scene.spawn(...)`, `variables.setVar(...)`, and so on — not a call into some separate no-code-only runtime. Popping open the generated code from a graph reads like ordinary engine code, because it is. See `skills/29-visual-script-component.md`.
+
+---
+
+## Performance quick rules
 
 - Keep draw calls under **50 per frame** when targeting Raspberry Pi 4 or older mobile.
-- Use texture atlases — group sprites by shared texture to minimise draw call switches.
-- Use object pools for anything that spawns frequently (bullets, particles, enemies).
-- Avoid allocating objects inside `onUpdate()` — reuse with private fields.
-- Check `Engine.gpuTier` to scale effects: `'potato' | 'low' | 'mid' | 'high' | 'ultra'`.
-- Never enable soft shadows on `'potato'` or `'low'` tiers.
+- Use texture atlases.
+- Pool anything that spawns frequently — see Prefabs and pooling above.
+- Avoid allocating inside `onUpdate`.
+- Prefer `scene.each(...)` over per-entity `.get()` once you're touching more than a handful of entities a frame.
 
 ---
 
-## Commit Format
+## Further reference
 
-```
-feat(player): add wall-jump mechanic
-feat(audio): implement dynamic music layering
-fix(physics): character tunnels through thin platform at high speed
-fix(save): corrupt slot crashes load screen
-refactor(enemy): extract patrol logic into PatrolComponent
-perf(particles): cap emitter count on low GPU tier
-chore(assets): compress sprite atlas
-```
-
----
-
-## Further Reference
-
-Full API, all systems, all methods:
-→ `api-reference.json` (in this same repository under `ai/`)
-
-Detailed skill guides per system:
-→ `skills/` directory (in this same repository)
-
-Engine documentation (Unity/Unreal-style layout, lives in the engine repository):
-
-| Path | Contents |
-|---|---|
-| `docs/getting-started/` | Install, first project, first run |
-| `docs/guides/` | Physics, NavMesh, multiplayer, exports, and more |
-| `docs/reference/` | Every class, method, property, and type |
-| `docs/tutorials/` | Complete games built from scratch |
+- `ai/api-reference.json` — full machine-readable API, in this repo.
+- `skills/` — one topic-scoped guide per system, in this repo.
+- Engine documentation (lives in the engine repo): `docs/getting-started/`, `docs/guides/`, `docs/reference/`, `docs/tutorials/`.

@@ -8,13 +8,13 @@ Don't worry if some of this feels abstract at first — come back to it after yo
 
 ## Entity-Component System (ECS)
 
-EmptySock uses ECS — the same architecture as Unity, Godot, and Bevy.
+EmptySock uses ECS — the same underlying idea as Unity, Godot, and Bevy, though the actual object you hold is closer to Bevy's than Unity's.
 
-**The idea in plain English:** instead of building a big inheritance tree (`Enemy extends Character extends GameObject`), you build game objects by snapping small, reusable pieces together.
+**The idea in plain English:** instead of building a big inheritance tree (`Enemy extends Character extends GameObject`), you build game objects by snapping small, reusable pieces of data together.
 
-- **Entity** — a named container with a position. Has no logic on its own. Think of it like an empty box with a label.
-- **Component** — a behaviour or data bundle you attach to an entity (`Sprite`, `PhysicsBody`, `Animator`). Think of it like a LEGO brick.
-- **System** — engine code that runs every frame, looking for entities that have certain components and doing something with them.
+- **Entity** — a lightweight handle, not a container holding state itself. Think of it as a claim ticket, not the coat.
+- **Component** — a plain data bundle you attach to an entity (`Sprite`, `PhysicsBody`, an `Health` component you define yourself). Think LEGO brick.
+- **Scene** — owns the entities and their components for one loaded level or screen. `Game` is what wires physics, actors, and rendering to a scene's lifecycle.
 
 **Why this matters:**
 
@@ -23,32 +23,40 @@ EmptySock uses ECS — the same architecture as Unity, Godot, and Bevy.
 // but they don't all share the same base class, so you end up copying code.
 
 // The ECS way: any entity can have any component.
-const player = this.createEntity('Player')
-player.addComponent(Sprite, { texture: 'hero.png' })
-player.addComponent(PhysicsBody, { bodyType: 'dynamic' })
-player.addComponent(Animator, { spritesheet: 'hero.esanim' })
+const player = scene.spawn('Player')
+player.add(Sprite, { texture: 'hero.png' })
+player.add(PhysicsBody, { type: 'dynamic' })
 
-const bullet = this.createEntity('Bullet')
-bullet.addComponent(Sprite, { texture: 'bullet.png' })
-bullet.addComponent(PhysicsBody, { bodyType: 'dynamic', ccd: true })
+const bullet = scene.spawn('Bullet')
+bullet.add(Sprite, { texture: 'bullet.png' })
+bullet.add(PhysicsBody, { type: 'dynamic', ccd: true })
 // Same PhysicsBody component — the same physics system handles both automatically.
 ```
 
-You build things by combining, not by inheriting. It's like building with LEGO instead of carving from a single block of wood.
+You build things by combining, not by inheriting. It's like building with LEGO instead of carving from a single block of wood. `entity.get(Sprite)` hands you back a live view onto that component's data — write to it and the write lands straight in the engine's storage, no separate "commit" step.
 
-One important rule: inside a Scene class method, create entities with `this.createEntity('Name')` — not `scene.createEntity()`. The `this` refers to the scene you're inside.
+Define your own components with `defineComponent`:
+
+```typescript
+import { defineComponent } from '@emptysock/engine'
+
+const Health = defineComponent('Health', () => ({ current: 100, max: 100 }))
+player.add(Health, { current: 80 })
+```
+
+See `skills/32-ecs-core.md` for the full rules on this (there's a real reason component fields have to stay plain data — it's what lets `SaveSystem` save any component with zero extra code, see `skills/33-save-system.md`).
 
 ---
 
-## Scene Graph
+## Scenes
 
 All entities exist inside a **scene**. Scenes are:
 
-- Loaded one at a time (or stacked via push/pop for overlays like pause screens).
-- Self-contained: entities, physics world, lighting, and camera all belong to a scene.
-- Defined as TypeScript classes that extend `Scene`.
+- Loaded one at a time via `Game.loadScene()` — or stacked as independent overlays via `Game.loadOverlay()` for HUDs and pause screens.
+- Self-contained: their entities, physics world, and actor system belong to that one scene, created and destroyed for you automatically by `Game`.
+- Defined with `defineScene({ onLoad, onUpdate, onUnload })`, not by subclassing.
 
-Entities can be **parented** to other entities. A child entity's position, rotation, and scale are relative to its parent. Destroying a parent destroys all children.
+There's no live parent/child entity tree — if you want a template made of several components spawned together, that's a **prefab** (`definePrefab`), flattened onto one entity at spawn time. See `skills/34-prefabs-pooling.md`.
 
 ---
 
@@ -69,8 +77,8 @@ EmptySock runs a game loop (default 60 times per second, called 60 FPS — frame
 t.x += 5
 
 // With dt: moves a fixed number of pixels per *second*, regardless of frame rate
-const t = entity.requireComponent(Transform)
-t.x += speed * dt   // 'speed' is pixels per second — consistent on any device
+const t = entity.get(Transform)
+if (t !== undefined) t.x += speed * dt   // 'speed' is pixels per second — consistent on any device
 ```
 
 Always use `dt` for anything that moves or changes over time.
@@ -101,7 +109,9 @@ EmptySock uses a Rust physics library compiled to WebAssembly. The physics world
 
 `CharacterController` is a pre-built kinematic controller that handles slope climbing, step snapping (stairs), and ground detection. Use it for players. Use raw `PhysicsBody` for everything else.
 
-One important note: if you use `PhysicsSystem3D`, always call `physics.destroy()` when your scene unloads. The physics engine allocates memory outside of JavaScript's reach, and if you don't free it, the memory never gets released. Call it in `onDestroy`.
+Collision and sensor callbacks are a direct property assignment on the `PhysicsBody` you already hold — `body.onCollisionEnter = (other, contact) => {...}` — assigning the property is registering it.
+
+One important note: if you're using `PhysicsSystem3D` with manual lifecycle management, always call `physics.destroy()` when your scene unloads. The physics engine allocates memory outside of JavaScript's reach, and if you don't free it, the memory never gets released. In the normal case (you didn't pass `{ manageLifecycle: false }` to `loadScene`), `Game` calls this for you automatically on scene teardown — you only need to remember it yourself if you opted out of automatic lifecycle management.
 
 ---
 
@@ -158,7 +168,7 @@ Create one `InputSystem` instance in `onLoad`, call `attach()` to register liste
 
 ## Saves
 
-Save data is stored per-slot. Each slot is a named JSON blob plus metadata. Always validate save data through a Zod schema when loading — saves can be from older versions of your game and the shape may have changed since.
+`SaveSystem` saves a scene's components generically — bind it once to the components you want persisted (`new SaveSystem(scene, [Transform, Health])`) and it handles the serialization itself, no per-component code needed. If a component's shape changes later, bump its version and register a migration rather than hoping old saves happen to still fit — see `skills/33-save-system.md`.
 
 ---
 
@@ -237,11 +247,11 @@ These rules exist for a practical reason: games run on hardware you can't fix re
 
 **Do I need to learn TypeScript?**
 
-Not upfront. If you can write JavaScript, you can copy the patterns from this guide and the skills files and be productive immediately. TypeScript is JavaScript with optional labels — you'll pick it up gradually as you make things.
+No, genuinely. JavaScript is a fully first-class citizen here, not a stripped-down fallback — both languages run against the exact same API, same objects, same methods. The one thing TypeScript buys you that JavaScript can't get at compile time is catching an accidentally-`async onUpdate` before you even run the game; in JavaScript the engine catches the same mistake at runtime instead, with a console warning. Everything else works identically either way.
 
 **Can I use JavaScript instead?**
 
-Technically yes — TypeScript files are just JavaScript with type annotations you can leave out. But the engine's autocomplete, error checking, and all the examples here assume TypeScript. Leaving out types means losing the error-catching benefits, and you'll see warnings in the editor. Start with TypeScript — it's easier than it looks.
+Yes, without caveats. You'll lose some autocomplete convenience compared to TypeScript, but no functionality and no supported patterns.
 
 **What if I get a red error?**
 

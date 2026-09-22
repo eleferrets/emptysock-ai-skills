@@ -65,79 +65,77 @@ Before we touch the IDE, let's write code that actually does something you can s
 Create a new file at `src/scenes/BoxScene.ts` and paste this in:
 
 ```typescript
-import { Scene } from '@emptysock/engine'
+import { defineScene } from '@emptysock/engine'
 
-export class BoxScene extends Scene {
-  // Private fields store data that belongs to this scene.
-  // HTMLCanvasElement | null means it starts as null and becomes a canvas later.
-  private _canvas: HTMLCanvasElement | null = null
+// Private-ish state for this scene — just plain variables in the module's
+// closure, since a scene here is a plain object, not a class you subclass.
+let canvas: HTMLCanvasElement | null = null
+let x = 40   // horizontal position of the box, in pixels from the left edge
 
-  // _x tracks where the box is horizontally (in pixels from the left edge).
-  private _x = 40
-
+export const BoxScene = defineScene({
   // onLoad runs once, before the first frame. Use it to set up your scene.
-  override async onLoad(): Promise<void> {
-    // Create a canvas element and add it to the page.
-    this._canvas = document.createElement('canvas')
-    this._canvas.width = 800
-    this._canvas.height = 600
-    document.body.appendChild(this._canvas)
-  }
+  async onLoad() {
+    canvas = document.createElement('canvas')
+    canvas.width = 800
+    canvas.height = 600
+    document.body.appendChild(canvas)
+  },
 
   // onUpdate runs every frame (about 60 times per second).
   // dt is "delta time" — the number of seconds since the last frame (~0.016 at 60fps).
-  override onUpdate(dt: number): void {
+  // It cannot be async — that's enforced by the type checker, not just a style rule.
+  onUpdate(dt: number) {
     // Move the box 150 pixels per second to the right.
     // Multiplying by dt makes the speed the same regardless of frame rate.
-    this._x += 150 * dt
+    x += 150 * dt
 
     // If the box goes past the right edge, wrap it back to the left.
-    if (this._x > 760) {
-      this._x = 40
-    }
+    if (x > 760) x = 40
 
-    // Draw the current frame.
-    this._draw()
-  }
+    draw()
+  },
 
-  // _draw is a helper we call from onUpdate. It handles the actual drawing.
-  private _draw(): void {
-    // We stored _canvas as possibly null, so we check before using it.
-    const canvas = this._canvas
-    if (canvas === null) return
-
-    const ctx = canvas.getContext('2d')
-    if (ctx === null) return
-
-    // Paint the background (dark navy blue).
-    ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Paint the box (red-pink).
-    ctx.fillStyle = '#e94560'
-    ctx.fillRect(this._x, 280, 40, 40)
-  }
-
-  // onDestroy runs when this scene is unloaded.
+  // onUnload runs when this scene is unloaded.
   // Always clean up anything you created — remove the canvas from the page.
-  override onDestroy(): void {
-    this._canvas?.remove()
-    this._canvas = null
-  }
+  onUnload() {
+    canvas?.remove()
+    canvas = null
+  },
+})
+
+// A plain helper function we call from onUpdate. It handles the actual drawing.
+function draw(): void {
+  // canvas might still be null if onLoad hasn't finished — check before using it.
+  if (canvas === null) return
+
+  const ctx = canvas.getContext('2d')
+  if (ctx === null) return
+
+  // Paint the background (dark navy blue).
+  ctx.fillStyle = '#1a1a2e'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  // Paint the box (red-pink).
+  ctx.fillStyle = '#e94560'
+  ctx.fillRect(x, 280, 40, 40)
 }
 ```
 
 Now tell the engine to use this scene. Open `src/main.ts` and add your scene:
 
 ```typescript
-import { Engine } from '@emptysock/engine'
+import { Game } from '@emptysock/engine'
 import { BoxScene } from './scenes/BoxScene'
 
-const engine = await Engine.create({
-  scenes: { BoxScene },
-  startScene: 'BoxScene',
-  gameSpeed: 60,
-})
+const game = new Game()
+await game.loadScene(BoxScene)
+
+// Your host's render loop calls this every frame:
+function tick(dt: number): void {
+  game.update(dt)
+  requestAnimationFrame(() => tick(/* time since last tick, in seconds */ 1 / 60))
+}
+tick(1 / 60)
 ```
 
 Hit **Play** (or save the file if hot-reload is running). A red box slides across a dark background.
@@ -148,37 +146,29 @@ Hit **Play** (or save the file if hot-reload is running). A red box slides acros
 
 Let's walk through the scene line by line.
 
-**The class definition:**
+**The scene definition:**
 ```typescript
-export class BoxScene extends Scene {
+export const BoxScene = defineScene({ onLoad, onUpdate, onUnload })
 ```
-`extends Scene` means BoxScene is a scene. The engine knows to call `onLoad`, `onUpdate`, and `onDestroy` on it automatically.
+A scene here is a plain object with a few optional hooks, not a class you subclass — `defineScene` just wraps it so TypeScript can catch a mistake like an accidentally-async `onUpdate` at compile time. `Game.loadScene(BoxScene)` calls `onLoad`, then `onUpdate` every frame, then `onUnload` when the scene is torn down.
 
-**Private fields:**
+**The null check:**
 ```typescript
-private _canvas: HTMLCanvasElement | null = null
-private _x = 40
-```
-`private` means these fields can only be read and changed inside this class — no other code can accidentally mess with them. The `_` prefix is a convention that flags something as private. `HTMLCanvasElement | null` means "this will be a canvas element, but starts as null until we create one in onLoad."
-
-**The null checks:**
-```typescript
-const canvas = this._canvas
 if (canvas === null) return
 ```
-TypeScript insists you handle the possibility that `_canvas` is null before you use it. Copying it into a local variable (`const canvas`) and checking it lets TypeScript know that below the `if`, canvas is definitely not null. This is safer than the `!` shortcut (which would hide the problem rather than handle it).
+TypeScript insists you handle the possibility that `canvas` is null before you use it — it starts `null` until `onLoad` actually creates one. This is safer than the `!` shortcut (which would hide the problem rather than handle it).
 
 **Delta time:**
 ```typescript
-this._x += 150 * dt
+x += 150 * dt
 ```
 `dt` is the number of seconds since the last frame. At 60fps it's roughly 0.016. Multiplying speed by dt makes the box move at 150 pixels per second regardless of whether the game is running at 30fps or 120fps. Without this, the box would move twice as fast on a 120fps monitor.
 
 **Cleanup:**
 ```typescript
-this._canvas?.remove()
+canvas?.remove()
 ```
-The `?.` is optional chaining — it only calls `.remove()` if `_canvas` is not null. This removes the canvas element from the page when the scene unloads, so you don't end up with invisible canvases piling up in the DOM.
+The `?.` is optional chaining — it only calls `.remove()` if `canvas` is not null. This removes the canvas element from the page when the scene unloads, so you don't end up with invisible canvases piling up in the DOM.
 
 ---
 
@@ -189,57 +179,56 @@ Right now BoxScene just has a canvas and draws directly to it. To add more movin
 Here's BoxScene with a second box that moves vertically:
 
 ```typescript
-import { Scene } from '@emptysock/engine'
+import { defineScene } from '@emptysock/engine'
 
-export class BoxScene extends Scene {
-  private _canvas: HTMLCanvasElement | null = null
-  private _x = 40      // red box: horizontal position
-  private _y = 280     // blue box: vertical position
+let canvas: HTMLCanvasElement | null = null
+let x = 40      // red box: horizontal position
+let y = 280     // blue box: vertical position
 
-  override async onLoad(): Promise<void> {
-    this._canvas = document.createElement('canvas')
-    this._canvas.width = 800
-    this._canvas.height = 600
-    document.body.appendChild(this._canvas)
-  }
+export const BoxScene = defineScene({
+  async onLoad() {
+    canvas = document.createElement('canvas')
+    canvas.width = 800
+    canvas.height = 600
+    document.body.appendChild(canvas)
+  },
 
-  override onUpdate(dt: number): void {
-    this._x += 150 * dt
-    if (this._x > 760) this._x = 40
+  onUpdate(dt: number) {
+    x += 150 * dt
+    if (x > 760) x = 40
 
-    this._y += 80 * dt
-    if (this._y > 560) this._y = 40
+    y += 80 * dt
+    if (y > 560) y = 40
 
-    this._draw()
-  }
+    draw()
+  },
 
-  private _draw(): void {
-    const canvas = this._canvas
-    if (canvas === null) return
-    const ctx = canvas.getContext('2d')
-    if (ctx === null) return
+  onUnload() {
+    canvas?.remove()
+    canvas = null
+  },
+})
 
-    // Background
-    ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+function draw(): void {
+  if (canvas === null) return
+  const ctx = canvas.getContext('2d')
+  if (ctx === null) return
 
-    // Red box (moves right)
-    ctx.fillStyle = '#e94560'
-    ctx.fillRect(this._x, 280, 40, 40)
+  // Background
+  ctx.fillStyle = '#1a1a2e'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Blue box (moves down)
-    ctx.fillStyle = '#4488ff'
-    ctx.fillRect(400, this._y, 40, 40)
-  }
+  // Red box (moves right)
+  ctx.fillStyle = '#e94560'
+  ctx.fillRect(x, 280, 40, 40)
 
-  override onDestroy(): void {
-    this._canvas?.remove()
-    this._canvas = null
-  }
+  // Blue box (moves down)
+  ctx.fillStyle = '#4488ff'
+  ctx.fillRect(400, y, 40, 40)
 }
 ```
 
-The pattern is always the same: store state in private fields, update state in `onUpdate`, draw from state in `_draw`.
+The pattern is always the same: store state in module-level variables (or, once you're past canvas experiments, in real ECS components), update state in `onUpdate`, draw from state in `draw`.
 
 ---
 

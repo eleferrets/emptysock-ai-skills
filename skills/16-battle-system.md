@@ -1,6 +1,8 @@
 # BattleSystem
 
-`BattleSystem` is an opt-in turn-based RPG battle module. Import it only if your game uses battles — the module is tree-shaken out of bundles that never import it, so games without combat pay nothing in bundle size. It handles turn order, damage resolution, status effects, and event emission, leaving all presentation (UI, animation, sound) to your code.
+**Use this when** you're building turn-based combat — an RPG battle screen, a card-battle loop, anything with turn order and damage resolution.
+
+`BattleSystem` lives in the optional `@emptysock/battle` package, not the core engine — a game with no combat never imports it and pays nothing for it. It handles turn order, damage resolution, status effects, and event emission, leaving all presentation (UI, animation, sound) to your code.
 
 ---
 
@@ -13,7 +15,7 @@ import {
   type BattleDatabase,
   type SkillDef,
   type StatusEffectDef,
-} from '@emptysock/engine'
+} from '@emptysock/battle'
 
 const db: BattleDatabase = {
   skills: [
@@ -77,7 +79,7 @@ import {
   type BattleSystemOptions,
   type Combatant,
   type BattleEvent,
-} from '@emptysock/engine'
+} from '@emptysock/battle'
 
 // --- Combatants ---
 const hero: Combatant = {
@@ -122,7 +124,7 @@ battle.start([hero], [goblin])
 When the player chooses an action, submit it:
 
 ```typescript
-import { type BattleAction } from '@emptysock/engine'
+import { type BattleAction } from '@emptysock/battle'
 
 // Basic attack
 function onAttackButton(targetId: string): void {
@@ -258,7 +260,7 @@ const toxicDart: SkillDef = {
 `BattleSystem` accepts any stat names beyond the built-in set. Define extras in the `stats` object of each `Combatant` and reference them in a custom damage formula or event handler. The built-in formula only reads `attack`, `defense`, `hp`, `maxHp`, `mp`, `maxMp`, `speed`, and `luck` — any additional keys are yours to use.
 
 ```typescript
-import { type Combatant } from '@emptysock/engine'
+import { type Combatant } from '@emptysock/battle'
 
 // Built-in stats plus three custom stats
 const hero: Combatant = {
@@ -290,7 +292,7 @@ battle.setDamageFormula(
 The `context` argument passed to the formula is `DamageContext`:
 
 ```typescript
-import { type DamageContext } from '@emptysock/engine'
+import { type DamageContext } from '@emptysock/battle'
 
 // DamageContext shape:
 // {
@@ -309,7 +311,7 @@ Stat keys are `string`-indexed; always guard with `?? 0` when reading user-defin
 Override the built-in formula when your game uses a different damage model.
 
 ```typescript
-import { BattleSystem } from '@emptysock/engine'
+import { BattleSystem } from '@emptysock/battle'
 
 const battle = new BattleSystem()
 
@@ -331,7 +333,8 @@ Call `setDamageFormula` before `start()`. The callback receives raw numbers; ret
 Snapshot mid-battle state using `SaveSystem` and restore it on load. Always validate with a Zod schema before applying anything to a live `BattleSystem`.
 
 ```typescript
-import { BattleSystem, SaveSystem, type Combatant, type BattlePhase } from '@emptysock/engine'
+import { SaveSystem } from '@emptysock/engine'
+import { BattleSystem, type Combatant, type BattlePhase } from '@emptysock/battle'
 import { z } from 'zod'
 
 // --- Zod schema ---

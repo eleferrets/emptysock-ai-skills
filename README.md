@@ -71,6 +71,11 @@ emptysock-agent-pack/
 | `skills/29-visual-script-component.md` | VisualScriptComponent: node-graph interpreter, VisualScriptGraphBuilder, ActorSystem bridging |
 | `skills/30-custom-shader-filter.md` | CustomShaderFilter: custom GLSL post-process filters on a render layer |
 | `skills/31-sequence-system.md` | SequenceSystem: keyframe sequences played through TweenManager, plus pure scrubbing |
+| `skills/32-ecs-core.md` | The entity/component/scene core: `defineComponent`, `Entity`, `Scene.each`, `Game` lifecycle, `ServiceRegistry` |
+| `skills/33-save-system.md` | `SaveSystem`: generic component save/load, versioning, migrations, storage adapters |
+| `skills/34-prefabs-pooling.md` | `definePrefab`, prop-override matching, pooling folded into spawn/destroy |
+| `skills/35-network-package.md` | `@emptysock/network`: `networked()` field marking, `NetworkSystem`, `NetworkEntityMap` |
+| `skills/36-visual-script-compiler.md` | The Visual Script compiler: `CompiledVisualScriptComponent` vs the interpreter |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |
