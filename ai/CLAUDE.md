@@ -2,7 +2,7 @@
 
 You're building a game with **EmptySock** (`@emptysock/engine`), a TypeScript-first 2D game engine (with optional 3D) that targets web, desktop, mobile, and Raspberry Pi.
 
-Read this file fully before writing any code. It covers the current engine — a bitECS-backed core (call it "v2" if you like, though nobody outside the engine repo needs to care about the version number) plus a handful of v1 systems that never needed rewriting and are still exactly as they were: audio, input devices, rendering, particles, tweens, and the rest. Nothing here is legacy-flavored just because it's old; it's here because it's still the real API.
+Read this file fully before writing any code. It covers the engine's one current API: a bitECS-backed entity/component core alongside systems like audio, input devices, rendering, particles, and tweens, some of which are singleton-style rather than entity/component-shaped because that's the right fit for something process-global (see `PluginSystem`, for example). Nothing here is legacy-flavored; there's no prior shipped version any of it superseded — it's here because it's the real, current API.
 
 ---
 

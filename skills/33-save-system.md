@@ -1,6 +1,6 @@
 # SaveSystem — generic component save/load
 
-**Use this when** you're implementing save slots, save file migration, or asking "how do I persist an entity's state." Not for `LocalisationSystem` (see `skills/07-save-localisation.md`, which also covers the older save patterns still valid for v1-only components).
+**Use this when** you're implementing save slots, save file migration, or asking "how do I persist an entity's state." Not for `LocalisationSystem` (see `skills/07-save-localisation.md`, which also covers the standalone `SaveSystem` still used for systems outside the entity/component core).
 
 ---
 

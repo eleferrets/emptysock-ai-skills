@@ -58,7 +58,7 @@ Optional module packages (never auto-imported by the core engine):
 ## Commit examples
 
 feat(player): add wall-jump mechanic
-fix(save): migrate Inventory component from v1 to v2 shape
+fix(save): migrate Inventory component to its new field shape
 refactor(enemy): extract patrol logic into PatrolComponent
 
 ## Further reference

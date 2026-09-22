@@ -4,7 +4,7 @@
 
 ## SaveSystem
 
-**Use this when** you're persisting player progress across sessions — this is the v1 `SaveSystem`, `localStorage`-backed and fully synchronous. (For the v2 ECS core's SaveSystem, with a pluggable storage adapter and component versioning, see `skills/33-save-system.md` instead.) It stores, retrieves, and validates an opaque JSON blob per slot under a prefixed key — it has no opinion on what a "save slot" actually contains. You hand it that shape as a Zod schema.
+**Use this when** you're persisting player progress across sessions — this is the standalone `SaveSystem`, `localStorage`-backed and fully synchronous. (For the entity/component core's `SaveSystem`, which saves component data directly and adds a pluggable storage adapter and component versioning, see `skills/33-save-system.md` instead.) It stores, retrieves, and validates an opaque JSON blob per slot under a prefixed key — it has no opinion on what a "save slot" actually contains. You hand it that shape as a Zod schema.
 
 ```typescript
 import { SaveSystem, type GameSaveSlot } from '@emptysock/engine'

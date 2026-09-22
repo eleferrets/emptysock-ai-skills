@@ -2059,7 +2059,7 @@
     },
     "evaluateTrackAt": "evaluateTrackAt(track: SequenceTrackDef, time: number): number \u2014 a pure, side-effect-free evaluation of a single track at an arbitrary time, using the same per-segment easing math play() schedules; useful for scrubbing/preview without touching a TweenManager instance"
   },
-  "v2": {
+  "core": {
     "description": "The current entity/component/scene core. Everything here lives directly under @emptysock/engine.",
     "defineComponent": {
       "signature": "defineComponent<T extends SerializableRecord>(componentName: string, createDefaults: () => T, options?: { version?: number; schema?: ComponentSchema<T> }): ComponentDef<T>",
