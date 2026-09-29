@@ -15,6 +15,8 @@ Every custom shader must match the same contract `LightingSystem`'s built-in fil
 
 Shaders are GLSL ES 3.00 style — `in`/`out`, not `attribute`/`varying`; `texture()`, not `texture2D()`.
 
+A filter draws a full-screen quad, so a vertex stage that reads a per-vertex `aUV` and the three projection matrices (the sprite-quad shape above) is adapted for you: the engine keeps its `out` varyings and substitutes the filter's own positioning. You can keep writing the vertex stage in that shape, or omit `vertexSrc` entirely (the default is already correct). A vertex stage already written for a filter is used as written.
+
 ---
 
 ## Usage

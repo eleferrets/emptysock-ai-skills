@@ -1,52 +1,58 @@
 # Accessibility & Debugging
 
-**Use this when** you need remappable controls, a debug console you can actually ship, or accessibility settings like text scale and colourblind simulation. Covers three related pieces: `InputBindings` (control remapping), `DebugOverlaySystem` (a shippable FPS/console overlay), and the accessibility primitives (`accessibilitySettings.textScale`, `PostProcessSystem`'s `'colourblind'` layer filter).
+**Use this when** you need remappable controls, a debug console you can actually ship, or accessibility settings like text scale and colourblind simulation. Covers three related pieces: `InputManager` remappable actions (control remapping), `DebugOverlaySystem` (a shippable FPS/console overlay), and the accessibility primitives (`accessibilitySettings.textScale`, `PostProcessSystem`'s `'colourblind'` layer filter).
 
 ---
 
-## InputBindings — remappable controls
+## InputManager: remappable controls
 
-Query named actions instead of raw key codes, and rebinding becomes a settings-menu problem instead of a "rewrite half the gameplay code" problem:
+`game.input` (an `InputManager`, also `ctx.input` in a scene) is the one input system, and named actions are its default mode: query an action instead of a raw key code and rebinding becomes a settings-menu problem, not a "rewrite half the gameplay code" problem. There is no separate bindings class; remapping, persistence and the raw-device escape hatches all live on `InputManager`.
 
 ```typescript
-import { InputBindings, InputSystem, GamepadSystem, type ActionMap } from '@emptysock/engine'
+import { InputManager, type ActionMap } from '@emptysock/engine'
 
 const defaults: ActionMap = {
-  jump: [{ kind: 'key', code: 'Space' }, { kind: 'gamepadButton', index: 0 }],
-  left: [{ kind: 'key', code: 'ArrowLeft' }],
-  right: [{ kind: 'key', code: 'ArrowRight' }],
+  jump:  [{ kind: 'key', code: 'Space' }, { kind: 'gamepadButton', index: 0 }],
+  left:  [{ kind: 'key', code: 'ArrowLeft' }, { kind: 'gamepadAxis', axis: 0, threshold: -0.5 }],
+  right: [{ kind: 'key', code: 'ArrowRight' }, { kind: 'gamepadAxis', axis: 0, threshold: 0.5 }],
 }
+const game = new Game()
+game.input.setActions(defaults)   // game.input starts with an empty action map
 
-const input = new InputSystem()
-const gamepad = new GamepadSystem()
-const bindings = new InputBindings(input, defaults, gamepad)
-
-override onUpdate(dt: number): void {
-  input.flush()
-  gamepad.update()
-  if (bindings.isActionActive('jump') && controller.isGrounded()) jump()
-  const h = bindings.isActionActive('right') ? 1 : bindings.isActionActive('left') ? -1 : 0
-}
+// in onUpdate: state is a frozen per-frame snapshot, taken by Game.update()
+const input = ctx.input
+if (input.wasPressed('jump') && grounded) jump()
+const h = input.isDown('right') ? 1 : input.isDown('left') ? -1 : 0
 ```
+
+- Any active binding makes the action active (`isDown`). `wasPressed` / `wasReleased` are true for exactly one frame; there is no separate `update()` call to make.
+- `resetToDefaults()` restores the map an `InputManager` was *constructed* with. `game.input` is constructed empty, so keep your own `defaults` constant and reset with `setActions(defaults)`; call `resetToDefaults()` only on a manager you built with `new InputManager(defaults)`.
+- A gamepad axis binding's `threshold` sign matters: negative means "at or below", positive means "at or above".
+- Key bindings use the physical key position (`KeyboardEvent.code`: `'KeyW'`, `'Space'`), so WASD stays where the fingers expect on AZERTY and Dvorak. Label keys in a settings UI with the browser's layout map where available.
 
 Rebind from a settings menu:
 
 ```typescript
-bindings.rebind('jump', [{ kind: 'key', code: 'KeyZ' }])
-bindings.resetToDefaults()
+input.rebind('jump', [{ kind: 'key', code: 'KeyZ' }])   // replace an action's bindings
+input.addBinding('jump', { kind: 'gamepadButton', index: 1 })   // append (duplicates ignored)
+input.unbind('jump', { kind: 'key', code: 'KeyZ' })      // remove one; omit the second argument to remove the action
+input.setActions(defaults)                               // reset to your own defaults constant
 ```
 
 ### Persisting bindings
 
-`InputBindings` persists through `SaveSystem`'s generic schema API, not the default save-slot shape:
+Bindings persist through any `StorageAdapter` (the same interface `SaveSystem` takes), not through a save slot:
 
 ```typescript
-import { createBindingsSaveSystem } from '@emptysock/engine'
+import { INPUT_BINDINGS_STORAGE_KEY } from '@emptysock/engine'
 
-const bindingsSave = createBindingsSaveSystem()   // SaveSystem<BindingsSaveSlot>
-bindings.save(bindingsSave)
-bindings.load(bindingsSave)   // returns false if nothing was persisted yet
+await input.saveBindings(storage)              // key defaults to 'emptysock_input_bindings'
+const restored = await input.loadBindings(storage)   // false if nothing stored or the data is corrupt; bindings untouched
 ```
+
+`loadBindings` validates the stored shape before applying it, so stale or hand-edited data can never leave you with half a control scheme.
+
+Raw escape hatches read the same frozen snapshot: `input.keyboard.isDown('KeyW')`, `input.gamepad(0)`, `input.pointers`, `input.gestures`, `input.wheelEvents`.
 
 ---
 
@@ -106,8 +112,8 @@ postProcess.setLayerFilter('ui', { type: 'colourblind', mode: 'deuteranopia' })
 
 | Wrong | Right |
 |---|---|
-| Checking `input.isKeyDown('Space')` directly in gameplay code | Check `bindings.isActionActive('jump')` so remapping works everywhere at once |
-| Persisting `InputBindings` through the default `SaveSystem` slot | Use `createBindingsSaveSystem()` / `BindingsSaveSlotSchema` — a different schema entirely |
+| Checking `input.keyboard.isDown('Space')` directly in gameplay code | Check `input.isDown('jump')` so remapping works everywhere at once |
+| Persisting bindings by hand into a `SaveSystem` slot | `input.saveBindings(storage)` / `loadBindings(storage)` |
 | Shipping `DebugOverlaySystem` always enabled | Gate `enable()` behind a dev flag the game itself defines |
 | Scaling text by hand, per widget, for accessibility | Set `accessibilitySettings.textScale` once — every `LabelWidget` reads it |
 | Calling the `'colourblind'` filter a correction/fix for colourblind players | It's a preview for sighted designers, not a correction |

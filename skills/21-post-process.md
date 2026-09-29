@@ -101,6 +101,8 @@ this._post.clearLayerFilter('Background')
 | `'colour-grade'` | Params: `saturation`, `contrast`, `value` |
 | `'outline'` | Params: `colour`, `thickness` |
 | `'invert'` | No params |
+| `'colourblind'` | Params: `mode` (`'protanopia'`, `'deuteranopia'`, `'tritanopia'`); a simulation, see `skills/28-accessibility-debugging.md` |
+| `'rain-glass'` | Params: `intensity`, `dropletSize`, `dropletSpeed`, `streakAmount`; see `skills/39-rain-effects.md` |
 
 ## API reference
 

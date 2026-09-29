@@ -67,7 +67,7 @@ emptysock-agent-pack/
 | `skills/25-pointer-system.md` | PointerSystem: unified mouse/touch/pen input, gestures, wheel/trackpad classification |
 | `skills/26-animator-controller.md` | AnimatorController: named-state animation state machine, parameter/trigger transitions, cross-fade |
 | `skills/27-asset-manifest.md` | AssetManifest: declarative asset preloading with progress reporting |
-| `skills/28-accessibility-debugging.md` | InputBindings, DebugOverlaySystem, textScale, and the colourblind simulation filter |
+| `skills/28-accessibility-debugging.md` | `InputManager` remappable actions and persistence, DebugOverlaySystem, textScale, and the colourblind simulation filter |
 | `skills/29-visual-script-component.md` | VisualScriptComponent: node-graph interpreter, VisualScriptGraphBuilder, ActorSystem bridging |
 | `skills/30-custom-shader-filter.md` | CustomShaderFilter: custom GLSL post-process filters on a render layer |
 | `skills/31-sequence-system.md` | SequenceSystem: keyframe sequences played through TweenManager, plus pure scrubbing |
@@ -76,6 +76,12 @@ emptysock-agent-pack/
 | `skills/34-prefabs-pooling.md` | `definePrefab`, prop-override matching, pooling folded into spawn/destroy |
 | `skills/35-network-package.md` | `@emptysock/network`: `networked()` field marking, `NetworkSystem`, `NetworkEntityMap` |
 | `skills/36-visual-script-compiler.md` | The Visual Script compiler: `CompiledVisualScriptComponent` vs the interpreter |
+| `skills/37-signal-bus.md` | `SignalBus`: game-wide named signals, `SignalGroup` cleanup, typed `GameSignals` |
+| `skills/38-global-store.md` | `GlobalStore` and the typed `GameGlobals` interface (`game.globals`, `ctx.globals`) |
+| `skills/39-rain-effects.md` | `RainGlassFilter` (`'rain-glass'` layer filter) and `rainParticlePreset` |
+| `skills/40-surfaces-blend-modes.md` | GML-style surfaces and `gpu_set_blendmode` for darkness-with-light-cutout lighting |
+| `skills/41-bitmap-fonts.md` | `BitmapFontDef`, `FontRegistry.registerBitmap`, and bitmap-text layout helpers |
+| `skills/42-texture-store.md` | `TextureStore`: the shared texture load/lookup path and its custom-loader seam |
 | `skills/gms2-migration.md` | GMS2 → EmptySock migration: importer, GML mapping, asset status |
 | `skills/layer-system.md` | LayerSystem: layer ordering and management |
 | `skills/visual-script.md` | Visual Script Editor IDE panel: canvas controls, node types, .esvs format |

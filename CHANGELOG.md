@@ -9,6 +9,16 @@ Versioned in lockstep with the engine. Format follows [Keep a Changelog](https:/
 
 Changes staged for the next release.
 
+### Added
+
+- Skills: `37-signal-bus`, `38-global-store`, `39-rain-effects`, `40-surfaces-blend-modes`, `41-bitmap-fonts`, `42-texture-store`
+- `api-reference.json` entries: `SignalBus`, `GlobalStore`, `RainGlassFilter` (with `rainParticlePreset`), `GmlSurfaces`, `BitmapFontDef`, `TextureStore`
+
+### Changed
+
+- Remappable controls now live on `InputManager` (`skills/28`, `api-reference.json` `InputManager`); the separate `InputBindings` entry is removed
+- `'rain-glass'` added to the layer filter types; `CustomShaderFilter` documents that sprite-style vertex stages are adapted automatically
+
 ---
 
 ## [1.0.0] — TBD

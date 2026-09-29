@@ -1304,7 +1304,7 @@
       }
     },
     "PostEffectType": "'bloom' | 'chromatic-aberration' | 'vignette' | 'scanlines' | 'pixelate' | 'colour-grade' | 'blur' | 'outline' | 'shockwave' | 'noise'",
-    "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'colourblind' | 'none'",
+    "LayerFilterType": "'blur' | 'colour-grade' | 'outline' | 'brightness' | 'contrast' | 'saturate' | 'hue-rotate' | 'invert' | 'colourblind' | 'rain-glass' | 'none'",
     "ColourblindMode": "'protanopia' | 'deuteranopia' | 'tritanopia' \u2014 used as LayerFilterOptions.mode when filter type is 'colourblind'",
     "transitionProperties": {
       "transitionEffect": "TransitionEffect \u2014 'none' | 'fade' | 'wipe' | 'slide'; set by SceneManager.transition() through attachPostProcess(), read by RenderPipeline.renderTransitionOverlay()",
@@ -1866,73 +1866,6 @@
       "error": "unknown"
     }
   },
-  "InputBindings": {
-    "import": "import { InputBindings, createBindingsSaveSystem, BindingsSaveSlotSchema, type ActionMap, type Binding, type BindingsSaveSlot } from '@emptysock/engine'",
-    "description": "Named-action control remapping layered over InputSystem/GamepadSystem. Games should query `bindings.isActionActive('jump')` rather than a raw key code so players can rebind controls without gameplay code branching on physical keys. Persisted via SaveSystem's generic schema API, not the default save slot shape.",
-    "constructor": "new InputBindings(input: InputSystem, defaults: ActionMap, gamepad?: GamepadSystem | null)",
-    "methods": {
-      "isActionActive": {
-        "signature": "(action: string): boolean",
-        "description": "True if any binding for the action is currently active (held)."
-      },
-      "isActionPressed": {
-        "signature": "(action: string): boolean",
-        "description": "True the frame a key-bound action transitions from inactive to active. Gamepad/mouse bindings do not support edge detection at this layer."
-      },
-      "rebind": {
-        "signature": "(action: string, bindings: Binding[]): void",
-        "description": "Replace all bindings for an action."
-      },
-      "addBinding": {
-        "signature": "(action: string, binding: Binding): void"
-      },
-      "getBindings": {
-        "signature": "(action: string): ReadonlyArray<Binding>"
-      },
-      "resetToDefaults": {
-        "signature": "(): void"
-      },
-      "save": {
-        "signature": "(save: SaveSystem<BindingsSaveSlot>, slotId?: string): void",
-        "description": "Persist current bindings via a SaveSystem<BindingsSaveSlot> (e.g. from createBindingsSaveSystem())."
-      },
-      "load": {
-        "signature": "(save: SaveSystem<BindingsSaveSlot>, slotId?: string): boolean",
-        "description": "Returns true if persisted bindings were found and applied."
-      }
-    },
-    "properties": {
-      "actions": "ReadonlyArray<string>"
-    },
-    "functions": {
-      "createBindingsSaveSystem": "(prefix?: string): SaveSystem<BindingsSaveSlot> \u2014 a SaveSystem pre-configured with the bindings slot schema"
-    },
-    "Binding": "KeyBinding | MouseButtonBinding | GamepadButtonBinding | GamepadAxisBinding, discriminated by `kind`",
-    "KeyBinding": {
-      "kind": "'key'",
-      "code": "string"
-    },
-    "MouseButtonBinding": {
-      "kind": "'mouseButton'",
-      "button": "number"
-    },
-    "GamepadButtonBinding": {
-      "kind": "'gamepadButton'",
-      "index": "number",
-      "padIndex": "number \u2014 optional"
-    },
-    "GamepadAxisBinding": {
-      "kind": "'gamepadAxis'",
-      "axis": "number",
-      "threshold": "number \u2014 sign matters",
-      "padIndex": "number \u2014 optional"
-    },
-    "ActionMap": "Record<string, Binding[]>",
-    "BindingsSaveSlot": {
-      "id": "string",
-      "bindings": "ActionMap"
-    }
-  },
   "DebugOverlaySystem": {
     "import": "import { DebugOverlaySystem, type DebugLogEntry, type LogLevel } from '@emptysock/engine'",
     "description": "Shippable in-game FPS/entity-count overlay and dev console, disabled by default. Renders through the existing UI widget tree (PanelWidget + LabelWidget), so add its `root` widget to a scene's UISystem \u2014 no separate rendering path.",
@@ -2042,7 +1975,8 @@
     "functions": {
       "createCustomShaderFilter": "createCustomShaderFilter(options: { fragmentSrc: string, vertexSrc?: string }): Filter \u2014 vertexSrc defaults to DEFAULT_CUSTOM_SHADER_VERTEX. The returned Filter has setTime(seconds: number): void."
     },
-    "usage": "renderSystem.addLayerShaderFilter(layerName: string, filter: Filter): void attaches the filter to a named layer's container; renderSystem.removeLayerShaderFilter(layerName: string, filter: Filter): void detaches it. Both live on RenderSystem (exported standalone from '@emptysock/engine'), not on RenderPipeline. Call filter.setTime(elapsedSeconds) each frame if the shader reads uTime."
+    "usage": "renderSystem.addLayerShaderFilter(layerName: string, filter: Filter): void attaches the filter to a named layer's container; renderSystem.removeLayerShaderFilter(layerName: string, filter: Filter): void detaches it. Both live on RenderSystem (exported standalone from '@emptysock/engine'), not on RenderPipeline. Call filter.setTime(elapsedSeconds) each frame if the shader reads uTime.",
+    "note_vertex": "A vertex stage written in the sprite-quad shape (aUV plus the three projection matrices) is adapted automatically to work on a filter; omit vertexSrc to use the default, which is already correct."
   },
   "SequenceSystem": {
     "import": "import { TweenManager, SequenceSystem, evaluateTrackAt, type SequenceDefinition, type SequenceTrackDef, type SequenceKeyframe } from '@emptysock/engine'",
@@ -2188,5 +2122,267 @@
         "notes": "NavMeshSystem.load() takes a pre-built polygon graph \u2014 there is no runtime tilemap-to-navmesh generation. Build it offline (level editor or a preprocessing step)."
       }
     }
+  },
+  "SignalBus": {
+    "import": "import { SignalBus, SignalGroup, type GameSignals, type SignalListener, type Unsubscribe } from '@emptysock/engine'",
+    "description": "Game-wide named signals. One instance per Game (`game.signals`, `ctx.signals` in a scene); never a bare singleton. Dispatch is synchronous, in registration order. A throwing listener never blocks the others; errors are re-thrown together as an AggregateError after all listeners ran. Distinct from ActorSystem (addressed mailboxes).",
+    "constructor": "Created for you by Game; read it from `game.signals` or `ctx.signals`.",
+    "methods": {
+      "on": {
+        "signature": "<T>(name: string, fn: (payload: T, name: string) => void): Unsubscribe"
+      },
+      "once": {
+        "signature": "<T>(name: string, fn: (payload: T, name: string) => void): Unsubscribe"
+      },
+      "off": {
+        "signature": "<T>(name: string, fn: SignalListener<T>): void"
+      },
+      "onAny": {
+        "signature": "(fn: SignalListener): Unsubscribe",
+        "description": "Wildcard tap: called for every emitted signal, after that signal's own listeners."
+      },
+      "emit": {
+        "signature": "<T>(name: string, payload?: T): number",
+        "description": "Calls every listener of `name`, then the wildcards. Returns how many ran. Nested emits from inside a listener dispatch immediately."
+      },
+      "broadcast": {
+        "signature": "<T>(payload?: T): number",
+        "description": "Emits `payload` to every signal name that currently has at least one listener."
+      },
+      "listenerCount": {
+        "signature": "(name?: string): number",
+        "description": "Listeners for one name, or all (including wildcards) when omitted."
+      },
+      "clear": {
+        "signature": "(): void"
+      },
+      "group": {
+        "signature": "(): SignalGroup",
+        "description": "A scope whose subscriptions are all removed by one dispose()."
+      }
+    },
+    "SignalGroup": {
+      "methods": {
+        "on": "<T>(name, fn): Unsubscribe",
+        "once": "<T>(name, fn): Unsubscribe",
+        "emit": "<T>(name, payload?): number",
+        "dispose": "(): void \u2014 removes everything this group subscribed"
+      }
+    },
+    "GameSignals": "Augmentable interface mapping signal names to payload types: `declare module '@emptysock/engine' { interface GameSignals { 'player-died': { id: number } } }`",
+    "notes": [
+      "Subscribe through `bus.group()` in onLoad and dispose() it in onUnload so handlers never outlive their scene.",
+      "A listener that re-emits its own signal loops forever; set a flag and emit once from onUpdate instead."
+    ]
+  },
+  "GlobalStore": {
+    "import": "import { GlobalStore, type GameGlobals } from '@emptysock/engine'",
+    "description": "Game-owned map of arbitrary names to arbitrary values, alive for the Game's whole lifetime and shared across scenes (`game.globals`, `ctx.globals`). Not VariableStore: no integer truncation, no numeric index, any value type.",
+    "constructor": "Created for you by Game; read it from `game.globals` or `ctx.globals`.",
+    "methods": {
+      "get": {
+        "signature": "get<K extends keyof GameGlobals>(name: K): GameGlobals[K] | undefined; get<T = unknown>(name: string): T | undefined",
+        "description": "undefined until the name is set."
+      },
+      "set": {
+        "signature": "set<K extends keyof GameGlobals>(name: K, value: GameGlobals[K]): void; set(name: string, value: unknown): void"
+      },
+      "has": {
+        "signature": "(name: string): boolean"
+      },
+      "delete": {
+        "signature": "(name: string): boolean"
+      },
+      "keys": {
+        "signature": "(): IterableIterator<string>"
+      },
+      "clear": {
+        "signature": "(): void",
+        "description": "Clears every global; mainly for test isolation."
+      }
+    },
+    "GameGlobals": "Empty augmentable interface: `declare module '@emptysock/engine' { interface GameGlobals { score: number } }` types get/set for declared names; undeclared names use the untyped overloads.",
+    "notes": [
+      "In the IDE the Game Globals panel edits the declarations and saves them in the project file; runtime values are not persisted (use SaveSystem)."
+    ]
+  },
+  "RainGlassFilter": {
+    "import": "import { RainGlassFilter, createRainGlassFilter, rainParticlePreset, ParticleEmitter, type RainGlassFilterOptions, type RainPresetOptions } from '@emptysock/engine'",
+    "description": "Rain on a camera lens/windshield as a single-pass screen-space filter: droplets that refract the scene (inverted miniature, dark rim, glint), static micro drops, big creeping drops, and sliding drops with wet trails. Cost scales with resolution, not drop count. Not a physical simulation (no drops merging).",
+    "layerFilter": "postProcess.setLayerFilter(layerId, { type: 'rain-glass', intensity?, dropletSize?, dropletSpeed?, streakAmount? }) with the PostProcessSystem attached to the RenderPipeline (`pipeline.attachPostProcess(post)`). Re-calling setLayerFilter updates values in place; time advances automatically.",
+    "RainGlassFilterOptions": {
+      "intensity": "number \u2014 0..1 droplet opacity/refraction strength. Default 0.6.",
+      "dropletSize": "number \u2014 aspect-corrected UV cell size of the big-drop grid; smaller = more, smaller drops. Default 0.12.",
+      "dropletSpeed": "number \u2014 fall speed of sliding drops per second. Default 0.35.",
+      "streakAmount": "number \u2014 0..1 blend from mostly static drops (0) to mostly sliding drops with trails (1). Default 0.5."
+    },
+    "functions": {
+      "createRainGlassFilter": "(options?: RainGlassFilterOptions): RainGlassFilter",
+      "rainParticlePreset": "(opts?: { width?: number, density?: number, wind?: number, texture?: string }): ParticleEmitterOptions \u2014 world-space rain: a line emitter across the top of the view firing fast, slightly tilted, short-lived, low-alpha drops (max 1200 live). Position the emitter just above the view; mount with `await pipeline.mountParticles(emitter, layer)`."
+    },
+    "methods": {
+      "setOptions": {
+        "signature": "(options: RainGlassFilterOptions): void",
+        "description": "Patches only the fields given."
+      },
+      "setResolution": {
+        "signature": "(width: number, height: number): void",
+        "description": "Call when the target size changes (the layer-filter path does this for you)."
+      },
+      "tick": {
+        "signature": "(dtSeconds: number): void",
+        "description": "Advance time once per frame when you attach the filter yourself."
+      }
+    },
+    "properties": {
+      "elapsed": "number \u2014 accumulated seconds"
+    }
+  },
+  "GmlSurfaces": {
+    "import": "import { surface_create, surface_exists, surface_free, surface_set_target, surface_reset_target, draw_surface, draw_clear, draw_clear_alpha, gpu_set_blendmode, draw_set_blend_mode, gpu_set_blendmode_ext, bm_normal, bm_add, bm_max, bm_subtract } from '@emptysock/engine'",
+    "description": "GameMaker-named off-screen surfaces and blend modes, for the darkness-plus-light-cutout technique (fill a surface dark, subtract light holes, draw it over the view with bm_subtract). Complements LightingSystem; not a replacement. Every function takes the GML action context first; without a surface backend on that context they are safe no-ops and surface_create returns -1.",
+    "constants": {
+      "bm_normal": 0,
+      "bm_add": 1,
+      "bm_max": 2,
+      "bm_subtract": 3
+    },
+    "functions": {
+      "surface_create": "(ctx, width: number, height: number): number \u2014 surface id, or -1 with no backend",
+      "surface_exists": "(ctx, id: number): boolean",
+      "surface_free": "(ctx, id: number): void",
+      "surface_set_target": "(ctx, id: number): void \u2014 redirect drawing into the surface; nests like a target stack",
+      "surface_reset_target": "(ctx): void \u2014 commit the surface and restore the previous target",
+      "draw_surface": "(ctx, id: number, x: number, y: number): void \u2014 drawn with the current blend mode",
+      "draw_clear": "(ctx, colour: number): void \u2014 replace the current target's contents",
+      "draw_clear_alpha": "(ctx, colour: number, alpha: number): void",
+      "gpu_set_blendmode": "(ctx, mode: number): void \u2014 bm_normal | bm_add | bm_max | bm_subtract",
+      "draw_set_blend_mode": "(ctx, mode: number): void \u2014 legacy alias",
+      "gpu_set_blendmode_ext": "(ctx, src: number, dest: number): void \u2014 arbitrary factors are not supported; warns once and does nothing"
+    },
+    "notes": [
+      "Every surface_set_target needs a matching surface_reset_target.",
+      "Each blend-mode change breaks draw batching; profile scenes with many separately blended draws.",
+      "application_surface is a sentinel, not a real surface: surface_get_width/height return the design resolution and surface_resize on it changes it."
+    ]
+  },
+  "BitmapFontDef": {
+    "import": "import { FontRegistry, layoutBitmapText, bitmapKerning, type BitmapFontDef, type BitmapGlyph, type BitmapTextLayout, type FontDescriptor } from '@emptysock/engine'",
+    "description": "A renderer-free description of a pre-rendered bitmap font (atlas image + glyph rectangles), registered in the Game's FontRegistry (`game.fonts`). GML draw_text uses it after draw_set_font; the GameMaker importer emits one per GameMaker font that has a glyph atlas.",
+    "BitmapFontDef": {
+      "name": "string",
+      "atlasPath": "string \u2014 atlas image path, loaded like Sprite.texturePath",
+      "size": "number \u2014 nominal size",
+      "lineHeight": "number \u2014 distance between baselines",
+      "glyphs": "Record<number, BitmapGlyph> \u2014 keyed by Unicode code point",
+      "kerning": "ReadonlyArray<readonly [first: number, second: number, amount: number]> \u2014 extra advance between a pair"
+    },
+    "BitmapGlyph": "{ x, y, w, h: number (atlas rectangle in px); shift: number (advance); offset: number (left bearing) }",
+    "FontRegistry": {
+      "registerBitmap": "(id: string, def: BitmapFontDef): void \u2014 independent of register(); an id may have a CSS descriptor, a bitmap def, or both",
+      "getBitmap": "(id: string): BitmapFontDef | undefined",
+      "hasBitmap": "(id: string): boolean",
+      "register": "(id: string, font: FontDescriptor): void \u2014 CSS-style descriptor used by Label widgets",
+      "get": "(id: string): FontDescriptor | undefined"
+    },
+    "functions": {
+      "layoutBitmapText": "(def: BitmapFontDef, text: string): { placements: { codePoint, glyph, x, y }[], width: number, height: number } \u2014 pure layout; `\\n` starts a line; characters without a glyph are skipped",
+      "bitmapKerning": "(def: BitmapFontDef, first: number, second: number): number \u2014 0 for an unlisted pair"
+    },
+    "notes": [
+      "Give the renderer the registry (`RenderPipeline` option `fonts`, or `pipeline.attachFonts(game.fonts)`).",
+      "Until the atlas has loaded, text draws with the normal font for that frame; preload the atlas to avoid the swap.",
+      "UI widgets (Label etc.) still draw from the CSS descriptor, not the bitmap."
+    ]
+  },
+  "TextureStore": {
+    "import": "import { TextureStore } from '@emptysock/engine'",
+    "description": "The one shared texture load-and-lookup path used by sprite rendering, draw_sprite, particles, tilemap tilesets and ImageWidget. Most games never touch it.",
+    "constructor": "new TextureStore(loader?: (path: string) => Promise<Texture>) \u2014 with no loader it uses the engine's default asset cache; a custom loader (tests, custom hosts) gets a small local cache plus in-flight de-duplication.",
+    "methods": {
+      "get": {
+        "signature": "(path: string): Texture | undefined",
+        "description": "Already-loaded texture or undefined. Synchronous; never starts a load."
+      },
+      "load": {
+        "signature": "(path: string): Promise<Texture>",
+        "description": "Loads or resolves from cache. Concurrent calls for one path share one load. A failed load is not cached, so the next call retries."
+      },
+      "clear": {
+        "signature": "(): void",
+        "description": "Drops the store's local cache only, not the engine's global one."
+      }
+    },
+    "notes": [
+      "RenderPipeline takes the loader as option `textureLoader`; the UI system takes `imageLoader`."
+    ]
+  },
+  "InputManager": {
+    "import": "import { InputManager, INPUT_BINDINGS_STORAGE_KEY, type ActionMap, type Binding } from '@emptysock/engine'",
+    "description": "The one input system and the home of remappable controls (`game.input`, `ctx.input`). Named actions map to Bindings; any active binding makes the action active. State is a frozen per-frame snapshot taken by Game.update(). There is no separate bindings class.",
+    "constructor": "new InputManager(actions?: ActionMap) \u2014 the map is kept for resetToDefaults(). `game.input` is constructed with an empty map; use setActions(yourDefaults) to reset it.",
+    "methods": {
+      "isDown": {
+        "signature": "(action: string): boolean",
+        "description": "Any binding active in this frame's snapshot."
+      },
+      "wasPressed": {
+        "signature": "(action: string): boolean",
+        "description": "True only on the frame the action went inactive to active. Computed automatically; no update() call."
+      },
+      "wasReleased": {
+        "signature": "(action: string): boolean"
+      },
+      "bindAction": {
+        "signature": "(action: string, bindings: readonly Binding[]): void",
+        "description": "Add or replace one action's bindings."
+      },
+      "rebind": {
+        "signature": "(action: string, bindings: readonly Binding[]): void",
+        "description": "Alias of bindAction (settings-menu rebind)."
+      },
+      "addBinding": {
+        "signature": "(action: string, binding: Binding): void",
+        "description": "Append; duplicates ignored."
+      },
+      "unbind": {
+        "signature": "(action: string, binding?: Binding): void",
+        "description": "Remove one binding, or the whole action when omitted."
+      },
+      "setActions": {
+        "signature": "(actions: ActionMap): void",
+        "description": "Replace the whole map."
+      },
+      "getBindings": {
+        "signature": "(action: string): ReadonlyArray<Binding>"
+      },
+      "resetToDefaults": {
+        "signature": "(): void",
+        "description": "Restore the map the manager was constructed with."
+      },
+      "saveBindings": {
+        "signature": "(adapter: StorageAdapter, key?: string): Promise<void>",
+        "description": "Persist through any StorageAdapter. Default key 'emptysock_input_bindings'."
+      },
+      "loadBindings": {
+        "signature": "(adapter: StorageAdapter, key?: string): Promise<boolean>",
+        "description": "false (bindings untouched) when nothing is stored or the data fails validation."
+      },
+      "gamepad": {
+        "signature": "(index: number): { connected, isButtonDown(i), axis(i) }",
+        "description": "Raw frozen-snapshot escape hatch."
+      }
+    },
+    "properties": {
+      "actions": "ReadonlyArray<string>",
+      "keyboard": "{ isDown(code: string): boolean } \u2014 raw frozen snapshot",
+      "pointers": "ReadonlyArray<PointerState>",
+      "gestures": "ReadonlyArray<Gesture> \u2014 this frame's",
+      "wheelEvents": "ReadonlyArray<WheelEventInfo> \u2014 this frame's"
+    },
+    "Binding": "{ kind: 'key', code: string } | { kind: 'gamepadButton', index: number, padIndex?: number } | { kind: 'gamepadAxis', axis: number, threshold: number, padIndex?: number } \u2014 discriminated by `kind`; axis threshold sign matters (negative = at or below)",
+    "notes": [
+      "Key bindings use KeyboardEvent.code (physical position), which is layout-independent."
+    ]
   }
 }

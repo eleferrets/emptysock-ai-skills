@@ -130,6 +130,8 @@ game.services.get(ScoreService).add(10)
 
 `game.input` and `game.audio` are the exceptions to "scene-scoped" — they're `Game`-owned singletons that live for the whole process, because held-down keys and playing music don't have anything to do with which scene happens to be loaded right now.
 
+The same is true of `game.globals` (a named-value `GlobalStore`, typed through the `GameGlobals` interface; `skills/38-global-store.md`) and `game.signals` (a `SignalBus` for game-wide named signals; subscribe through `signals.group()` and dispose it in `onUnload`; `skills/37-signal-bus.md`). Reach both through `game` or a scene's `ctx`; there is no importable global.
+
 ---
 
 ## Prefabs and pooling

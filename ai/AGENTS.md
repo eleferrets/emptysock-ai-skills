@@ -109,7 +109,7 @@ never construct those yourself unless you explicitly pass
 lifecycled scene (HUD, pause menu) on top, surviving a main-scene reload underneath
 it. `game.services` is a typed registry for process-global state (score tracking,
 analytics, anything that would've been a singleton) — register once, `.get()`
-anywhere, no ambient globals.
+anywhere, no ambient globals. `game.globals` (`GlobalStore`, typed via `GameGlobals`) holds named game-wide values, and `game.signals` (`SignalBus`) broadcasts named signals; both are also on a scene's `ctx`. Subscribe to signals through `signals.group()` and `dispose()` it in `onUnload`.
 
 ## Physics
 
