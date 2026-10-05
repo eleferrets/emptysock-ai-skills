@@ -1,6 +1,6 @@
 # UISystem
 
-**Use this when** you're building screen-space UI — HUDs, menus, dialogue boxes — as opposed to in-world objects that live in the PixiJS scene. `UISystem` renders `Widget` nodes over the scene using Canvas 2D. Every `Scene` owns its own instance at `scene.ui`; there's no global singleton to reach for by mistake, and widgets on `scene.ui` clear themselves automatically when the scene goes away.
+**Use this when** you're building screen-space UI (HUDs, menus, dialogue boxes) as opposed to in-world objects. UI is entity-based: each widget is an entity with a `LayoutStyle` and `Layout` component plus one or more widget-kind components (`Label`, `PanelStyle`, `ButtonState`, `Checkbox`, `Slider`, `Progress`, `ImageWidget`). `WidgetTree` owns the parent/child tree and flexbox layout (Yoga WASM); `UISystem` hit-tests, dispatches pointer input, and draws to a Canvas 2D-style context.
 
 ---
 
@@ -8,186 +8,100 @@
 
 ```typescript
 import {
-  Scene,
-  PanelWidget,
-  LabelWidget,
-  ButtonWidget,
-  ProgressBarWidget,
+  defineScene, WidgetTree, UISystem, LayoutStyle, PanelStyle, Label, Progress,
 } from '@emptysock/engine'
 
-class HUDScene extends Scene {
-  private _hp: ProgressBarWidget | null = null
-  private _scoreLabel: LabelWidget | null = null
+const tree = new WidgetTree()
+const ui = new UISystem(tree)          // options: { imageLoader?, fonts? }
 
-  override async onLoad(): Promise<void> {
-    this._hp = new ProgressBarWidget({
-      anchor: 'top-left',
-      x: 16, y: 16,
-      width: 200, height: 14,
-      fillColor: '#e74c3c',
-      trackColor: '#333333',
-      value: 1.0,
-    })
-    this.ui.add(this._hp)
+const HudScene = defineScene({
+  async onLoad(scene) {
+    await tree.init()                  // loads Yoga WASM; must finish before layout()
 
-    this._scoreLabel = new LabelWidget({
-      anchor: 'top-right',
-      x: 16, y: 16,
-      text: 'Score: 0',
-      fontSize: 20,
-      color: '#ffffff',
-    })
-    this.ui.add(this._scoreLabel)
-  }
+    const root = tree.createWidget(scene)
+    const rootStyle = root.get(LayoutStyle)
+    if (rootStyle !== undefined) { rootStyle.width = 1280; rootStyle.height = 720; rootStyle.padding = 16 }
 
-  override onUpdate(dt: number): void {
-    this.ui.update(dt)
-  }
+    const hp = tree.createWidget(scene, root)           // child of root
+    const hpStyle = hp.get(LayoutStyle)
+    if (hpStyle !== undefined) { hpStyle.width = 200; hpStyle.height = 14 }
+    hp.add(Progress, { value: 1, fillColor: '#e74c3c', trackColor: '#333333' })
 
-  override onDestroy(): void {
-    this.ui.clear()
-  }
-}
+    const score = tree.createWidget(scene, root)
+    score.add(Label, { text: 'Score: 0', fontSize: 20 })
+  },
+  onUpdate(dt) {
+    // each frame: tree.layout(scene, 1280, 720), then ui.render(scene, ctx)
+  },
+})
 ```
 
----
-
-## Widget classes
-
-| Widget | Key properties |
-|--------|---------------|
-| `PanelWidget` | `background`, `border?`, `borderWidth`, `cornerRadius`, `children` |
-| `LabelWidget` | `text`, `font`, `fontSize`, `color`, `align` |
-| `ButtonWidget` | `label`, `icon?`, `disabled`, `animateOnHover` |
-| `ImageWidget` | `src`, `scaleMode` (`stretch` / `fit` / `fill` / `none`), `tint?` |
-| `ProgressBarWidget` | `value`, `min`, `max`, `fillColor`, `trackColor`, `direction` (`h`/`v`) |
-| `SliderWidget` | `value`, `min`, `max`, `step`, `trackColor`, `thumbColor`, `onChange?` |
-| `CheckboxWidget` | `checked`, `label`, `color`, `borderColor`, `onChange?` |
+`tree.createWidget(scene, parent?)` spawns an entity with `LayoutStyle` + `Layout` already attached. Add widget-kind components on top with `entity.add(...)`.
 
 ---
 
-## Base Widget properties
+## Widget-kind components
 
-All widgets share the `Widget` base class:
+| Component | Fields (defaults in parentheses) |
+|-----------|----------------------------------|
+| `WidgetAppearance` | `visible` (true), `alpha` (1) |
+| `Label` | `text`, `color` ('#ffffff'), `fontSize` (14), `font` ('sans-serif'), `fontId` (''), `align` (0 left, 1 center, 2 right) |
+| `PanelStyle` | `background` ('#1a1a2e'), `borderColor`, `borderWidth`, `borderRadius` |
+| `ButtonState` | `label`, `color`, `background`, `hoverBackground`, `pressedBackground`, `borderRadius`, `fontSize`, `font`, `fontId`, `disabled`, `state` (0 idle, 1 hover, 2 pressed; set by UISystem) |
+| `Checkbox` | `checked`, `label`, `color`, `background`, `borderColor`, `fontSize`, `font`, `fontId` |
+| `Slider` | `value`, `min` (0), `max` (1), `step` (0 = continuous), `trackColor`, `thumbColor` |
+| `Progress` | `value`, `min`, `max`, `trackColor`, `fillColor` |
+| `ImageWidget` | `src` (texture path, loaded through `TextureStore`) |
 
-```typescript
-widget.x        // pixel offset from anchor point
-widget.y
-widget.width
-widget.height
-widget.anchor   // 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right'
-widget.visible  // hide without removing
-widget.alpha
-widget.children // Widget[] — mutable; push children onto PanelWidget for compound layouts
-widget.on(event, handler)
-widget.off(event, handler)
-widget.animate(name, opts?)
-```
+`LayoutStyle` fields: `flexDirection` (0 column, 1 row), `width`, `height` (-1 = auto), `flexGrow`, `flexShrink`, `padding`, `gap`, `positionType` (0 relative, 1 absolute), `left`, `top`, `overflow` (0 visible, 1 hidden, 2 scroll), `scrollX`, `scrollY`. `Layout` (`x`, `y`, `width`, `height`) is the computed result written by `tree.layout(...)`.
 
-**Events:** `'click'`, `'hover'`, `'hoverOut'`, `'change'`, `'animEnd'`
-
-**Animations:** `'fadeIn'`, `'fadeOut'`, `'slideIn'`, `'slideOut'`, `'pop'`, `'shake'`  
-All accept `{ duration?: number, easing?: string, direction?: 'left'|'right'|'up'|'down' }`.
+`resolveAnchoredPosition(anchor, x, y, width, height, containerWidth, containerHeight)` returns `{ left, top }` for a nine-point `WidgetAnchor` (`'top-left'` ... `'bottom-right'`); assign the result to an absolute-positioned widget's `LayoutStyle.left/top`.
 
 ---
 
-## Buttons and events
+## Pointer input and clicks
 
-```typescript
-import { Scene, ButtonWidget } from '@emptysock/engine'
-
-class MenuScene extends Scene {
-  override async onLoad(): Promise<void> {
-    const btn = new ButtonWidget({
-      label: 'Retry',
-      anchor: 'center',
-      width: 120,
-      height: 40,
-    })
-    btn.on('click', () => this.engine.loadScene('GameScene'))
-    btn.animate('fadeIn', { duration: 0.3 })
-    this.ui.add(btn)
-  }
-}
-```
-
----
-
-## Compound panels
-
-Build complex layouts by pushing children onto a `PanelWidget`. Children position relative to the panel's origin:
-
-```typescript
-import { Scene, PanelWidget, LabelWidget, ButtonWidget } from '@emptysock/engine'
-
-class GameOverScene extends Scene {
-  override async onLoad(): Promise<void> {
-    const panel = new PanelWidget({
-      anchor: 'center',
-      width: 300, height: 200,
-      background: '#1a1a2e',
-    })
-
-    const title = new LabelWidget({ text: 'Game Over', fontSize: 24, anchor: 'top', y: 16 })
-    const score = new LabelWidget({ text: 'Score: 0', fontSize: 18, anchor: 'center' })
-    const retry = new ButtonWidget({ label: 'Retry', anchor: 'bottom', y: 20, width: 100, height: 36 })
-
-    retry.on('click', () => this.engine.loadScene('GameScene'))
-    panel.children.push(title, score, retry)
-    this.ui.add(panel)
-    panel.animate('fadeIn')
-  }
-}
-```
-
----
-
-## UISystem API
-
-Access via `scene.ui` (or `this.ui` inside a `Scene` subclass).
+`UISystem` has no event emitter. Feed it pointer events and read component state:
 
 | Method | Description |
 |--------|-------------|
-| `ui.add(widget)` | Add a root widget to the overlay |
-| `ui.remove(widget)` | Remove a specific root widget |
-| `ui.clear()` | Remove all widgets |
-| `ui.update(dt, px?, py?, cw?, ch?)` | Tick animations and hover state each frame |
-| `ui.render(ctx, cw, ch)` | Draw all widgets to a Canvas 2D context |
-| `ui.setImageLoader(loader)` | Override the default fetch-based image loader |
-| `ui.handleClick(x, y, cw, ch)` | Hit-test and dispatch click; returns true if a widget was hit |
-| `ui.handlePointerMove(x, y, cw, ch)` | Update hover state |
+| `ui.hitTest(scene, x, y)` | Topmost visible widget entity under the point, or undefined |
+| `ui.dispatchPointerDown(scene, x, y, pointerId?)` | Begin a press (buttons go to `state = 2`, sliders update) |
+| `ui.dispatchPointerDrag(scene, x, y, pointerId?)` | Update a press; past 6px it becomes a drag (no click) |
+| `ui.dispatchPointerUp(scene, x, y, pointerId?)` | Complete a press; returns true if a click fired (toggles a `Checkbox`) |
+| `ui.cancelPointer(pointerId?)` | Abort a press without a click |
+| `ui.updateHover(scene, x, y)` | Set `ButtonState.state` to hover/idle |
+| `ui.render(scene, ctx)` | Draw all visible widgets; `ctx` is an `IUIRenderer` (a `CanvasRenderingContext2D` satisfies it) |
+
+To react to a button click, use the boolean from `dispatchPointerUp` together with `ui.hitTest` (or the entity returned by `dispatchPointerDown`) and check which entity has `ButtonState`.
+
+```typescript
+const pressed = ui.dispatchPointerDown(scene, x, y)
+// ...later, on release:
+const clicked = ui.dispatchPointerUp(scene, x, y)
+if (clicked && pressed !== undefined && pressed.has(ButtonState)) startGame()
+```
 
 ---
 
-## Frame loop integration
+## WidgetTree API
 
-```typescript
-class MyScene extends Scene {
-  override async onLoad(): Promise<void> {
-    const btn = new ButtonWidget({ label: 'Play', anchor: 'center' })
-    btn.animate('fadeIn', { duration: 0.3 })
-    this.ui.add(btn)
-  }
-
-  override onUpdate(dt: number): void {
-    this.ui.update(dt)
-    // ui.render() is called automatically after PixiJS renders.
-    // Only call it manually if you manage a raw Canvas 2D context yourself.
-  }
-
-  override onDestroy(): void {
-    this.ui.clear()
-  }
-}
-```
+| Method | Description |
+|--------|-------------|
+| `await tree.init()` | Load Yoga WASM (check `tree.ready`) |
+| `tree.createWidget(scene, parent?)` | Spawn a widget entity under an optional parent |
+| `tree.destroyWidget(scene, entity)` | Destroy one widget (does not cascade to children; destroy them first) |
+| `tree.parentOf(scene, entity)` | The parent widget or undefined |
+| `tree.orderedWidgets(scene)` | Root-first draw order |
+| `tree.layout(scene, rootWidth, rootHeight)` | Compute `Layout` for every widget (throws before `init()`) |
+| `tree.destroy()` | Free Yoga nodes |
 
 ---
 
 ## Rules
 
-- Each `Scene` has its own `UISystem` at `this.ui`. There's no shared instance to reach for — every scene is isolated, and that's on purpose.
-- Don't call `this.ui.add()` inside `onUpdate()`. Build widgets once in `onLoad()`; just update their properties in `onUpdate()`.
-- Call `this.ui.clear()` in `onDestroy()`, or your widgets outlive the scene until something else happens to clear them.
-- `widget.visible = false` for a temporary hide; `this.ui.remove(w)` when you actually want it gone.
-- `widget.children` is a plain mutable array — push onto a `PanelWidget` to nest widgets.
-- Skip the `!` on widget fields — use `T | null = null` and check before you touch it.
+- Await `tree.init()` before the first `tree.layout()` call.
+- Build widgets once in `onLoad`; mutate component fields afterwards. Never create widgets in `onUpdate`.
+- Destroy children before their parent (`tree.destroyWidget` does not cascade), and call `tree.destroy()` when the scene unloads.
+- Keep interactive widgets at least 44px square for touch (guideline only; nothing enforces it).
+- Skip the `!` on `entity.get(...)`; it returns `T | undefined`, so check before use.

@@ -1,6 +1,6 @@
-# WindowSystem — window management
+# WindowSystem: window management
 
-**Use this when** you need to control the game window: fullscreen toggles, resizing, title changes, that kind of thing. `windowSystem` wraps Tauri's native window API with a transparent browser fallback, so your game code never has to know or care which one it's running under.
+**Use this when** you need to control the game window: fullscreen toggles, resizing, title changes, that kind of thing. `WindowSystem` wraps Tauri's native window API with a transparent browser fallback (each scene's lifecycle context provides one as `ctx.window`; you can also `new WindowSystem()`), so your game code never has to know or care which one it's running under.
 
 ---
 
@@ -18,9 +18,9 @@ These identifiers are replaced with literal values at build time. No import need
 
 ```typescript
 // Use in any game file without imports:
-windowSystem.setTitle(`${PROJECT_TITLE} — Wave ${this.wave}`)
+await ctx.window.setTitle(`${PROJECT_TITLE} - Wave ${wave}`)
 // GAME_WIDTH and GAME_HEIGHT hold the configured canvas dimensions:
-await windowSystem.setSize(GAME_WIDTH, GAME_HEIGHT)
+await ctx.window.setSize(GAME_WIDTH, GAME_HEIGHT)
 if (DEBUG) console.log('dev build')
 ```
 
@@ -31,19 +31,21 @@ if (DEBUG) console.log('dev build')
 Call `apply()` once in your root scene's `onLoad`. It reads any subset of `WindowConfig`.
 
 ```typescript
-import { windowSystem } from '@emptysock/engine'
+import { defineScene } from '@emptysock/engine'
 
-override async onLoad(): Promise<void> {
-  await windowSystem.apply({
-    mode:      'windowed',
-    width:     GAME_WIDTH,
-    height:    GAME_HEIGHT,
-    title:     PROJECT_TITLE,
-    resizable: true,
-    minWidth:  640,
-    minHeight: 360,
-  })
-}
+export const Boot = defineScene({
+  async onLoad(scene, ctx) {
+    await ctx.window.apply({
+      mode:      'windowed',
+      width:     GAME_WIDTH,
+      height:    GAME_HEIGHT,
+      title:     PROJECT_TITLE,
+      resizable: true,
+      minWidth:  640,
+      minHeight: 360,
+    })
+  },
+})
 ```
 
 ---
@@ -57,10 +59,11 @@ override async onLoad(): Promise<void> {
 | `'borderless'` | Undecorated maximised window | Canvas fills viewport |
 
 ```typescript
-// Toggle fullscreen (e.g. on F key — assuming this.input is an attached InputSystem):
-if (this.input.isKeyPressed('KeyF')) {
-  const next = windowSystem.currentMode === 'fullscreen' ? 'windowed' : 'fullscreen'
-  await windowSystem.setMode(next)
+// Toggle fullscreen on an action (e.g. bound to the F key); do this from a UI handler or coroutine,
+// since onUpdate cannot be async:
+if (ctx.input.wasPressed('toggleFullscreen')) {
+  const next = ctx.window.currentMode === 'fullscreen' ? 'windowed' : 'fullscreen'
+  void ctx.window.setMode(next)
 }
 ```
 
@@ -71,19 +74,23 @@ F11 toggles native fullscreen in the browser automatically — nothing for you t
 ## Runtime API
 
 ```typescript
-import { windowSystem, type WindowMode } from '@emptysock/engine'
+import { WindowSystem, type WindowMode } from '@emptysock/engine'
 
-await windowSystem.setMode(mode: WindowMode): Promise<void>
-await windowSystem.setSize(width: number, height: number): Promise<void>
-await windowSystem.setTitle(title: string): Promise<void>
-await windowSystem.setResizable(resizable: boolean): Promise<void>
-await windowSystem.setMinSize(width: number, height: number): Promise<void>
-await windowSystem.setPosition(x: number, y: number): Promise<void>
-await windowSystem.center(): Promise<void>
-await windowSystem.setAlwaysOnTop(value: boolean): Promise<void>
+// `win` is a WindowSystem (ctx.window inside a scene)
+await win.apply(config: Partial<WindowConfig>): Promise<void>
+await win.setMode(mode: WindowMode): Promise<void>
+await win.setSize(width: number, height: number): Promise<void>
+await win.setTitle(title: string): Promise<void>
+await win.setResizable(resizable: boolean): Promise<void>
+await win.setMinSize(width: number, height: number): Promise<void>
+await win.setPosition(x: number, y: number): Promise<void>
+await win.center(): Promise<void>
+await win.setAlwaysOnTop(value: boolean): Promise<void>
 
-windowSystem.currentMode   // WindowMode
-windowSystem.currentConfig // Readonly<WindowConfig>
+win.getSize()       // { width, height } last-known size
+win.currentMode     // WindowMode
+win.currentConfig   // Readonly<WindowConfig>
+win.destroy()
 ```
 
 ---
@@ -117,23 +124,8 @@ const resolutions: Record<string, [number, number]> = {
 
 async function applyQuality(preset: keyof typeof resolutions): Promise<void> {
   const [w, h] = resolutions[preset]
-  await windowSystem.setSize(w, h)
+  await ctx.window.setSize(w, h)
 }
 ```
 
 ---
-
-## Top-level async/await
-
-Game scripts can `await` at module level — the build pipeline wraps the bundle so this just works.
-
-```typescript
-// game.ts — top-level await is fine
-import { Engine, windowSystem } from '@emptysock/engine'
-import { GameScene } from './GameScene'
-
-await windowSystem.apply({ mode: 'windowed', width: GAME_WIDTH, height: GAME_HEIGHT, title: PROJECT_TITLE })
-
-const engine = await Engine.create({ scenes: { GameScene }, startScene: 'GameScene' })
-await engine.start()
-```

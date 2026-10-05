@@ -1,71 +1,50 @@
 # RenderPipeline
 
-**Use this when** you need something to actually show up on screen and don't want to hand-roll PixiJS wiring. `RenderPipeline` is the batteries-included renderer. It owns a `RenderSystem` (the raw renderer) and a `LayerSystem` (draw order), and every `renderFrame(scene)` call walks the scene for entities carrying both `Transform` and `Sprite`, keeps each one's sprite in sync (position, rotation, scale, tint, alpha, anchor, visibility, layer, depth), loads its texture, and draws the frame. It also draws real tile sprites for a mounted `Tilemap`.
+**Use this when** you need something to actually show up on screen and don't want to hand-roll PixiJS wiring. `RenderPipeline` is the batteries-included renderer. It owns the raw renderer and a `LayerSystem` (draw order), and every `renderFrame(scene)` call walks the scene for entities carrying both `Transform` and `Sprite`, keeps each one's sprite in sync (position, rotation, scale, tint, alpha, anchor, visibility, layer, depth), loads its texture, and draws the frame. It also draws real tile sprites for a mounted `Tilemap`.
 
 **Attaching `Transform` + `Sprite` to an entity is the entire contract for "this shows up on screen." There is no second, separate registration step.**
 
-`RenderPipeline` only handles drawing at a fixed pixel size — pair it with `ViewportSystem` (see `skills/24-viewport-system.md`) to make that output fit the actual container across window sizes, orientations, and device pixel ratios: `RenderPipeline` draws, `ViewportSystem` scales what it drew.
+`RenderPipeline` only handles drawing at a fixed pixel size; pair it with `ViewportSystem` (see `skills/24-viewport-system.md`) to make that output fit the actual container across window sizes, orientations, and device pixel ratios: `RenderPipeline` draws, `ViewportSystem` scales what it drew.
 
 ---
 
-## Setup (in onLoad)
+## Setup
 
 ```typescript
-import { RenderPipeline } from '@emptysock/engine'
+import { Game, RenderPipeline } from '@emptysock/engine'
 
-class GameScene extends Scene {
-  private _render = new RenderPipeline()
+const render = new RenderPipeline()
+await render.init({ width: 1280, height: 720 })   // options: width, height, backgroundColor, antialias, resolution, gpuTier, preference
+document.body.appendChild(render.canvas)
 
-  override async onLoad(): Promise<void> {
-    await this._render.init({ width: 1280, height: 720 })
-    document.body.appendChild(this._render.canvas)
-  }
-
-  override onUpdate(): void {
-    // Nothing to do here — call renderFrame once per frame after update logic.
-  }
-
-  override onDestroy(): void {
-    this._render.destroy()
-  }
-}
+game.attachRenderer(render)   // Game then calls render.renderFrame(main, overlays) each update
 ```
 
-`RenderPipeline` does not run itself — call `renderFrame(scene)` once per frame, after your game logic and `SceneManager` update, typically from the engine's render step or the tail of `onUpdate`:
-
-```typescript
-override onUpdate(dt: number): void {
-  // ...game logic...
-  this._render.renderFrame(this)   // syncs Transform+Sprite entities, then renders
-}
-```
-
-Use `syncEntities(scene)` instead of `renderFrame(scene)` in tests or a custom loop that renders separately.
+`RenderPipeline` implements `SceneRenderer`. Either attach it to the `Game` as above, or call `render.renderFrame(mainScene, overlayScenes?)` yourself once per frame after game logic. Use `syncEntities(scene)` instead in tests or a custom loop that renders separately. Free everything with `render.destroy()` on shutdown.
 
 ---
 
-## Making something appear — Transform + Sprite
+## Making something appear: Transform + Sprite
 
 ```typescript
 import { Transform, Sprite } from '@emptysock/engine'
 
-const player = scene.createEntity('Player')
-player.addComponent(new Transform({ x: 100, y: 200 }))
-player.addComponent(new Sprite({
+const player = scene.spawn('Player')
+player.add(Transform, { x: 100, y: 200 })
+player.add(Sprite, {
   texturePath: 'assets/hero.png',
-  layer: 'foreground',   // named LayerSystem layer — defaults to 'default'
-  depth: 10,              // draw order within the layer — defaults to 0
-}))
+  layer: 'foreground',   // named LayerSystem layer, defaults to 'default'
+  depth: 10,              // draw order within the layer, defaults to 0
+})
 
-// Read it back with the typed component-type token:
-const sprite = player.getComponent(Sprite.TYPE)   // Sprite | undefined
+const sprite = player.get(Sprite)   // proxy | undefined
 ```
 
-That is the whole setup. The next call to `renderFrame()` finds the entity, loads `hero.png`, places it on the `'foreground'` layer at depth `10`, and keeps its screen position in sync with `Transform` every frame after. Moving the entity is just moving its `Transform`:
+That is the whole setup. The next `renderFrame()` finds the entity, loads `hero.png`, places it on the `'foreground'` layer at depth `10`, and keeps its screen position in sync with `Transform`. Moving the entity is just moving its `Transform`:
 
 ```typescript
-const transform = player.requireComponent(Transform.TYPE)
-transform.x += 50 * dt
+const transform = player.get(Transform)
+if (transform !== undefined) transform.x += 50 * dt
 ```
 
 ### `Sprite` fields
@@ -79,8 +58,11 @@ transform.x += 50 * dt
 | `layer` | `string` | `'default'` | Any `LayerSystem` layer name — see `skills/layer-system.md` |
 | `depth` | `number` | `0` | Draw order within `layer` — lower draws first (behind) |
 | `visible` | `boolean` | `true` | Toggle without removing the component |
+| `frameCount` / `currentFrame` / `frameSpeed` / `loop` | `number` / `number` / `number` / `boolean` | `1` / `0` / `1` / `true` | Frame animation: with `frameCount > 1`, `texturePath` is a template containing `{n}` (for example `assets/hero/frame_{n}.png`), advanced by `SpriteAnimationSystem` |
+| `width` / `height` | `number` | `0` | Pixel size; needed for nine-slice/tiled modes (`sliceMode` 1 / 2 with `sliceLeft/Right/Top/Bottom`) |
+| `shader` | `string` | `''` | A `ShaderRegistry` shader id to render this sprite through |
 
-Destroying the entity (`entity.destroy()`) automatically removes and destroys its PixiJS sprite — there is nothing to clean up manually.
+Destroying the entity (`scene.destroy(entity)`) automatically removes and destroys its PixiJS sprite; there is nothing to clean up manually.
 
 ---
 
@@ -89,21 +71,22 @@ Destroying the entity (`entity.destroy()`) automatically removes and destroys it
 `RenderPipeline.mountTilemap()` draws a `Tilemap`'s tile grid as real textured sprites — `Tilemap` itself has no rendering of its own.
 
 ```typescript
-import { TilemapSystem, AutoTileSystem } from '@emptysock/engine'
+import { TilemapSystem, AutoTileSystem } from '@emptysock/tilemap'
 
-const tilemap = TilemapSystem.loadInto(this, 'level1')
+TilemapSystem.register(level1Data)                 // TilemapData
+const tilemap = TilemapSystem.loadInto(scene, 'level1')
 
 // Plain tiles:
-this._render.mountTilemap(tilemap, 'background')
+render.mountTilemap(tilemap, 'background')
 
 // Or resolve neighbour-aware tile variants through an AutoTileSystem
-// (see skills/17-auto-tile.md):
+// (see skills/17-auto-tile.md; it satisfies the engine's AutoTileResolver interface):
 const autoTile = new AutoTileSystem()
 autoTile.addRuleSet(grassRuleSet)
-this._render.mountTilemap(tilemap, 'background', autoTile)
+render.mountTilemap(tilemap, 'background', autoTile)
 ```
 
-Call `unmountTilemap(tilemap)` before mounting it again to rebuild after an edit (e.g. the level editor changed tiles at runtime), and in `onDestroy` if you mounted it manually — `RenderPipeline.destroy()` unmounts everything it still holds.
+Call `unmountTilemap(tilemap)` before mounting it again to rebuild after an edit (e.g. the level editor changed tiles at runtime), and on scene unload if you mounted it manually; `RenderPipeline.destroy()` unmounts everything it still holds.
 
 ---
 
@@ -116,6 +99,7 @@ const render = new RenderPipeline()
 render.layers.defineLayer('midground', 50)
 
 // Or share an existing LayerSystem across RenderPipeline and other code:
+import { LayerSystem } from '@emptysock/engine'
 const layers = new LayerSystem()
 const render2 = new RenderPipeline({ layers })
 ```
@@ -142,7 +126,6 @@ const render = new RenderPipeline({
 |---|---|
 | Manually creating a PixiJS `Sprite` and adding it to a container | Attach `Transform` + `Sprite` components and let `RenderPipeline` draw it |
 | Calling `layers.addEntity()` for a rendered entity | `RenderPipeline` already does this for you, every frame, from `Sprite.layer`/`Sprite.depth` |
-| Forgetting `renderFrame()`/`syncEntities()` each frame | Nothing shows up — `RenderPipeline` only syncs and draws when you actually call it |
-| Skipping `render.destroy()` in `onDestroy` | Always call it — it frees PixiJS sprites, mounted tilemaps, and the renderer itself |
-| `entity.getComponent(Sprite)` | `entity.getComponent(Sprite.TYPE)` — infers `Sprite \| undefined` and catches typos for you |
+| Forgetting `renderFrame()`/`syncEntities()` (or `game.attachRenderer`) | Nothing shows up: `RenderPipeline` only syncs and draws when it is called |
+| Skipping `render.destroy()` on shutdown | Always call it — it frees PixiJS sprites, mounted tilemaps, and the renderer itself |
 | Expecting `Tilemap` to draw itself | It's pure data. `mountTilemap()` is what actually puts tiles on screen |

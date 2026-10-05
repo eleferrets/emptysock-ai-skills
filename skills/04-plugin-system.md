@@ -1,11 +1,13 @@
 # Plugin System
 
-**Use this when** you're wiring up something process-global that only needs to exist once for the whole app's life — an analytics SDK, an ads library, a platform achievements hook. `pluginSystem` installs optional engine extensions at runtime; plugins can register services, wrap systems, or add global utilities.
+**Use this when** you're wiring up something process-global that only needs to exist once for the whole app's life — an analytics SDK, an ads library, a platform achievements hook. `PluginSystem` installs optional engine extensions at runtime; plugins provide named services other code can inject. Each `Game` has one, reachable as `ctx.plugins` inside a scene.
 
 ## Usage
 
 ```typescript
-import { pluginSystem, Plugin, PluginContext } from '@emptysock/engine';
+import { PluginSystem, type Plugin, type PluginContext } from '@emptysock/engine';
+
+const pluginSystem = new PluginSystem();   // inside a scene, use ctx.plugins instead
 
 const analyticsPlugin: Plugin = {
   name: 'analytics',
@@ -33,5 +35,6 @@ console.log(pluginSystem.registeredPlugins); // ['analytics']
 
 ## Notes
 - `install()` can be async (returns `Promise<void>`) if setup needs it.
-- `pluginSystem` is a singleton — import it and use it directly, nothing to construct.
-- Registering two plugins under the same name throws. Names are the whole identity here, so pick one that won't collide.
+- `PluginSystem` is not a module singleton: construct one, or use the instance on the lifecycle context (`ctx.plugins`).
+- Registering a second plugin under an existing name logs a warning and is skipped. Names are the whole identity, so pick one that won't collide.
+- `PluginContext` offers `provide(key, value)` and `inject(key)`; `Plugin` has `name`, optional `version`, `install(ctx)`, optional `uninstall()`.

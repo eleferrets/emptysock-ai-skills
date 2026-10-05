@@ -1,32 +1,33 @@
 # TweenManager
 
-**Use this when** you need something to smoothly animate over time, or a timer that cleans itself up with the scene. `TweenManager` animates numeric object properties with easing curves and doubles as a scene-local timer. Make one per scene, call `update(dt)` every frame, and forget about teardown — it's garbage-collected along with the scene.
+**Use this when** you need something to smoothly animate over time, or a timer tied to a scene. `TweenManager` animates numeric object properties with easing curves and doubles as a timer. Make one per scene, call `update(dt)` every frame, and call `killAll()` / `destroy()` on unload.
 
 ## Import
 
 ```typescript
-import { TweenManager, type TweenOptions, type EasingName } from '@emptysock/engine'
+import { TweenManager, Transform, type TweenOptions, type EasingName } from '@emptysock/engine'
 ```
 
-## Setup (in onLoad)
+## Setup
 
 ```typescript
-private _tweens: TweenManager | null = null
+import { defineScene, TweenManager } from '@emptysock/engine'
 
-override onLoad(): void {
-  this._tweens = new TweenManager()
-}
+let tweens: TweenManager | null = null
 
-override onUpdate(dt: number): void {
-  this._tweens?.update(dt)   // must be called every frame
-}
+export const Level = defineScene({
+  onLoad() { tweens = new TweenManager() },
+  onUpdate(dt) { tweens?.update(dt) },   // must be called every frame
+  onUnload() { tweens?.destroy(); tweens = null },
+})
 ```
 
 ## Animate to a target value
 
 ```typescript
-// Tween any plain object's numeric properties to new values:
-this._tweens.to(entity.position, { x: 400, y: 200 }, {
+// Tween any object's numeric properties (an entity's Transform proxy works):
+const t = entity.get(Transform)
+if (t !== undefined) tweens.to(t, { x: 400, y: 200 }, {
   duration: 1.0,
   ease:     'sineInOut',
 })
@@ -35,24 +36,24 @@ this._tweens.to(entity.position, { x: 400, y: 200 }, {
 ## Tween with delay and completion callback
 
 ```typescript
-this._tweens.to(entity.position, { x: 600 }, {
+tweens.to(t, { x: 600 }, {
   duration:   0.8,
   ease:       'quadOut',
   delay:      0.3,
-  onComplete: () => { entity.addTag('arrived') },
+  onComplete: () => { arrived = true },
 })
 ```
 
 ## Scene-local timers
 
-`TweenManager` doubles as a scene-local timer — no handles to cancel, no memory leaks when the scene unloads:
+`TweenManager` doubles as a timer. Timers only run while you call `update(dt)`, and `killAll()` / `destroy()` clears them when the scene unloads:
 
 ```typescript
 // Run once after 2 seconds:
-this._tweens.after(2.0, () => { this.spawnWave() })
+tweens.after(2.0, () => { spawnWave() })
 
 // Run on a repeating interval:
-this._tweens.every(5.0, () => { this.spawnPowerUp() })
+tweens.every(5.0, () => { spawnPowerUp() })
 ```
 
 ## Options
@@ -80,11 +81,11 @@ this._tweens.every(5.0, () => { this.spawnPowerUp() })
 All three methods return a `TweenHandle` with a `cancel()` method:
 
 ```typescript
-const handle = this._tweens.to(entity.position, { x: 600 }, { duration: 1.0 })
+const handle = tweens.to(t, { x: 600 }, { duration: 1.0 })
 // Later, if needed:
 handle.cancel()
 
-const timer = this._tweens.every(2.0, () => { this.spawnEnemy() })
+const timer = tweens.every(2.0, () => { spawnEnemy() })
 // Stop spawning:
 timer.cancel()
 ```
@@ -97,10 +98,12 @@ timer.cancel()
 | `after` | `(seconds: number, fn: () => void): TweenHandle` | Run fn once after seconds. Returns a handle to cancel. |
 | `every` | `(seconds: number, fn: () => void): TweenHandle` | Run fn on a repeating interval. Returns a handle to cancel. |
 | `update` | `(dt: number): void` | Advance all tweens and timers. Call once per frame in onUpdate. |
+| `killAll` | `(): void` | Cancel every pending tween and timer. |
+| `destroy` | `(): void` | Tear down the manager. |
 
 ## Notes
 
 - `TweenManager` only touches **numeric** properties. Anything else is silently skipped.
 - Don't call `to()` every frame inside `onUpdate()` — call it once, when you actually want the tween to start.
 - For anything with multiple steps, coroutines (`yield waitSeconds(n)`) read a lot more clearly than a pile of chained `onComplete` callbacks.
-- `after()` and `every()` timers belong to the `TweenManager` instance that created them — they stop automatically once the scene is done.
+- `after()` and `every()` timers belong to the `TweenManager` instance that created them; they only advance while you call `update(dt)`, so stop updating (or call `killAll()`) when the scene is done.

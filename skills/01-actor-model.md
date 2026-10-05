@@ -1,11 +1,11 @@
-# Actor Model & Multiplayer
+# Actor Model
 
-**Use this when** you're writing game logic that talks to other game logic — enemy AI, NPC coordination, or anything multiplayer — and you want it to survive contact with real bugs. EmptySock uses a mailbox-based Actor Model: actors only ever talk to each other by sending messages, never by reaching into each other's state. No shared mutable state means no "which order did these two things happen in" headaches.
+**Use this when** you're writing game logic that talks to other game logic — enemy AI, NPC coordination, and you want it to survive contact with real bugs. EmptySock uses a mailbox-based Actor Model: actors only ever talk to each other by sending messages, never by reaching into each other's state. No shared mutable state means no "which order did these two things happen in" headaches.
 
 ## Core classes
 
 ```typescript
-import { Actor, ActorSystem, Message, ActorId } from '@emptysock/engine';
+import { Actor, ActorSystem, type Message, type ActorId } from '@emptysock/engine';
 
 class PlayerActor extends Actor {
   receive(msg: Message): void {
@@ -26,42 +26,9 @@ system.broadcast({ type: 'TICK', dt: 0.016 });
 system.update(dt);
 ```
 
-## Multiplayer with NetworkActor + Transport
+## Multiplayer
 
-NetworkActor is opt-in — nothing forces multiplayer weight onto a single-player game. Wire up a `Transport` (WebSocket, WebRTC, whatever you like) and remote messages land in the same `receive()` method as local ones:
-
-```typescript
-import { NetworkActor, Transport, TransportMessage } from '@emptysock/engine';
-
-class RemotePlayerActor extends NetworkActor {
-  receive(msg: Message): void { /* handles both local and remote messages */ }
-  sendToAll(msg: Message): void {
-    this.sendRemote('broadcast', msg);
-  }
-}
-
-// Plug in any transport without touching actor logic:
-class MyWebSocketTransport implements Transport {
-  private ws: WebSocket;
-  private _handler: ((p: TransportMessage) => void) | null = null;
-  constructor(url: string) { this.ws = new WebSocket(url); }
-  async connect(): Promise<void> { /* wait for open */ }
-  disconnect(): void { this.ws.close(); }
-  send(actorId: string, msg: Record<string, unknown>): void {
-    this.ws.send(JSON.stringify({ actorId, msg }));
-  }
-  onReceive(handler: (p: TransportMessage) => void): void {
-    this._handler = handler;
-    this.ws.onmessage = (e) => handler(JSON.parse(e.data) as TransportMessage);
-  }
-}
-
-const transport = new MyWebSocketTransport('wss://game.example.com');
-await transport.connect();
-const remote = new RemotePlayerActor('remote-1');
-remote.setTransport(transport);
-system.register(remote);
-```
+The core engine has no transport or `NetworkActor` class. Multiplayer lives in the optional `@emptysock/network` package (Colyseus-based); see `skills/35-network-package.md`.
 
 ## Listing all actors
 
@@ -75,9 +42,9 @@ for (const actor of allActors) {
 ```
 
 ## Tips
-- One ActorSystem per scene; call `system.update(dt)` in your game loop.
+- `Game` creates one ActorSystem per scene (`ctx.actors`) and updates it for you; only construct your own for standalone use, then call `system.update(dt)` yourself.
 - `broadcast()` is O(n) — prefer targeted `send()` for high-frequency messages.
-- Actors are destroyed when `system.unregister(id)` is called — clean up handles in `onStop()`.
+- `system.unregister(id)` removes an actor; clean up in the actor's `onStop()` / `destroy()` overrides. Actors also have `start()`, `stop()`, `isRunning`, `inboxSize` and `send(msg)`.
 - Each actor's inbox tops out at **1,000 messages**. Past that, new messages get dropped with a console warning. Seeing that warning means the actor can't drain its mailbox fast enough — split the work up or send less often.
 - Messages sent inside `receive()` are processed in the **same flush pass**, not next frame. If actor A messages B and B messages back to A, both inboxes drain in the same frame — watch out for that kind of mutual back-and-forth, it can spiral.
 - `getAll()` hands back a snapshot array. Mutating it does nothing to the real ActorSystem — it's just a look, not a lever.

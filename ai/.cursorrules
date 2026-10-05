@@ -1,5 +1,7 @@
 # EmptySock Engine — Cursor / Windsurf Rules
 
+Deprecated: EmptySock development has stopped. These rules document the final state of the engine.
+
 You are working on a game built with EmptySock (@emptysock/engine).
 TypeScript preferred, JavaScript fully supported. bitECS-backed entity/component core, PixiJS rendering, Rapier2D/3D physics, Howler.js audio. Tauri v2 desktop shell.
 
@@ -8,7 +10,7 @@ TypeScript preferred, JavaScript fully supported. bitECS-backed entity/component
 NEVER import pixi.js, @dimforge/rapier2d/3d, or howler directly.
 NEVER use `any` type. Use `unknown` + Zod or type guards.
 NEVER use `!` non-null assertions. Use `?.` and `?? fallback`.
-NEVER use setTimeout or setInterval in game logic. Use the engine's own Timer/TweenManager.
+NEVER use setTimeout or setInterval in game logic. Use the engine's own TweenManager (after/every) or coroutines.
 NEVER write `async onUpdate()` — it's a type error in TS (onUpdate is `(dt: number) => void`) and a loud runtime warning in JS. Use entity.startCoroutine() for multi-frame work.
 NEVER access the DOM directly in game/scene code.
 ALWAYS call scene.destroy(entity) when an entity is no longer needed — this is the same call whether or not the entity was pooled.
@@ -38,7 +40,7 @@ property (like PhysicsBody's collision handlers) lives in a side-table, assigned
 Pooling: scene.spawn(prefab, props, { pool: true }); scene.destroy(entity) recycles it.
 Gotcha: a pooled-and-destroyed entity's isAlive stays true — check .has()/.get() instead, not isAlive.
 
-Physics: player.get(PhysicsBody).onCollisionEnter = (other, contact) => {...} — assigning IS registering.
+Physics: getPhysicsBody(player).onCollisionEnter = (other, contact) => {...} — assigning IS registering.
 Bodies collide with everything by default; collision groups are opt-in.
 
 Saving: new SaveSystem(scene, [ComponentDef, ...]); await save.save('slot'); await save.load('slot').

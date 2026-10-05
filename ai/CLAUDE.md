@@ -2,7 +2,9 @@
 
 You're building a game with **EmptySock** (`@emptysock/engine`), a TypeScript-first 2D game engine (with optional 3D) that targets web, desktop, mobile, and Raspberry Pi.
 
-Read this file fully before writing any code. It covers the engine's one current API: a bitECS-backed entity/component core alongside systems like audio, input devices, rendering, particles, and tweens, some of which are singleton-style rather than entity/component-shaped because that's the right fit for something process-global (see `PluginSystem`, for example). Nothing here is legacy-flavored; there's no prior shipped version any of it superseded — it's here because it's the real, current API.
+Read this file fully before writing any code. It covers the engine's one current API: a bitECS-backed entity/component core alongside systems like audio, input devices, rendering, particles, and tweens, some of which are plain system classes rather than entity/component-shaped because that's the right fit for something process-global (see `PluginSystem`, for example). Nothing here is legacy-flavored; there's no prior shipped version any of it superseded — it's here because it's the real, current API.
+
+> **Deprecated.** EmptySock development has stopped. This file documents the final state of the engine.
 
 ---
 
@@ -30,7 +32,7 @@ Read this file fully before writing any code. It covers the engine's one current
 ### Engine usage
 - Never import PixiJS, Rapier, or Howler directly. Everything you need is exported from `@emptysock/engine`.
 - Never touch the DOM directly in game logic.
-- Never use `setTimeout`/`setInterval` in game logic — use `Timer`/`TweenManager` (whatever's scene-scoped) so it actually respects pause/scene-unload.
+- Never use `setTimeout`/`setInterval` in game logic — use `TweenManager.after()` / `.every()` (or a coroutine with `waitSeconds`) so it actually respects pause/scene-unload.
 - **`onUpdate` cannot be `async`.** This isn't a style rule, it's the type checker: `onUpdate` is typed `(dt: number) => void`, and `defineScene({ async onUpdate() {...} })` is a compile error, on purpose. The game loop calls it synchronously and never awaits it — anything scheduled after an `await` inside would run at a random, frame-budget-detached time, and the engine couldn't catch an error thrown after that point either. For work that spans multiple frames, use `entity.startCoroutine(...)`. Writing plain JavaScript instead of TypeScript? You lose the compile-time catch, but the engine still warns loudly at runtime if `onUpdate` returns something Promise-shaped — it's degraded, not silent.
 - Always `scene.destroy(entity)` when an entity is done. If it was spawned with `{ pool: true }`, this returns it to its prefab's pool instead of actually deallocating it — same call either way, you never need to know which happened.
 
@@ -150,7 +152,7 @@ scene.spawn(Enemy, { x: 100 }, { pool: true })        // pooled — scene.destro
 
 Pooling folds straight into spawn/destroy — there's no separate `ObjectPool` class to learn. `scene.destroy(pooledEntity)` strips its components and parks it for reuse by the same prefab; game code never branches on whether an entity was pooled. One real wrinkle worth knowing: a pooled-and-destroyed entity's `isAlive` reads `true`, not `false` — the id is deliberately held onto for that prefab's own pool rather than released back for reuse elsewhere. Don't check `isAlive` to ask "was this destroyed" for a pooled entity; check `.has()`/`.get()` on the components you actually care about instead.
 
-See `skills/32-prefabs-pooling.md` for prop-override matching rules and the toolchain's `.d.ts` codegen for JSON-authored prefabs.
+See `skills/34-prefabs-pooling.md` for prop-override matching rules and the toolchain's `.d.ts` codegen for JSON-authored prefabs.
 
 ---
 
@@ -165,9 +167,11 @@ player.add(PhysicsBody, { type: 'dynamic', shape: 'capsule' })
 Collision/sensor callbacks are a property assignment, not a separate registration call — assigning it *is* registering it:
 
 ```typescript
-const body = player.get(PhysicsBody)
-body.onCollisionEnter = (other, contact) => { if (contact.impactForce > 50) console.log('ouch') }
-body.onSensorEnter = (other) => { /* trigger volume entered */ }
+const body = getPhysicsBody(player)   // handle: PhysicsBody fields plus the callback properties
+if (body !== undefined) {
+  body.onCollisionEnter = (other, contact) => { if (contact.impactForce > 50) console.log('ouch') }
+  body.onSensorEnter = (other) => { /* trigger volume entered */ }
+}
 ```
 
 Two bodies collide unless you tell them not to — collision groups are opt-in tuning, not a prerequisite for anything colliding at all.
@@ -184,7 +188,7 @@ Attaching `Transform` + a sprite component is the entire contract for "this show
 
 ## Input
 
-`InputManager`'s snapshot is frozen for the whole frame — `isDown()`, `keyboard`, `gamepad()`, and `touches` all read that one frozen copy, never live device state mid-frame. This means input can't change out from under your `onUpdate` logic partway through, no matter what else is going on that frame. `Game` never calls `input.attach()` itself; your bootstrap code does that once, which is also what keeps a headless `Game` (tests, server-side logic) from ever touching `window`.
+`InputManager`'s snapshot is frozen for the whole frame — `isDown()`, `wasPressed()`, `keyboard`, `gamepad()`, `pointers`, `gestures`, and `wheelEvents` all read that one frozen copy, never live device state mid-frame. This means input can't change out from under your `onUpdate` logic partway through, no matter what else is going on that frame. `Game` never calls `input.attach()` itself; your bootstrap code does that once, which is also what keeps a headless `Game` (tests, server-side logic) from ever touching `window`.
 
 ---
 
@@ -233,7 +237,7 @@ Four optional packages sit alongside the core engine. None of them are imported 
 - **`@emptysock/network`** — Colyseus-backed multiplayer. Mark fields with `networked(componentDef, ['x', 'y'])`, sync with `NetworkSystem.sync()` at a low fixed cadence (not every frame). See `skills/35-network-package.md`.
 - **`@emptysock/vn`** — `VNSystem`, the Story Graph runtime for branching dialogue. See `skills/08-story-graph.md`.
 - **`@emptysock/battle`** — turn-based `BattleSystem`. See `skills/16-battle-system.md`.
-- **`@emptysock/tilemap`** — `TilemapSystem` and `NavMeshSystem`. See `skills/02-navmesh.md` and `skills/17-auto-tile.md`.
+- **`@emptysock/tilemap`** — `TilemapSystem`, `NavMeshSystem` and `AutoTileSystem`. See `skills/02-navmesh.md` and `skills/17-auto-tile.md`.
 
 Full breakdown of each, plus the trigger for when to reach for it, in the matching skill file above.
 
@@ -241,7 +245,7 @@ Full breakdown of each, plus the trigger for when to reach for it, in the matchi
 
 ## Visual scripting compiles to the same API you'd hand-write
 
-A node graph made in the Visual Script Editor compiles down to literal calls against the same public API a code-first dev would write — `scene.spawn(...)`, `variables.setVar(...)`, and so on — not a call into some separate no-code-only runtime. Popping open the generated code from a graph reads like ordinary engine code, because it is. See `skills/29-visual-script-component.md`.
+A node graph made in the Visual Script Editor's Logic Script tab compiles (via `compileVisualScriptGraph`, run by `VisualScriptSystem`) to literal calls against `VariableStore` and `ActorSystem`, such as `variables.setVar(...)` and `actorSystem.send(...)`, not a call into some separate no-code-only runtime. The node vocabulary is limited to variables, switches, branching and actor messages. See `skills/29-visual-script-component.md` and `skills/36-visual-script-compiler.md`.
 
 ---
 

@@ -1,6 +1,6 @@
 # LayerSystem
 
-**Use this when** you need custom render layers or manual layer visibility control, rather than the everyday case of "put this sprite in front of that one" (which `RenderPipeline` already handles for you). `LayerSystem` controls draw order: entities get assigned to a named layer at an explicit depth, and `RenderSystem` draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers exist out of the box — add more with `defineLayer`.
+**Use this when** you need custom render layers or manual layer visibility control, rather than the everyday case of "put this sprite in front of that one" (which `RenderPipeline` already handles for you). `LayerSystem` controls draw order: entities get assigned to a named layer at an explicit depth, and the renderer draws layers in ascending index order, then entities within a layer in ascending depth. Four built-in layers exist out of the box — add more with `defineLayer`.
 
 > Most games never call `addEntity` directly. `RenderPipeline` (see `skills/23-rendering.md`) reads `layer`/`depth` straight off each entity's `Sprite` component and calls `addEntity`/`setDepth` for you every frame. Reach for `LayerSystem` methods yourself only for custom layers (`defineLayer`) or manual visibility control (`setVisible`) — `RenderPipeline` shares the same `LayerSystem` instance through its `layers` getter, or you can pass your own in via `RenderPipelineOptions.layers`.
 
@@ -21,70 +21,65 @@ LAYER.UI          //  1000 — drawn on top
 
 The constructor pre-registers layers named `'background'`, `'default'`, `'foreground'`, and `'ui'` at these indices.
 
-## Setup (in onLoad)
+## Setup
 
 ```typescript
-private _layers: LayerSystem | null = null
+const layers = new LayerSystem()   // or use the one a RenderPipeline owns: render.layers
 
-override onLoad(): void {
-  this._layers = new LayerSystem()
+// Optional: add project-specific layers
+layers.defineLayer('midground', 50)
+layers.defineLayer('fx', 80)
 
-  // Optional: add project-specific layers
-  this._layers.defineLayer('midground', 50)
-  this._layers.defineLayer('fx', 80)
-}
-
-override onDestroy(): void {
-  this._layers?.destroy()
-}
+// on shutdown:
+layers.destroy()
 ```
 
 ## Assigning entities to layers
 
 ```typescript
 // Assign entity to a built-in layer at default depth (0):
-this._layers.addEntity(player.id, 'foreground')
+layers.addEntity(player.eid, 'foreground')
 
 // Assign with explicit depth — lower depth draws first (behind):
-this._layers.addEntity(treeBack.id,  'midground', -10)
-this._layers.addEntity(treeFront.id, 'midground',  10)
+layers.addEntity(treeBack.eid,  'midground', -10)
+layers.addEntity(treeFront.eid, 'midground',  10)
 
 // Move an entity's depth without changing layer:
-this._layers.setDepth(treeBack.id, -20)
+layers.setDepth(treeBack.eid, -20)
 
 // Unregister entity (entity still exists — just excluded from sort):
-this._layers.removeEntity(oldEntity.id)
+layers.removeEntity(oldEntity.eid)
 ```
 
 ## Layer visibility
 
 ```typescript
-this._layers.setVisible('fx', false)    // cull whole layer from render
-this._layers.setVisible('fx', true)
+layers.setVisible('fx', false)    // cull whole layer from render
+layers.setVisible('fx', true)
 
-const visible = this._layers.isVisible('fx')  // boolean
+const visible = layers.isVisible('fx')  // boolean
 ```
 
 ## Sorting and introspection
 
-`RenderSystem` uses `getSortKey` to sort draw calls each frame:
+The renderer uses `getSortKey` to sort draw calls each frame:
 
 ```typescript
-const [layerIndex, depth] = this._layers.getSortKey(entity.id)
+const [layerIndex, depth] = layers.getSortKey(entity.eid)
 
 // Sort an entity array for rendering:
 entities.sort((a, b) => {
-  const [al, ad] = this._layers.getSortKey(a.id)
-  const [bl, bd] = this._layers.getSortKey(b.id)
+  const [al, ad] = layers.getSortKey(a.eid)
+  const [bl, bd] = layers.getSortKey(b.eid)
   return al !== bl ? al - bl : ad - bd
 })
 
 // All entities on one layer, sorted by depth:
-const onMidground = this._layers.getEntitiesOnLayer('midground')
+const onMidground = layers.getEntitiesOnLayer('midground')
 // → Array<{ entityId: number; depth: number }>
 
 // All layer configs sorted by index (render order):
-const sorted = this._layers.getLayersSorted()
+const sorted = layers.getLayersSorted()
 // → LayerConfig[] — each has { name, index, visible }
 ```
 
@@ -104,10 +99,13 @@ const sorted = this._layers.getLayersSorted()
 | `isVisible` | `(name: string): boolean` | Returns true if the layer is visible. |
 | `getEntitiesOnLayer` | `(layerName: string): Array<{entityId, depth}>` | Entities on a layer sorted by depth ascending. |
 | `getLayersSorted` | `(): LayerConfig[]` | All layer configs sorted by index ascending. |
-| `destroy` | `(): void` | Clear all placements and layers. Call in onDestroy. |
+| `hasLayer` | `(name: string): boolean` | Whether a layer name is defined. |
+| `setOffset` / `getOffset` | `(name, x, y): void` / `(name): { x, y }` | Per-layer pixel offset (parallax and scrolling layers). |
+| `destroy` | `(): void` | Clear all placements and layers. |
 
 ## Notes
 
+- `entityId` is the numeric `entity.eid`.
 - Leave gaps in your index numbers (−1000, 0, 50, 80, 100, 1000) so you can slot new layers in later without renumbering everything.
 - `depth` inside a layer is your fine-grained draw order (which tree is in front of which). Reach for that before you reach for a whole new layer.
 - An entity never passed to `addEntity` gets `LAYER.DEFAULT, depth 0` from `getSortKey` — nothing breaks, it just draws at the default spot.

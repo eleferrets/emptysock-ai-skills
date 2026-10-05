@@ -1,6 +1,6 @@
 # SaveSystem — generic component save/load
 
-**Use this when** you're implementing save slots, save file migration, or asking "how do I persist an entity's state." Not for `LocalisationSystem` (see `skills/07-save-localisation.md`, which also covers the standalone `SaveSystem` still used for systems outside the entity/component core).
+**Use this when** you're implementing save slots, save file migration, or asking "how do I persist an entity's state." This is the only `SaveSystem`. For localisation see `skills/07-save-localisation.md`.
 
 ---
 
@@ -25,7 +25,7 @@ The explicit component list is deliberate, not an oversight — it mirrors `scen
 With no adapter given, saves live in memory only — nothing persists across a restart. That's exactly what you want in tests and the headless harness. A real game gets a real adapter injected by its host: IndexedDB in the browser preview, Tauri's fs plugin on desktop. You never write that adapter yourself inside game logic; it's handed in:
 
 ```typescript
-new SaveSystem(scene, components, { adapter: myAdapter, keyPrefix: 'myGame_' })
+new SaveSystem(scene, components, { adapter: myAdapter, keyPrefix: 'myGame_' })   // default prefix: 'emptysock_save_'
 ```
 
 ## Versioning and migrations
@@ -43,13 +43,24 @@ save.registerMigration('Inventory', (oldData, oldVersion) => {
 
 On load, a saved component instance stamped with an older version than the currently-registered def runs its migration if one's registered. If none is registered, that one component's data is dropped for that one entity, with a console warning — the rest of the save still loads. A shape mismatch on `Inventory` never takes down a save that also has `Transform` and `Health` in it. Write it to return exactly the *current* shape — whatever it returns is trusted as-is and handed straight to the entity.
 
+A `StorageAdapter` is `{ get(key), set(key, value), delete(key), listKeys(prefix) }`, all async over strings. `MemoryStorageAdapter` is the default.
+
 ## Other useful calls
 
 ```typescript
 await save.hasSave('slot-1')      // boolean
 await save.listSlots()            // string[]
 await save.deleteSave('slot-1')
+await save.load('slot-1')         // Promise<boolean>: false if the slot is missing or not valid JSON
+await save.load('slot-1', { mode: 'append' })   // default mode 'replace' clears saved entities first
+await save.peek('slot-1')         // SaveHeader | null: { formatVersion, meta?, room? } without loading
 ```
+
+`load()` throws `SaveFormatError` when the slot was written by a newer build (`SAVE_FORMAT_VERSION` is currently 2).
+
+## Options
+
+`SaveSystemOptions`: `adapter`, `keyPrefix`, `relations` (extra `RelationDef`s to persist; `ChildOf` is always included), `globals` (a `GlobalStore` to save and restore), `variables` (a `VariableStore` to save and restore), `rooms` / `carried` (persistent-room and carried-entity state), `extras`, `transferComponents`, `room` (callback naming the current room), `engineVersion`, `gameVersion` (recorded in `SaveMeta`). Entity references between saved entities are remapped on load.
 
 ## A note on scope
 

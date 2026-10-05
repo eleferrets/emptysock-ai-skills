@@ -1,6 +1,6 @@
 # Accessibility & Debugging
 
-**Use this when** you need remappable controls, a debug console you can actually ship, or accessibility settings like text scale and colourblind simulation. Covers three related pieces: `InputManager` remappable actions (control remapping), `DebugOverlaySystem` (a shippable FPS/console overlay), and the accessibility primitives (`accessibilitySettings.textScale`, `PostProcessSystem`'s `'colourblind'` layer filter).
+**Use this when** you need remappable controls, a debug console you can actually ship, or accessibility settings like text scale and colourblind simulation. Covers three related pieces: `InputManager` remappable actions (control remapping), `DebugOverlaySystem` (a shippable FPS/console overlay), and the accessibility primitives (a text-scale pattern and `PostProcessSystem`'s `'colourblind'` layer filter).
 
 ---
 
@@ -16,11 +16,10 @@ const defaults: ActionMap = {
   left:  [{ kind: 'key', code: 'ArrowLeft' }, { kind: 'gamepadAxis', axis: 0, threshold: -0.5 }],
   right: [{ kind: 'key', code: 'ArrowRight' }, { kind: 'gamepadAxis', axis: 0, threshold: 0.5 }],
 }
-const game = new Game()
 game.input.setActions(defaults)   // game.input starts with an empty action map
 
 // in onUpdate: state is a frozen per-frame snapshot, taken by Game.update()
-const input = ctx.input
+const input = game.input   // or ctx.input inside a scene
 if (input.wasPressed('jump') && grounded) jump()
 const h = input.isDown('right') ? 1 : input.isDown('left') ? -1 : 0
 ```
@@ -58,40 +57,41 @@ Raw escape hatches read the same frozen snapshot: `input.keyboard.isDown('KeyW')
 
 ## DebugOverlaySystem — shippable in-game debug console
 
-Off by default. Gate `enable()` behind whatever dev flag your game already defines (a query param, a build-time constant) so it never accidentally ships live:
+Off by default. It is built from widget entities, so it needs the scene and `WidgetTree` you already use for UI (see `skills/11-ui-system.md`). Gate `enable()` behind whatever dev flag your game already defines (a query param, a build-time constant) so it never accidentally ships live:
 
 ```typescript
 import { DebugOverlaySystem } from '@emptysock/engine'
 
-const debugOverlay = new DebugOverlaySystem()
-this.uiSystem.add(debugOverlay.root)   // draws through the normal Widget tree — add it above other UI
+const debugOverlay = new DebugOverlaySystem(scene, tree)   // scene: Scene, tree: WidgetTree
+// debugOverlay.root is the overlay's root widget entity
 
-if (isDevBuild) debugOverlay.enable()
+if (isDevBuild) debugOverlay.enable()      // also disable() / toggle() / enabled
 
 debugOverlay.registerCommand('give', (args) => {
   giveItem(args[0])
   return `gave ${args[0]}`
 })
 
-override onUpdate(dt: number): void {
-  debugOverlay.update(dt, this.entityCount)
-}
+// each frame, from onUpdate:
+debugOverlay.update(dt, entityCount)
 ```
 
-`log()`/`warn()`/`logError()` append to the on-screen console (capped at 200 lines, 8 shown at a time). `runCommand('give sword')` parses and dispatches to a registered handler; `help` and `clear` are built in.
+`log()`/`warn()`/`logError()` append to the on-screen console (capped at 200 lines, 8 shown at a time; read back with `history`). `runCommand('give sword')` parses and dispatches to a registered handler and returns its output; `help` and `clear` are built in. Also `unregisterCommand(name)` and `commandNames`.
 
 ---
 
-## accessibilitySettings.textScale
+## Text scale
 
-A global text-scale multiplier every `LabelWidget` reads at render time. One settings-menu slider, and every label already on screen, in every scene, follows along:
+`@emptysock/engine` exports a global text-scale setting: the `accessibilitySettings` singleton (class `AccessibilitySettings`) with `textScale`, clamped to [0.5, 3], and `reset()`. It is only a shared place to store the value: `UISystem` does not read it, so you apply it yourself when you build or update labels.
 
 ```typescript
 import { accessibilitySettings } from '@emptysock/engine'
 
-// In a settings panel:
-accessibilitySettings.textScale = 1.5   // clamped to [0.5, 3]
-accessibilitySettings.reset()           // back to 1
+accessibilitySettings.textScale = 1.25   // clamped to [0.5, 3]
+
+function applyTextScale(label: { fontSize: number }, baseSize: number): void {
+  label.fontSize = baseSize * accessibilitySettings.textScale
+}
 ```
 
 ---
@@ -101,7 +101,7 @@ accessibilitySettings.reset()           // back to 1
 `PostProcessSystem.setLayerFilter()` accepts a `'colourblind'` filter type that simulates protanopia, deuteranopia, or tritanopia using the standard Brettel/Viénot/Machado matrices:
 
 ```typescript
-postProcess.setLayerFilter('ui', { type: 'colourblind', mode: 'deuteranopia' })
+postProcess.setLayerFilter('ui', { type: 'colourblind', mode: 'deuteranopia' })   // PostProcessSystem is exported; see skills/21-post-process.md
 ```
 
 **This is a simulation, not a correction.** It shows a non-colourblind player what a colourblind player sees, for design review — it doesn't make colours any easier for an actual colourblind player to tell apart. A real daltonisation/correction filter is a separate feature that doesn't exist yet; don't describe this one as that.
@@ -115,5 +115,5 @@ postProcess.setLayerFilter('ui', { type: 'colourblind', mode: 'deuteranopia' })
 | Checking `input.keyboard.isDown('Space')` directly in gameplay code | Check `input.isDown('jump')` so remapping works everywhere at once |
 | Persisting bindings by hand into a `SaveSystem` slot | `input.saveBindings(storage)` / `loadBindings(storage)` |
 | Shipping `DebugOverlaySystem` always enabled | Gate `enable()` behind a dev flag the game itself defines |
-| Scaling text by hand, per widget, for accessibility | Set `accessibilitySettings.textScale` once — every `LabelWidget` reads it |
+| Hard-coding font sizes everywhere | Multiply font sizes by a single text-scale setting when you build or update labels |
 | Calling the `'colourblind'` filter a correction/fix for colourblind players | It's a preview for sighted designers, not a correction |

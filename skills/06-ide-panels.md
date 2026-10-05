@@ -5,15 +5,15 @@
 ## TilemapEditor
 Canvas-based tile painter. Palette on the left, canvas on the right.
 
-**Tools:** paintbrush, eraser, flood fill  
+**Tools:** paint, erase, fill  
 **Controls:** tile size slider, layer selector, zoom (scroll wheel)  
-**Usage:** Open via `View > Tilemap Editor` or drag a `.tmj` asset into the dock.
+**Usage:** Open the Tilemap Editor panel from the dock/module menu.
 
 ## ParticleEditor
 Live PixiJS preview alongside emitter property controls.
 
-**Properties:** emission rate, speed (min/max), lifetime (min/max), gravity, start/end scale, start/end color (gradient picker), emission shape (point/circle/rect)  
-**Usage:** Tweak values live; export settings as JSON for use with the engine's ParticleSystem.
+**Properties:** the `ParticleEmitterOptions` fields: emission rate, velocity and lifetime ranges, acceleration, start/end scale and alpha, colour gradient, emission shape (point/circle/rectangle/line), blend mode  
+**Usage:** Tweak values live; the panel edits `ParticleEmitterOptions` directly, so a saved config can be passed straight to `new ParticleEmitter(...)` (see `skills/09-particles.md`).
 
 ## Story Graph
 SVG-based node graph for branching dialogue. Open via **Module → Story Graph**.
@@ -42,7 +42,7 @@ Spreadsheet-like table for managing translation strings.
 **Columns:** key + one column per locale (e.g., en, fr, de, ja)  
 **Editing:** inline click-to-edit cells  
 **Import/Export:** CSV with header row `key,en,fr,...`  
-**Usage:** Keys are looked up at runtime via `t('key')` from `@emptysock/engine` — see `skills/07-save-localisation.md`.
+**Usage:** Keys are looked up at runtime via `LocalisationSystem.t('key')` (`ctx.localisation`); see `skills/07-save-localisation.md`.
 
 ## GitPanel
 Built-in lightweight Git commit helper, for when you don't want to leave the IDE to commit something.

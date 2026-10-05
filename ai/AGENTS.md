@@ -3,6 +3,8 @@
 Vendor-agnostic instructions for any AI agent working with the EmptySock game engine.
 Use this as a system prompt prepend, context file, or project instruction.
 
+> **Deprecated.** EmptySock development has stopped. This file documents the final state of the engine.
+
 ---
 
 ## What is EmptySock?
@@ -18,7 +20,7 @@ clean, fully-typed API. Agents never import those underlying libraries directly 
 Four optional companion packages exist alongside it and are never pulled in by the
 core engine automatically: `@emptysock/network` (Colyseus multiplayer),
 `@emptysock/vn` (Story Graph / VNSystem), `@emptysock/battle` (turn-based battles),
-`@emptysock/tilemap` (Tilemap + NavMeshSystem). Import one only when the game actually
+`@emptysock/tilemap` (Tilemap, NavMeshSystem, AutoTileSystem). Import one only when the game actually
 needs it.
 
 ---
@@ -117,8 +119,8 @@ Plain-language properties over Rapier — `velocity`, `type: 'dynamic' | 'static
 'kinematic'`, `shape`. Collision callbacks are a direct property assignment:
 
 ```typescript
-const body = player.get(PhysicsBody)
-body.onCollisionEnter = (other, contact) => { /* ... */ }
+const body = getPhysicsBody(player)
+if (body !== undefined) body.onCollisionEnter = (other, contact) => { /* ... */ }
 ```
 
 Bodies collide with each other by default — collision groups are opt-in tuning, not

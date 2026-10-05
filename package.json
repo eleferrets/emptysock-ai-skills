@@ -1,14 +1,29 @@
 {
   "name": "@emptysock/agent-pack",
   "version": "0.2.0",
-  "description": "AI agent skills, API reference, and docs for the EmptySock game engine",
-  "keywords": ["emptysock", "game-engine", "claude-code", "ai-skills", "agent"],
-  "repository": { "type": "git", "url": "https://github.com/eleferrets/emptysock-ai-skills" },
+  "description": "AI agent skills, API reference, and docs for the EmptySock game engine (deprecated; archived)",
+  "keywords": [
+    "emptysock",
+    "game-engine",
+    "claude-code",
+    "ai-skills",
+    "agent",
+    "deprecated"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eleferrets/emptysock-ai-skills"
+  },
   "license": "MIT",
-  "files": ["ai", "skills", "docs"],
+  "files": [
+    "ai",
+    "skills",
+    "docs"
+  ],
   "exports": {
     "./skills/*": "./skills/*",
     "./ai/*": "./ai/*",
     "./docs/*": "./docs/*"
-  }
+  },
+  "deprecated": "EmptySock development has stopped; this pack documents the engine's final state and is no longer maintained."
 }

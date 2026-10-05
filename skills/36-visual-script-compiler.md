@@ -1,21 +1,29 @@
 # Visual scripting compiler
 
-**Use this when** you're working with `VisualScriptComponent`, the Visual Script Editor's Logic Script graphs, or `CompiledVisualScriptComponent`. For the editor panel itself (canvas controls, node palette, `.esvs` format), see `skills/visual-script.md`; this file is about what actually runs the graph.
+**Use this when** you're working out what actually runs a visual-script graph. For the runtime API see `skills/29-visual-script-component.md`; for the editor panel (canvas controls, node palette) see `skills/visual-script.md`.
 
 ---
 
-## Two ways to run the same graph, same behaviour, your choice
+## Graphs are always compiled
 
-`VisualScriptComponent` interprets a graph node-by-node at runtime — this is the default, and it's what you get if you don't think about this decision at all. `CompiledVisualScriptComponent` is an opt-in, same-shape drop-in that instead compiles the graph once into real JavaScript and runs that. Both are tested against each other node-by-node, so they can never quietly drift apart in behaviour — pick compiled if you've profiled and the interpreter's dispatch overhead actually matters for your game, otherwise don't bother.
+`VisualScriptSystem` compiles each distinct `graphId` once, via `compileVisualScriptGraph(graph)`, into JavaScript source and caches the resulting module for the system's lifetime. Many entities sharing one `graphId` share one compiled module. There is no separate interpreter class and no opt-in compiled variant.
 
-## What "compiles" actually means here
+```typescript
+import { compileVisualScriptGraph } from '@emptysock/engine'
 
-The compiler turns a graph into a `switch` statement inside a `while` loop, keyed on node id — not straight-line code, because a graph is allowed to contain a cycle (an actual, legal use case: a patrol loop, a repeating dialogue check), and straight-line code can't represent a loop. Each `case` in that switch is real, specific code for that one node with its field values baked in as literals at compile time — `variables.setVar(1, 5)`, not a generic "read `node.kind` and dispatch at runtime" call. Only the *loop shape* is shared with the interpreter; the actual per-node logic is genuinely compiled, not reinterpreted through another layer.
+const source: string = compileVisualScriptGraph(graph)   // JS source exporting run(ctx) and fireEvent(eventType, ctx)
+```
 
-## It targets the graph you already have, not a new one
+You rarely need that directly; `VisualScriptSystem.update(scene)` / `fireEvent(scene, type)` do it for you.
 
-The compiler emits calls against the same node vocabulary the Visual Script Editor's Logic Script tab already authors today — `VariableStore` get/set var/switch, `ActorSystem.send`. There's no entity/component or `scene.spawn` node kind in this graph format; if you're picturing "drag a node to spawn an enemy," that's not what this compiles — it's the message-passing/variable-logic graph format, full stop. Extending the node vocabulary to cover spawn/component operations would be a real, separate piece of work, not something you get by switching from interpreted to compiled.
+## What "compiles" means
 
-## Why this matters for you as an agent
+The compiler emits a `switch` inside a `while` loop keyed on node id, because a graph may legally contain a cycle and straight-line code cannot represent one. Each `case` is code specific to its node with field values baked in as literals. A 10,000-step-per-trigger cap guards against runaway cycles.
 
-If someone asks you to "make the visual script faster," the answer is almost always "switch this one component from `VisualScriptComponent` to `CompiledVisualScriptComponent`," not a rewrite of their graph logic. If someone asks you to add a node type that doesn't exist yet (spawn an entity, add a component), that's new node-kind work on the interpreter and the compiler both — say so plainly rather than trying to fake it with an existing node.
+## Node vocabulary is fixed
+
+Compiled graphs only use the editor's Logic Script vocabulary: `VariableStore` get/set variable/switch and `ActorSystem.send`. There is no spawn-entity or add-component node. Adding one is new node-kind work in both the graph types and the compiler, not something to fake with an existing node.
+
+## Cache invalidation
+
+Re-registering a graph with `registerVisualScriptGraph(id, newGraph)` does not rebuild a cached module; call `visualScriptSystem.invalidate(id)` afterwards.

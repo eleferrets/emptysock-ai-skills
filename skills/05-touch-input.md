@@ -1,120 +1,99 @@
 # Touch & Pointer Input
 
-**Use this when** you're reading touch, mouse, or keyboard state directly through `InputSystem` (for multi-touch gestures, see `PointerSystem` in `skills/25-pointer-system.md` instead — it unifies the three into one stream). Create one `InputSystem` instance in `onLoad`, call `attach()`, and call `flush()` at the start of every `onUpdate` before reading anything.
+**Use this when** you're reading keyboard, mouse, touch or pen state. The normal path is the game-owned `InputManager` (`ctx.input` / `game.input`): named actions for keys and gamepads, plus per-frame frozen pointer, gesture and wheel lists. `InputSystem` (keyboard) and `PointerSystem` are the layers underneath it (both exported, rarely needed directly). For gestures and wheel detail see `skills/25-pointer-system.md`.
 
-## Import and setup
+All pointer data (mouse, touch, pen) comes through `InputManager`; there is no separate `touches` API.
 
-```typescript
-import { InputSystem, type TouchPoint } from '@emptysock/engine'
-
-class GameScene extends Scene {
-  private _input: InputSystem | null = null
-
-  override onLoad(): void {
-    const input = new InputSystem()
-    input.attach()   // register listeners on window
-    this._input = input
-  }
-
-  override onUpdate(dt: number): void {
-    const input = this._input
-    if (input === null) return
-    input.flush()   // must be called before reading any state
-
-    // ... read input state here
-  }
-
-  override onDestroy(): void {
-    this._input?.detach()
-    this._input = null
-  }
-}
-```
-
-## Reading touch state
+## Setup
 
 ```typescript
-override onUpdate(dt: number): void {
-  const input = this._input
-  if (input === null) return
-  input.flush()
+import { defineScene, InputManager } from '@emptysock/engine'
 
-  // All active touches:
-  const touches: ReadonlyArray<TouchPoint> = input.touches
+// Host bootstrap (browser/Tauri), once:
+const input = new InputManager({
+  jump: [{ kind: 'key', code: 'Space' }],
+})
+input.attach()   // starts keyboard + pointer listeners on window; Game never calls this itself
 
-  if (touches.length > 0) {
-    const primary = input.primaryTouch   // lowest-id touch, or undefined
-    if (primary !== undefined) {
-      console.log(primary.x, primary.y)  // canvas coordinates
-    }
-  }
-
-  // Mouse pointer (also covers single-touch primary position):
-  const x = input.mouseX
-  const y = input.mouseY
-  const held    = input.isMouseDown(0)     // left button held
-  const clicked = input.isMousePressed(0)  // fired once on click/tap
-}
+// In a scene, use the game's own manager from the lifecycle context:
+export const GameScene = defineScene({
+  onLoad(scene, ctx) { /* ctx.input is the same InputManager the game owns */ },
+  onUpdate(dt) { /* read input here; Game froze this frame's snapshot already */ },
+})
 ```
+
+`Game.update()` calls `input.snapshot()` once per frame before your `onUpdate`, so every read in a frame sees the same state.
+
+## Reading pointers (mouse, touch, pen)
+
+```typescript
+import type { PointerState } from '@emptysock/engine'
+
+const pointers: ReadonlyArray<PointerState> = input.pointers
+
+for (const p of pointers) {
+  // p: { id, x, y, dx, dy, startX, startY, startTime, pointerType, isPrimary, buttons }
+  console.log(p.id, p.x, p.y, p.pointerType)
+}
+
+const primary = pointers.find((p) => p.isPrimary)   // mouse, or the first active touch
+const leftButtonHeld = primary !== undefined && (primary.buttons & 1) === 1
+```
+
+Coordinates are in the same space the pointer events deliver (client pixels); convert to canvas or world coordinates yourself if the canvas is scaled (see `skills/24-viewport-system.md`, `CameraSystem.screenToWorld`).
 
 ## Virtual buttons via pointer position
 
-Map screen regions to game actions using mouse coordinates:
+```typescript
+const HALF = GAME_WIDTH / 2
+const p = input.pointers.find((q) => q.isPrimary)
+const down = p !== undefined && (p.buttons & 1) === 1
+const movingLeft  = down && p.x < HALF
+const movingRight = down && p.x >= HALF
+```
+
+## Multi-touch
 
 ```typescript
-override onUpdate(dt: number): void {
-  const input = this._input
-  if (input === null) return
-  input.flush()
-
-  const HALF = GAME_WIDTH / 2
-  const movingLeft  = input.isMouseDown(0) && input.mouseX < HALF
-  const movingRight = input.isMouseDown(0) && input.mouseX >= HALF
-
-  if (movingLeft)  { /* move left */ }
-  if (movingRight) { /* move right */ }
+for (const touch of input.pointers) {
+  if (touch.pointerType !== 'touch') continue
+  console.log(touch.id, touch.x, touch.y, touch.dx, touch.dy)   // dx/dy: delta since last move
 }
 ```
 
-## Multi-touch example
+There is no "touch started/ended this frame" helper. Detect new or lifted touches by comparing `input.pointers` ids with the previous frame's, or subscribe through `PointerSystem.onPointerDown` / `onPointerUp` (see skill 25).
+
+## Keyboard actions
 
 ```typescript
-override onUpdate(dt: number): void {
-  const input = this._input
-  if (input === null) return
-  input.flush()
-
-  for (const touch of input.touches) {
-    // Each TouchPoint has: id, x, y, dx (delta from last frame), dy
-    console.log(touch.id, touch.x, touch.y)
-  }
-
-  // Detect a new touch this frame:
-  if (input.isTouchStarted()) { /* finger just landed */ }
-  if (input.isTouchEnded())   { /* finger just lifted */ }
-}
+input.wasPressed('jump')     // pressed this frame
+input.isDown('jump')         // held
+input.wasReleased('jump')    // released this frame
+input.keyboard.isDown('KeyA')      // raw physical key (KeyboardEvent.code)
+input.keyboard.isCharDown('a')     // layout-aware: the key that types "a"
 ```
 
-## API reference
+## API reference (`InputManager`)
 
 | Member | Type | Description |
 |--------|------|-------------|
-| `input.attach(target?)` | `void` | Register listeners. Defaults to `window`. |
-| `input.detach()` | `void` | Remove listeners. Call in `onDestroy`. |
-| `input.flush()` | `void` | Advance frame state. Call once before reading. |
-| `input.mouseX` | `number` | Mouse cursor X in client coordinates. |
-| `input.mouseY` | `number` | Mouse cursor Y in client coordinates. |
-| `input.isMouseDown(btn?)` | `boolean` | True while left button (0) or specified button is held. |
-| `input.isMousePressed(btn?)` | `boolean` | True on the single frame a click begins. |
-| `input.touches` | `ReadonlyArray<TouchPoint>` | All currently active touch points. |
-| `input.primaryTouch` | `TouchPoint \| undefined` | Lowest-id active touch, or undefined. |
-| `input.touchCount` | `number` | Number of active touches. |
-| `input.isTouchStarted(id?)` | `boolean` | True if a touch started this frame (optionally by id). |
-| `input.isTouchEnded(id?)` | `boolean` | True if a touch ended this frame (optionally by id). |
+| `attach(target?)` | `void` | Start listening to real device events (defaults to `window`) |
+| `detach()` | `void` | Stop listening |
+| `snapshot()` | `void` | Freeze this frame's state (Game calls it) |
+| `isDown(action)` / `wasPressed(action)` / `wasReleased(action)` | `boolean` | Action queries |
+| `keyboard` | `KeyboardSnapshot` | `isDown(code)`, `isCharDown(ch)` |
+| `gamepad(index)` | `GamepadSnapshot` | `connected`, `isButtonDown(i)`, `axis(i)` |
+| `pointers` | `ReadonlyArray<PointerState>` | Active pointers |
+| `gestures` | `ReadonlyArray<Gesture>` | Gestures since the previous snapshot |
+| `wheelEvents` | `ReadonlyArray<WheelEventInfo>` | Wheel events since the previous snapshot |
+
+Rebinding: `setActions`, `bindAction`, `rebind`, `addBinding`, `unbind`, `resetToDefaults`, `saveBindings`/`loadBindings`, `captureNext`, `rebindByCapture` (see `skills/28-accessibility-debugging.md`).
+
+## Raw `InputSystem`
+
+`InputSystem` is the keyboard-only layer `InputManager` wraps. It is exported from `@emptysock/engine` (with the `KeyState` type), but game code normally reads keys through `input.keyboard` / actions instead. Its edge semantics are the same as the manager's: pressed/released are true for exactly one frame.
 
 ## Notes
 
-- Always call `input.flush()` at the start of `onUpdate`. Skip it and `isMousePressed`/`isKeyPressed` fire every single frame instead of once — a "tap to jump" that launches the player into orbit.
-- `input.mouseX/mouseY` report the most recent mouse position in `clientX/clientY` space — convert to canvas coordinates yourself if your canvas is scaled.
-- For keyboard input, see `input.isKeyDown(code)`, `input.isKeyPressed(code)`, `input.isKeyReleased(code)` — they take `KeyboardEvent.code` values (`'Space'`, `'ArrowLeft'`, `'KeyA'`, etc.).
-- For gamepad axis and button input, use `GamepadSystem` alongside `InputSystem`.
+- Keys are `KeyboardEvent.code` values (`'Space'`, `'ArrowLeft'`, `'KeyA'`).
+- For gamepad input use bindings (`{ kind: 'gamepadButton' | 'gamepadAxis' }`) or `GamepadSystem` directly.

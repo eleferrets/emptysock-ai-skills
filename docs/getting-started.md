@@ -1,5 +1,7 @@
 # Getting Started with EmptySock
 
+> **Deprecated.** EmptySock development has stopped. This guide documents the final state of the engine.
+
 Welcome! If you've never made a game before, you're in the right place.
 
 ---
@@ -46,15 +48,15 @@ If you're just starting out, skip the optional stuff and run in the browser. You
 
 ## Install and run
 
-Three commands and you're up:
+From the root of an `emptysock-engine` checkout:
 
 ```bash
-git clone https://github.com/emptysock/emptysock-engine.git my-game
-cd my-game
-pnpm install && pnpm dev
+pnpm install
+pnpm build
+pnpm --filter @emptysock/ide dev
 ```
 
-The IDE opens in your browser at `http://localhost:5173`. Click **Play** and the demo scene runs.
+Open the printed local URL (Vite's default is `http://localhost:5173`). **File > New Project** creates a blank project; `templates/` in the engine repo holds blank, platformer, and visual-novel starters.
 
 ---
 
@@ -138,7 +140,7 @@ function tick(dt: number): void {
 tick(1 / 60)
 ```
 
-Hit **Play** (or save the file if hot-reload is running). A red box slides across a dark background.
+Run the project in the IDE preview. A red box slides across a dark background.
 
 ---
 
@@ -174,7 +176,7 @@ The `?.` is optional chaining — it only calls `.remove()` if `canvas` is not n
 
 ## How to add a second entity
 
-Right now BoxScene just has a canvas and draws directly to it. To add more moving things, add more private fields and draw them in `_draw`.
+Right now BoxScene just has a canvas and draws directly to it. To add more moving things, add more module-level variables and draw them in `draw()`.
 
 Here's BoxScene with a second box that moves vertically:
 
@@ -247,7 +249,6 @@ my-game/
   assets/
     sprites/               ← PNG, WebP images
     audio/                 ← MP3, OGG, WAV files
-    tilemaps/              ← .esmap tilemap files
     i18n/                  ← translation files (en.json, fr.json, etc.)
   export/                  ← built game outputs (auto-generated, gitignored)
 ```
@@ -283,9 +284,8 @@ Drag any supported file into the asset browser panel:
 - **Audio:** MP3, OGG, WAV, WebM, FLAC
 - **Fonts:** TTF, OTF, WOFF2
 - **Data:** JSON, CSV
-- **3D models:** glTF (.gltf, .glb)
 
-EmptySock copies the file into `assets/` and creates an asset descriptor. Reference assets by filename in your code: `{ texture: 'hero.png' }`.
+EmptySock copies the file into `assets/` and creates an asset descriptor. Reference assets by path in your code, for example `Sprite.texturePath`: `'assets/hero.png'`.
 
 ---
 
@@ -316,7 +316,7 @@ You have a moving box. Here's where to go from here:
 
 - **`docs/core-concepts.md`** — understand the ECS model, scenes, physics, input, and coroutines
 - **`skills/00-quickstart.md`** — the most common code patterns on one page
-- **`skills/`** — topic files for physics, audio, saves, NavMesh, and more
+- **`skills/`** — topic files for physics, audio, saves, pathfinding, and more
 - **`ai/CLAUDE.md`** — drop this into your project root so an AI assistant understands the engine rules
 
 ---

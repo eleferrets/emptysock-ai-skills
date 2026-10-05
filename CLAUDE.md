@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+> **Deprecated / archived.** EmptySock development has stopped. This repo documents the engine's final state; keep edits minimal and only to correct inaccuracies.
+
+Before editing any file, read it first. Before modifying a function, grep for all callers. Research before you edit.
+
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ---
@@ -27,16 +32,16 @@ There are no build, lint, or test commands to run here — changes are purely co
 
 ## Versioning contract
 
-This repo is versioned in lockstep with the engine. `main` tracks the latest stable release. Each engine release cuts a matching version tag (`v1.0.0`, `v1.1.0`). Never document internal implementation details — only the public API that `@emptysock/engine` exposes.
+This repo is frozen at the engine's final state (see `CHANGELOG.md`, final release 2026-10-05). Never document internal implementation details: only the public API the engine re-exports from `packages/*/src/index.ts` (and `packages/engine/dist-types`). A class that exists in engine source but is not re-exported must be described as internal, not as importable.
 
 ---
 
 ## Content rules
 
-- **`ai/api-reference.json`** is the single source of truth for the public API. If a method appears there, it must not contradict what the skill files say. When adding a new engine system, update `api-reference.json` first, then add the matching skill file.
+- **`ai/api-reference.json`** is the single source of truth for the public API. If a method appears there, it must not contradict what the skill files say. If a system is ever documented again, update `api-reference.json` first, then add the matching skill file.
 - **`skills/` files** are loaded by agents at task time. Keep each file focused on one system. The `00-quickstart.md` file is the agent-facing cheat sheet — it should stay to one page.
 - **Banned content** — never mention internal types, Rapier/PixiJS/Howler internals, or implementation files from the engine source. Agents must only import from `@emptysock/engine`.
-- **Code examples** in skill files must follow the same rules as `ai/AGENTS.md`: no `any`, no `!`, no direct library imports, no `async onUpdate()`, no `setTimeout` in game logic.
+- **Code examples** in skill files must follow the same rules as `ai/AGENTS.md`: no `any`, no `!`, no direct library imports, no `async onUpdate()`, no `setTimeout` in game logic. Every imported name must exist in the engine's current exports; verify with a grep over the engine index before citing it.
 
 ---
 
@@ -44,4 +49,4 @@ This repo is versioned in lockstep with the engine. `main` tracks the latest sta
 
 When editing skill files, also check whether `ai/CLAUDE.md`, `ai/AGENTS.md`, and `ai/api-reference.json` need to stay consistent. When a skill file describes a new API shape, update all four.
 
-PRs that add a new skill file must also add a row to the skills table in `README.md`.
+Any change that adds, renames or removes a skill file must also update the skills table in `README.md` so it matches `skills/` exactly (and its file count).

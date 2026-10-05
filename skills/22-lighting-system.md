@@ -1,134 +1,104 @@
 # LightingSystem
 
-**Use this when** you want dynamic 2D lighting — torches, a day/night cycle, spotlights — instead of baked-in lighting on your sprites. `LightingSystem` drives a GPU-accelerated GLSL lighting pass (point lights, directional lights, optional normal maps). Instance-based: create one per scene and call `update(dt)` every frame to push light positions up to the GPU.
+**Use this when** you want dynamic 2D lighting (torches, a day/night cycle, cones, shadows from walls) instead of baked-in lighting on your sprites. Lights are entities: attach a `LightSource` component next to a `Transform`, and optionally `LightOccluder` components to block light. `LightingSystem` collects them each frame (with real occlusion-aware visibility polygons) and, once attached with `renderPipeline.attachLighting(lighting)`, `RenderPipeline.renderFrame()` turns the result into a lightmap multiplied over a render layer.
 
 ## Import
 
 ```typescript
-import { LightingSystem, type Light, type LightType } from '@emptysock/engine'
+import {
+  LightingSystem, LightSource, LightOccluder, Transform,
+  type AmbientLight, type LightSample, type LightingSystemOptions,
+} from '@emptysock/engine'
 ```
 
-## Setup (in onLoad)
-
-Lighting requires `lighting: true` in `SceneConfig`:
+## Setup
 
 ```typescript
-import { Scene, type SceneConfig } from '@emptysock/engine'
-
-export class DungeonScene extends Scene {
-  static readonly config: SceneConfig = {
-    renderMode: '2d',
-    gameSpeed: 60,
-    lighting: true,   // required
-  }
-
-  private _lighting: LightingSystem | null = null
-
-  override onLoad(): void {
-    this._lighting = new LightingSystem()
-    // Attach the GPU filter to the scene stage (provided by the engine):
-    this._lighting.attachFilter(this.stage)
-    this._lighting.setAmbient(0x111133, 0.08)
-  }
-
-  override onUpdate(dt: number): void {
-    this._lighting?.update(dt)   // uploads light data to GPU uniforms each frame
-  }
-}
+const lighting = new LightingSystem({ maxLights: 32, raySamples: 32 })   // both optional (defaults 32 / 32)
+lighting.ambient = { colour: 0x111133, level: 0.08 }   // 0 = pitch black except lit areas, 1 = fully lit
 ```
+
+`ambient` is a plain writable property (`{ colour: 0xRRGGBB, level: 0..1 }`); there is no `setAmbient()`.
 
 ## Adding lights
 
-Lights are identified by a string `id` you supply. The `Light` object is stored in `lighting.lights` and can be mutated in-place to move lights without remove/re-add:
+A light is an entity with `Transform` + `LightSource`:
 
 ```typescript
-this._lighting.addLight({
-  id:          'torch-1',
-  type:        'point',
-  x:           300,
-  y:           200,
-  colour:      0xffaa44,
-  intensity:   1.4,
-  radius:      280,
-  castShadows: false,
+const torch = scene.spawn('torch')
+torch.add(Transform, { x: 300, y: 200 })
+torch.add(LightSource, {
+  radius: 280,
+  colour: 0xffaa44,
+  intensity: 1.4,
+  falloff: 1,
 })
 
-// Directional light:
-this._lighting.addLight({
-  id:        'sun',
-  type:      'directional',
-  colour:    0xfffbe6,
-  intensity: 0.8,
-  direction: { x: 0.5, y: -1 },
-  castShadows: false,
-})
+// A spotlight cone (angle and direction in degrees):
+const lamp = scene.spawn('lamp')
+lamp.add(Transform, { x: 600, y: 100 })
+lamp.add(LightSource, { radius: 400, coneAngle: 60, coneDirection: 90 })
 ```
 
-## Moving a light
+`LightSource` fields (defaults): `radius` (200), `colour` (0xffffff), `intensity` (1), `falloff` (1), `offsetX` (0), `offsetY` (0), `enabled` (true), `coneAngle` (360 = full point light), `coneDirection` (0). There are no `directional` or `spot` light types, no light `id`, and no `castShadows` flag: shadows come from `LightOccluder`s.
 
-Mutate the light's `x`/`y` directly — no need to remove and re-add:
+## Moving and removing lights
+
+Mutate the entity's `Transform`, or the `LightSource` fields; destroy the entity to remove the light.
 
 ```typescript
-override onUpdate(dt: number): void {
-  const torch = this._lighting.lights.get('torch-1')
-  if (torch !== undefined) {
-    torch.x = this._playerEntity.position.x
-    torch.y = this._playerEntity.position.y - 20
-  }
-  this._lighting.update(dt)
-}
+const t = torch.get(Transform)
+if (t !== undefined) { t.x = playerX; t.y = playerY - 20 }
+
+const l = torch.get(LightSource)
+if (l !== undefined) l.enabled = false
+
+scene.destroy(torch)
 ```
 
-## Removing lights
+## Shadows: LightOccluder
+
+Add `LightOccluder` (with `Transform`) to a wall or crate entity. It is an axis-aligned box (`width`, `height`, `offsetX`, `offsetY`, `enabled`) that blocks light from any `LightSource` whose radius reaches it. A scene with no occluders renders plain circular falloff.
 
 ```typescript
-this._lighting.removeLight('torch-1') // returns boolean — true if found
+const wall = scene.spawn('wall')
+wall.add(Transform, { x: 400, y: 200 })
+wall.add(LightOccluder, { width: 64, height: 64 })
 ```
 
-## Ambient light
+## Collecting lights
 
 ```typescript
-this._lighting.setAmbient(0x111133, 0.08)
-
-const colour    = this._lighting.ambientColour    // number (hex)
-const intensity = this._lighting.ambientIntensity // number
+const samples: LightSample[] = lighting.collectLights(scene, { x: cameraX, y: cameraY })
+// LightSample: { x, y, radius, colour, intensity, falloff, coneAngle, coneDirection (radians), visibility: Point[] | null }
 ```
 
-## Light interface
+Only enabled lights with `radius > 0` are collected. When more than `maxLights` exist, the `maxLights` nearest the reference point win.
+
+## Rendering
+
+Attach the lighting system to the pipeline once and `RenderPipeline.renderFrame()` does the rest every frame: it builds a lightmap for the main scene over the camera's visible world rect and multiplies it over one render layer.
 
 ```typescript
-interface Light {
-  readonly id:         string;
-  readonly type:       'point' | 'directional' | 'spot' | 'ambient';
-  colour:              number;   // 0xRRGGBB — mutable
-  intensity:           number;   // 0..1+ — mutable
-  radius?:             number;   // point/spot falloff radius in world pixels
-  angle?:              number;   // spot: cone half-angle in radians
-  direction?:          { x: number; y: number };  // directional: world-space
-  castShadows:         boolean;
-  x?:                  number;   // world position — mutable
-  y?:                  number;   // world position — mutable
-}
+renderPipeline.attachLighting(lighting)             // layer defaults to 'default'
+renderPipeline.attachLighting(lighting, 'world')    // or pick the layer the darkness applies to
+renderPipeline.attachLighting(null)                 // detach: removes the filter and frees the lightmap
 ```
+
+The camera rect is computed from the stage's translate and scale, so camera rotation is ignored by the lightmap. Only the main scene's lights are collected (overlay scenes are not). Under the hood this calls `RenderSystem.syncLighting(lighting, scene, layerId, viewport)`; `RenderSystem` is exported from `@emptysock/engine` too, but you only need it directly if you build your own render loop without `RenderPipeline`.
 
 ## API reference
 
-| Method / Property | Signature | Notes |
+| Member | Signature | Notes |
 |---|---|---|
-| `addLight` | `(config: Light): void` | Register a light by id. Replaces if id already exists. |
-| `removeLight` | `(id: string): boolean` | Remove light by id. Returns true if found. |
-| `lights` | `Map<string, Light>` (readonly) | All registered lights — mutate to move/recolour without re-adding. |
-| `setAmbient` | `(colour: number, intensity: number): void` | Scene-wide ambient. |
-| `ambientColour` | `number` (getter) | Current ambient colour. |
-| `ambientIntensity` | `number` (getter) | Current ambient intensity. |
-| `attachFilter` | `(stage: Container, useNormalMap?: boolean, width?: number, height?: number): void` | Wire GPU filter to the scene stage. Call once in onLoad. |
-| `detachFilter` | `(): void` | Detach the GPU filter. Call in onDestroy. |
-| `update` | `(dt: number): void` | Upload all light data to GPU uniforms. Call every frame. |
+| `new LightingSystem(options?)` | `{ maxLights?, raySamples? }` | |
+| `ambient` | `AmbientLight` (`{ colour, level }`) | Writable property |
+| `maxLights` / `raySamples` | `number` | Writable |
+| `RenderPipeline.attachLighting` | `(lighting: LightingSystem \| null, layerId = 'default'): void` | Syncs the lightmap every `renderFrame()`; `null` detaches |
+| `collectLights` | `(scene: Scene, reference?: { x, y }): LightSample[]` | Enabled lights resolved to world space, capped at `maxLights` |
 
 ## Notes
 
-- Call `attachFilter()` before lights can actually affect rendering — without it, lights are registered but invisible.
-- Normal maps: drop a `hero_n.png` beside `hero.png` and pass `useNormalMap: true` to `attachFilter`, and the engine picks it up automatically. It needs to be a proper tangent-space normal map (blue-dominant), not just a bump texture.
-- Go easy on shadow-casting lights (`castShadows: true`) — each one costs an extra GPU pass.
-- On `'potato'` and `'low'` GPU tiers (`Engine.gpuTier`), keep `castShadows: false` and cap it at 1–4 point lights.
-- Hard limits: 16 point lights and 4 directional lights per scene, courtesy of GPU uniform array sizes.
+- Occluded lights cost `lights x occluders x rays`; keep occluder counts modest (dozens of walls, 5-10 lights is the intended scale) and lower `raySamples` on weak GPUs.
+- On `'potato'` and `'low'` GPU tiers, lower `maxLights` and `raySamples` (see `skills/24-viewport-system.md`).
+- Normal maps are not supported; lighting is a lightmap multiplied over the layer.

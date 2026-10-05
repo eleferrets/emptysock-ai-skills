@@ -1,114 +1,125 @@
-# VNTextbox
+# VNTextbox and VNBackgroundLayer
 
-**Use this when** you need a ready-made dialogue box for a Story Graph scene instead of building your own from `UISystem` widgets. `VNTextbox` is a pre-built panel anchored to the bottom of the canvas, with a speaker name plate and a text area. Call `bind(vn)` to wire it to a `VNSystem` instance — from there it updates itself whenever the current node changes, and clicking it calls `vn.advance()` for you.
+**Use this when** you need a ready-made dialogue box for a Story Graph scene, or background/CG image layers for a visual novel. Both live in the optional `@emptysock/vn` package (see `skills/08-story-graph.md`). `VNTextbox` is built from widget entities (`PanelStyle`, `Label`) spawned through a `WidgetTree`; see `skills/11-ui-system.md` for the widget model.
 
 ## Import
 
-`VNTextbox` and `VNSystem` both live in the optional `@emptysock/vn` package (see `skills/08-story-graph.md`), not the core engine:
-
 ```typescript
-import { VNTextbox, VNSystem, type VNTextboxOptions } from '@emptysock/vn'
+import { VNTextbox, VNSystem, VNBackgroundLayer, type VNTextboxOptions } from '@emptysock/vn'
 ```
 
 ## Quick start
 
 ```typescript
-class NarrativeScene extends Scene {
-  private _vn: VNSystem | null = null
-  private _textbox: VNTextbox | null = null
+import { defineScene, WidgetTree, UISystem } from '@emptysock/engine'
+import { VNSystem, VNTextbox, storyGraphToDialogueTree, type StoryGraph } from '@emptysock/vn'
 
-  override async onLoad(): Promise<void> {
-    const response = await fetch('assets/story/chapter1.storyGraph.json')
-    const graph = await response.json()
-    const tree = storyGraphToDialogueTree(graph)
+const tree = new WidgetTree()
+const ui = new UISystem(tree)
+let textbox: VNTextbox | null = null
+let vn: VNSystem | null = null
 
-    this._vn = new VNSystem()
+export const Narrative = defineScene({
+  async onLoad(scene, ctx) {
+    await tree.init()
+    const graph = (await (await fetch('assets/story/chapter1.storyGraph.json')).json()) as StoryGraph
 
-    this._textbox = new VNTextbox({
-      ui: this.ui,          // pass the scene's UISystem instance
-      canvasWidth:  800,
-      canvasHeight: 600,
-    })
-    this._textbox.bind(this._vn)   // sync immediately to current node
-
-    this._vn.load(tree)   // fires onNode for the first node immediately
-  }
-
-  override onUpdate(dt: number): void {
-    this.ui.update(dt)
-  }
-
-  override onDestroy(): void {
-    this._textbox?.destroy()   // removes widgets from this.ui
-  }
-}
+    vn = new VNSystem(ctx.variables)
+    textbox = new VNTextbox({ canvasWidth: 800, canvasHeight: 600, scene, tree, typewriterSpeed: 40 })
+    textbox.bind(vn)                                  // sync to the current node
+    vn.load(storyGraphToDialogueTree(graph))          // fires onNode for the first node
+    textbox.bind(vn)                                  // re-sync after load so the first line shows
+  },
+  onUpdate(dt) {
+    textbox?.update(dt)                               // advances the typewriter
+    // each frame: tree.layout(scene, 800, 600); then ui.render(scene, ctx2d)
+  },
+  onUnload() {
+    textbox?.destroy()
+    tree.destroy()
+  },
+})
 ```
 
-## Constructor options
+Pointer input is yours to route: call `textbox.handlePointerDown(x, y)` from your pointer handler. It returns whether the panel was hit, skips an in-progress typewriter on the first click, and advances the VN on the next.
+
+## Constructor options (`VNTextboxOptions`)
 
 | Option | Type | Default | Notes |
 |--------|------|---------|-------|
-| `ui` | `UISystem` | required | The scene's UISystem instance — pass `this.ui` |
 | `canvasWidth` | `number` | required | Canvas pixel width |
 | `canvasHeight` | `number` | required | Canvas pixel height |
+| `scene` | `Scene` | required | Scene the widget entities are spawned into |
+| `tree` | `WidgetTree` | required | Widget tree that owns the entities |
 | `height` | `number` | `160` | Dialogue panel height in px |
 | `namePlateHeight` | `number` | `36` | Speaker name plate height in px |
 | `paddingX` | `number` | `24` | Horizontal padding inside the panel |
-| `panelColor` | `string` | `"rgba(13,13,26,0.88)"` | CSS colour for panel fill |
+| `panelColor` | `string` | `"#0d0d1a"` | CSS colour for panel fill |
 | `namePlateColor` | `string` | `"#3c2d6e"` | CSS colour for name plate fill |
-| `textColor` | `string` | `"#ffffff"` | Dialogue text colour |
-| `fontSize` | `number` | `16` | Dialogue text size in px |
+| `textColor` | `string` | `"#ffffff"` | Text colour |
+| `fontSize` | `number` | `16` | Text size in px |
+| `fontFamily` | `string` | `"sans-serif"` | Family used to pre-wrap lines for the typewriter |
+| `typewriterSpeed` | `number` | off | Characters per second; 0 or omitted = instant |
 
 ## API
 
-| Method / Property | Signature | Notes |
+| Member | Signature | Notes |
 |---|---|---|
-| `bind` | `(vn: VNSystem): void` | Wire to a VNSystem; immediately syncs to the current node. |
-| `visible` | `boolean` (getter/setter) | Show or hide the textbox. Auto-managed by node type. |
-| `destroy` | `(): void` | Remove widgets from the UISystem. Call in onDestroy. |
+| `bind` | `(vn: VNSystem): void` | Wire to a VNSystem; syncs to the current node |
+| `update` | `(dt: number): void` | Advance the typewriter; call every frame |
+| `skipTypewriter` | `(): void` | Jump to the end of the current reveal |
+| `isTyping` | `boolean` getter | True while revealing |
+| `handlePointerDown` | `(x: number, y: number): boolean` | Hit-test the laid-out panel; advances/skips |
+| `visible` | `boolean` getter/setter | Show or hide the panel |
+| `destroy` | `(): void` | Destroys its widget entities; call on scene unload |
 
-## Advancing and choosing
+`bind` only syncs when called; after `vn.load()` or when `VNSystem` moves to a new node, `handlePointerDown` re-syncs for you on advance. Call `bind(vn)` again after `load()` as in the example if you want the first line shown immediately.
 
-Clicking anywhere on the textbox calls `vn.advance()` automatically for dialogue nodes. For choice nodes, the textbox renders options as numbered text (`1. Option A\n2. Option B`) — selection requires your own buttons:
+## Choices
+
+For choice nodes the textbox renders options as numbered text (`1. Option A`). Selection needs your own UI or input handling:
 
 ```typescript
-// In onLoad, after binding:
-this._vn.setListener({
+vn.setListener({
   onChoice: (options) => {
-    options.forEach((opt, i) => {
-      const btn = createChoiceButton(i + 1, opt.label)
-      btn.on('click', () => {
-        this._vn?.selectOption(opt.next)   // opt.next is the target node ID
-        removeChoiceButtons()
-      })
-      this.ui.add(btn)
-    })
+    // show your own buttons (see skills/11-ui-system.md), then on pick:
+    //   vn.selectOption(options[i].next)
   },
 })
 ```
 
 ## Visibility
 
-VNTextbox sets `visible` automatically based on the current node:
-- `dialogue` or `choice` nodes → visible
-- `event`, `jump`, `variable-set`, or null → hidden
+- `dialogue` or `choice` node: panel visible.
+- Any other node type, or no current node: panel hidden.
 
-## .storyGraph ↔ DialogueTree round-trip
+---
+
+## VNBackgroundLayer
+
+A Canvas 2D background plus CG layer with cross-fades.
 
 ```typescript
-import { storyGraphToDialogueTree, dialogueTreeToStoryGraph, type StoryGraph, type DialogueTree } from '@emptysock/vn'
+const bg = new VNBackgroundLayer({ canvasWidth: 800, canvasHeight: 600, fadeDuration: 0.5 })
+bg.setBackground('assets/bg/forest.png', { fit: 'cover' })   // fit: 'cover' | 'contain' | 'stretch'
+bg.showCG('assets/cg/forest_encounter.jpg')                  // CG default fit: 'contain'
 
-// Story Graph JSON (editor format) → runtime format:
-const tree: DialogueTree = storyGraphToDialogueTree(graph)
-vn.load(tree)
-
-// Runtime format → Story Graph (re-import into the IDE editor):
-const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
+// each frame:
+bg.update(dt)
+bg.render(ctx2d)      // CanvasRenderingContext2D; draw before the UI
 ```
+
+| Method | Signature |
+|--------|-----------|
+| `setBackground` | `(imagePath, opts?: { fadeDuration?, fit? }): void` |
+| `clearBackground` | `(fadeDuration?): void` |
+| `showCG` | `(imagePath, opts?: { fadeDuration?, fit? }): void` |
+| `hideCG` | `(fadeDuration?): void` |
+| `update` | `(dt: number): void` |
+| `render` | `(ctx: CanvasRenderingContext2D): void` |
 
 ## Rules
 
-- Always pass `ui: this.ui` — VNTextbox needs a UISystem instance to hang its widgets on.
-- Call `destroy()` in `onDestroy()`. Widgets don't remove themselves.
-- Bind before calling `vn.load()` if you want the textbox showing the first node right away.
-- VNSystem has no `destroy()` — just drop the reference and let it get garbage-collected.
+- Call `destroy()` on the textbox when the scene unloads; widget entities don't remove themselves.
+- Await `tree.init()` and call `tree.layout(...)` each frame (or after changes) before rendering.
+- `VNSystem` has no `destroy()`; drop the reference.

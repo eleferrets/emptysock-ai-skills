@@ -1,176 +1,107 @@
-# Skill 20 — UI Widgets
+# Skill 20 — UI Widget Patterns
 
-**Use this when** you're building screen-space UI beyond a single widget — menus, HUD layouts, dialogue boxes, settings panels — and want patterns for wiring several widgets together.
-
----
-
-## When to use UISystem vs PixiJS
-
-- **UISystem** — screen-space UI that stays in front of the game world at a fixed position (health bars on the HUD, pause menus, buttons).
-- **PixiJS scene** — in-world UI that lives in game space (floating health bars above enemies, dialogue bubbles attached to NPCs, damage numbers).
+**Use this when** you're building screen-space UI beyond a single widget (menus, HUD layouts, dialogue boxes, settings panels) and want patterns for wiring several widget entities together. API reference for the components lives in `skills/11-ui-system.md`.
 
 ---
 
-## Widget classes
+## UISystem vs in-world objects
+
+- **UISystem / WidgetTree**: screen-space UI at a fixed position (HUD bars, pause menus, buttons).
+- **Entities with `Transform` + `Sprite`**: in-world UI in game space (health bars above enemies, damage numbers).
+
+---
+
+## Panel with children (pause menu)
 
 ```ts
 import {
-  LabelWidget, ImageWidget, ButtonWidget, PanelWidget,
-  ProgressBarWidget, SliderWidget, CheckboxWidget,
-} from '@emptysock/engine';
-```
+  defineScene, WidgetTree, UISystem, LayoutStyle, PanelStyle, Label, ButtonState,
+} from '@emptysock/engine'
 
-All widgets share base properties and methods:
+const tree = new WidgetTree()
+const ui = new UISystem(tree)
 
-```ts
-widget.x            // pixel offset from anchor
-widget.y
-widget.width
-widget.height
-widget.anchor       // 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right'
-widget.visible
-widget.alpha
-widget.children     // Widget[] — mutable; add children with panel.children.push(child)
-widget.on('click', handler)
-widget.off('click', handler)
-widget.animate('fadeIn', { duration: 300 })
-```
-
----
-
-## UIScene pattern — reusable overlay
-
-Define a pause menu (or any overlay) as a Scene subclass. Push it on top; pop to return.
-
-```ts
-import { Scene, PanelWidget, LabelWidget, ButtonWidget } from '@emptysock/engine';
-
-class PauseMenuScene extends Scene {
-  private _panel: PanelWidget | null = null;
-
-  onLoad(): void {
-    const panel = new PanelWidget({ anchor: 'center', width: 300, height: 200 });
-    this._panel = panel;
-
-    const title = new LabelWidget({ text: 'Paused', fontSize: 24, anchor: 'top', y: 16 });
-
-    const resumeBtn = new ButtonWidget({ label: 'Resume', anchor: 'center', y: 20 });
-    resumeBtn.on('click', () => this.engine.popScene());
-
-    const quitBtn = new ButtonWidget({ label: 'Quit to Menu', anchor: 'center', y: 70 });
-    quitBtn.on('click', () => this.engine.loadScene('MainMenu'));
-
-    panel.children.push(title, resumeBtn, quitBtn);
-    this.uiSystem.add(panel);
-    panel.animate('fadeIn');
-  }
-
-  onDestroy(): void {
-    if (this._panel !== null) {
-      this.uiSystem.removeWidget(this._panel);
-    }
-  }
+function setStyle(e: ReturnType<typeof tree.createWidget>, patch: Partial<{ width: number; height: number; padding: number; gap: number }>): void {
+  const s = e.get(LayoutStyle)
+  if (s !== undefined) Object.assign(s, patch)
 }
 
-// In a game scene, on Escape keypress:
-this.engine.pushScene(new PauseMenuScene('pause'));
+export const PauseMenu = defineScene({
+  async onLoad(scene) {
+    await tree.init()
+    const panel = tree.createWidget(scene)
+    setStyle(panel, { width: 300, height: 200, padding: 16, gap: 12 })
+    panel.add(PanelStyle, { background: '#1a1a2e', borderRadius: 8 })
+
+    const title = tree.createWidget(scene, panel)
+    setStyle(title, { height: 32 })
+    title.add(Label, { text: 'Paused', fontSize: 24, align: 1 })
+
+    const resume = tree.createWidget(scene, panel)
+    setStyle(resume, { height: 44 })
+    resume.add(ButtonState, { label: 'Resume' })
+  },
+  onUnload(scene) {
+    tree.destroy()
+  },
+})
 ```
+
+Load this as an overlay (`await game.loadOverlay(PauseMenu)`) and unload it with `await game.unloadOverlay()`.
 
 ---
 
-## Reusable widget factory pattern
+## Reusable widget factory
 
-For widgets shared across many scenes, a factory function is enough — no new class needed.
+A plain function is enough; no class needed.
 
 ```ts
-import { ButtonWidget } from '@emptysock/engine';
+import { ButtonState, LayoutStyle, type Entity, type Scene, type WidgetTree } from '@emptysock/engine'
 
-export function PrimaryButton(label: string, onClick: () => void): ButtonWidget {
-  const btn = new ButtonWidget({ label, background: '#818cf8', width: 160, height: 40 });
-  btn.on('click', onClick);
-  return btn;
+export function primaryButton(tree: WidgetTree, scene: Scene, parent: Entity, label: string): Entity {
+  const e = tree.createWidget(scene, parent)
+  const s = e.get(LayoutStyle)
+  if (s !== undefined) { s.width = 160; s.height = 44 }
+  e.add(ButtonState, { label, background: '#818cf8' })
+  return e
 }
 ```
 
 ---
 
-## Widget event types
-
-| Event | Fired when |
-|-------|-----------|
-| `'click'` | Widget is clicked / tapped |
-| `'hover'` | Pointer enters widget bounds |
-| `'hoverOut'` | Pointer leaves widget bounds |
-| `'change'` | Value changes (Slider, Checkbox) |
-| `'animEnd'` | Animation finishes |
-
----
-
-## Animation reference
+## HUD elements
 
 ```ts
-widget.animate('fadeIn',   { duration: 300 });
-widget.animate('fadeOut',  { duration: 200 });
-widget.animate('slideIn',  { duration: 300, direction: 'left' });  // left | right | up | down
-widget.animate('slideOut', { duration: 200, direction: 'down' });
-widget.animate('pop',      { duration: 150 });   // scale punch — automatic on ButtonWidget hover
-widget.animate('shake',    { duration: 300 });   // horizontal jitter — good for error feedback
-```
+import { Progress, Label } from '@emptysock/engine'
 
-All animations accept `{ duration?: number, easing?: 'linear'|'ease-in'|'ease-out'|'ease-in-out', direction? }`.
+const hpBar = tree.createWidget(scene, root)
+hpBar.add(Progress, { value: 100, min: 0, max: 100, fillColor: '#ef4444' })
 
----
+const scoreLabel = tree.createWidget(scene, root)
+scoreLabel.add(Label, { text: '0', fontSize: 18, align: 2 })
 
-## HUD elements — no scene needed
-
-For persistent HUD overlays, add widgets directly:
-
-```ts
-import { ProgressBarWidget, LabelWidget } from '@emptysock/engine';
-
-class GameScene extends Scene {
-  private _hpBar: ProgressBarWidget | null = null;
-  private _scoreLabel: LabelWidget | null = null;
-
-  onLoad(): void {
-    const hp = new ProgressBarWidget({
-      anchor: 'bottom', x: 0, y: 20, width: 300, height: 12,
-      value: 100, min: 0, max: 100, fillColor: '#ef4444',
-    });
-    this._hpBar = hp;
-    this.uiSystem.add(hp);
-
-    const score = new LabelWidget({
-      anchor: 'top-right', x: 16, y: 16, text: '0', fontSize: 18,
-    });
-    this._scoreLabel = score;
-    this.uiSystem.add(score);
-  }
-
-  onDestroy(): void {
-    if (this._hpBar !== null) this.uiSystem.removeWidget(this._hpBar);
-    if (this._scoreLabel !== null) this.uiSystem.removeWidget(this._scoreLabel);
-  }
-}
+// Later, in onUpdate:
+const bar = hpBar.get(Progress)
+if (bar !== undefined) bar.value = player.hp
 ```
 
 ---
 
-## CheckboxWidget and SliderWidget
+## Checkbox and Slider
 
 ```ts
-import { CheckboxWidget, SliderWidget } from '@emptysock/engine';
+import { Checkbox, Slider } from '@emptysock/engine'
 
-const mute = new CheckboxWidget({
-  label: 'Mute audio', checked: false,
-  onChange: (v) => { Audio.setGroupVolume('master', v ? 0 : 1); },
-});
+const mute = tree.createWidget(scene, root)
+mute.add(Checkbox, { label: 'Mute audio', checked: false })
 
-const vol = new SliderWidget({
-  anchor: 'center', y: 40, width: 200,
-  value: 0.8, min: 0, max: 1,
-  onChange: (v) => { Audio.setGroupVolume('master', v); },
-});
+const vol = tree.createWidget(scene, root)
+vol.add(Slider, { value: 0.8, min: 0, max: 1, step: 0.05 })
+
+// Read state each frame (there are no onChange callbacks):
+const box = mute.get(Checkbox)
+const slider = vol.get(Slider)
+if (box !== undefined && slider !== undefined) game.audio.setGroupVolume('master', box.checked ? 0 : slider.value)
 ```
 
 ---
@@ -179,7 +110,7 @@ const vol = new SliderWidget({
 
 | Wrong | Right |
 |-------|-------|
-| Forgetting `onDestroy` cleanup | Always `uiSystem.removeWidget(widget)` in `onDestroy` |
-| Mutating `widget.children` and expecting it to react | Re-add the widget to UISystem after structural changes |
-| Using UISystem for in-world UI | Use PixiJS scene objects for anything positioned in game space |
-| `panel.children = [btn]` | `panel.children.push(btn)` — the array reference is fixed, mutate in place |
+| Forgetting to `await tree.init()` | `layout()` throws until Yoga has loaded |
+| Expecting `.on('click')` or animation helpers | `UISystem` has no events or animations; poll component state and tween fields yourself (see `skills/19-tweens.md`) |
+| Destroying a parent and expecting children to go too | `WidgetTree.destroyWidget` does not cascade; destroy children first |
+| Using UISystem for in-world UI | Use `Transform` + `Sprite` entities for anything positioned in game space |
