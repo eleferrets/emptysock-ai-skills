@@ -7,6 +7,7 @@
 ## Types
 
 ```typescript
+// SequenceKeyframe is not exported by name; SequenceTrackDef and SequenceDefinition are
 interface SequenceKeyframe {
   time: number
   value: number
@@ -29,38 +30,38 @@ interface SequenceDefinition {
 ## Usage
 
 ```typescript
-import { TweenManager, SequenceSystem } from '@emptysock/engine'
+import { defineScene, TweenManager, SequenceSystem, type SequenceDefinition } from '@emptysock/engine'
 
-// One TweenManager per scene — create in onLoad, destroy in onDestroy.
-private _tweens = new TweenManager()
-private _seq = new SequenceSystem()
+// One TweenManager per scene; create on load, destroy on unload.
+const tweens = new TweenManager()
+const seq = new SequenceSystem()
+const target = { x: 0, opacity: 0 }
 
-override onLoad(): void {
-  const target = { x: 0, opacity: 0 }
-  const def: SequenceDefinition = {
-    duration: 2,
-    tracks: [
-      { property: 'x', keyframes: [{ time: 0, value: 0 }, { time: 2, value: 200 }], ease: 'bounceOut' },
-      { property: 'opacity', keyframes: [{ time: 0, value: 0 }, { time: 0.5, value: 1 }] },
-    ],
-  }
-  this._seq.play(this._tweens, target, def)
-}
-
-override onUpdate(dt: number): void {
-  this._tweens.update(dt)   // required — SequenceSystem schedules through this
-}
-
-override onDestroy(): void {
-  this._seq.stop()          // cancels all scheduled tweens
-  this._tweens.destroy()
-}
+export const Intro = defineScene({
+  onLoad() {
+    const def: SequenceDefinition = {
+      duration: 2,
+      tracks: [
+        { property: 'x', keyframes: [{ time: 0, value: 0 }, { time: 2, value: 200 }], ease: 'bounceOut' },
+        { property: 'opacity', keyframes: [{ time: 0, value: 0 }, { time: 0.5, value: 1 }] },
+      ],
+    }
+    seq.play(tweens, target, def)
+  },
+  onUpdate(dt) {
+    tweens.update(dt)   // required: SequenceSystem schedules through this
+  },
+  onUnload() {
+    seq.stop()          // cancels all scheduled tweens
+    tweens.destroy()
+  },
+})
 ```
 
 Resume mid-sequence by passing `startAt`:
 
 ```typescript
-this._seq.play(this._tweens, target, def, /* startAt */ 1.5)
+seq.play(tweens, target, def, /* startAt */ 1.5)
 ```
 
 `play(tweens, target, def, startAt)` sets `target[property]` to the exact value at `startAt` right away, then schedules one `to()` per remaining keyframe segment with `delay` measured from `startAt` — resuming mid-playback never flashes the wrong value first.
@@ -83,7 +84,7 @@ const previewX = evaluateTrackAt(def.tracks[0], scrubberTime)
 
 | Wrong | Right |
 |---|---|
-| Forgetting `tweens.update(dt)` in `onUpdate` | `SequenceSystem.play()` only schedules `TweenManager` calls — nothing moves without `update(dt)` |
+| Forgetting `tweens.update(dt)` each frame | `SequenceSystem.play()` only schedules `TweenManager` calls — nothing moves without `update(dt)` |
 | Calling `play()` again mid-playback to "restart" | Call `seq.stop()` first, or pass the current elapsed time as `startAt` to resume cleanly |
 | Sampling a value for a scrubber via `play()` + `stop()` on every drag frame | Use `evaluateTrackAt()` instead — no side effects, no `TweenManager` involved |
 | Assuming keyframes must be sorted or evenly spaced | Keyframes sort by `time`; the segments between them can be any length with any `ease` |

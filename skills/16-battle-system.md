@@ -25,7 +25,7 @@ const db: BattleDatabase = {
       mpCost: 8,
       targetType: 'single-enemy',
       formula: 'magical',
-      power: 140,
+      power: 1.4,
     },
     {
       id: 'heal',
@@ -33,7 +33,7 @@ const db: BattleDatabase = {
       mpCost: 6,
       targetType: 'single-ally',
       formula: 'fixed',
-      power: 80,
+      power: 80,        // flat 80 HP
       isHeal: true,
     },
     {
@@ -42,7 +42,7 @@ const db: BattleDatabase = {
       mpCost: 0,
       targetType: 'single-enemy',
       formula: 'physical',
-      power: 100,
+      power: 1,
       statusEffect: { effectId: 'bleed', chance: 0.2 },
     },
   ] satisfies SkillDef[],
@@ -219,7 +219,7 @@ function handleBattleEvent(event: BattleEvent): void {
 
   if (event.kind === 'fled') {
     hideBattleUI()
-    SceneManager.pop()
+    leaveBattleScene()   // your own scene transition
     return
   }
 }
@@ -246,159 +246,99 @@ const toxicDart: SkillDef = {
   mpCost: 4,
   targetType: 'single-enemy',
   formula: 'physical',
-  power: 60,
+  power: 0.6,
   statusEffect: { effectId: 'poison', chance: 0.45 },
 }
 ```
 
-`turnsRemaining` of -1 in `StatusEffect` means the effect is permanent until explicitly removed via a skill that clears it. The system decrements `turnsRemaining` at each turn start and fires `status-expired` when it reaches zero.
+A status effect applied by a skill's `statusEffect` is created with `turnsRemaining: -1` (permanent for the battle) and is not re-applied if already active. To give an effect a duration, put a `StatusEffect` with a positive `turnsRemaining` on a `Combatant.statusEffects` array when calling `start()`; the system decrements it each turn and fires `status-expired` at zero. (`-1` never expires.)
 
 ---
 
-## User-defined stats
+## Stats and `statMap`
 
-`BattleSystem` accepts any stat names beyond the built-in set. Define extras in the `stats` object of each `Combatant` and reference them in a custom damage formula or event handler. The built-in formula only reads `attack`, `defense`, `hp`, `maxHp`, `mp`, `maxMp`, `speed`, and `luck` — any additional keys are yours to use.
+`BattleStats` requires `hp`, `maxHp`, `mp`, `maxMp`, and allows any extra numeric keys. Tell `BattleSystem` which keys play the attack/defense/speed/luck roles with the `statMap` option (each defaults to the canonical name):
 
 ```typescript
-import { type Combatant } from '@emptysock/battle'
+import { BattleSystem, type Combatant } from '@emptysock/battle'
 
-// Built-in stats plus three custom stats
+const battle = new BattleSystem({
+  db,
+  statMap: { attack: 'atk', defense: 'def', speed: 'spd', luck: 'lck' },
+})
+
 const hero: Combatant = {
-  id: 'hero',
-  name: 'Hero',
-  isParty: true,
-  stats: {
-    hp: 120, maxHp: 120,
-    mp: 40,  maxMp: 40,
-    attack: 30, defense: 12, speed: 14, luck: 5,
-    // user-defined:
-    agility: 18,
-    spellPower: 25,
-    ward: 8,
-  },
+  id: 'hero', name: 'Hero', isParty: true,
+  stats: { hp: 120, maxHp: 120, mp: 40, maxMp: 40, atk: 30, def: 12, spd: 14, lck: 5, spellPower: 25 },
   statusEffects: [],
 }
-
-// Access custom stats in a formula or event handler:
-battle.setDamageFormula(
-  (atk, def, power, isCrit, critMult, context): number => {
-    const sp = (context.attacker.stats['spellPower'] ?? 0) as number
-    const base = Math.max(1, (atk + sp) * power / 100 - def / 2)
-    return isCrit ? Math.floor(base * critMult) : Math.floor(base)
-  },
-)
 ```
 
-The `context` argument passed to the formula is `DamageContext`:
+Extra keys (`spellPower` above) are yours to read from a custom formula via `ctx.attacker.stats`.
 
-```typescript
-import { type DamageContext } from '@emptysock/battle'
+---
 
-// DamageContext shape:
-// {
-//   attacker: Combatant,
-//   defender: Combatant,
-//   skill: SkillDef | null,   // null for basic attacks
-// }
-```
+## Skill `power` semantics
 
-Stat keys are `string`-indexed; always guard with `?? 0` when reading user-defined keys so the formula stays safe against version drift or missing fields.
+`power` means different things per `formula`:
+
+| `formula` | Result |
+|-----------|--------|
+| `'physical'` | The (replaceable) physical formula; default `max(1, floor((effAtk - effDef / 2) * power * (crit ? critMultiplier : 1)))`. Basic attacks use `power = 1`. |
+| `'magical'` | `max(1, floor((effAtk * 1.5 - effDef * 0.5) * power * crit))` |
+| `'fixed'` | `floor(power)` flat amount |
+| `'percent-max-hp'` | `floor(target.maxHp * power)`; use a fraction such as `0.25` |
+
+`isHeal: true` applies the computed amount as healing instead of damage. If the actor lacks the MP for a skill, the action fails silently with no event.
 
 ---
 
 ## Custom damage formula
 
-Override the built-in formula when your game uses a different damage model.
+`setDamageFormula(fn)` replaces the formula used for basic attacks and `'physical'` skills only (not `'magical'`, `'fixed'`, or `'percent-max-hp'`). Call it before `start()`.
 
 ```typescript
-import { BattleSystem } from '@emptysock/battle'
+import { type DamageContext } from '@emptysock/battle'
 
-const battle = new BattleSystem()
-
-// Arguments: atk, def, power, isCrit, critMultiplier, context
-battle.setDamageFormula(
-  (atk: number, def: number, power: number, isCrit: boolean, critMultiplier: number): number => {
-    const base = Math.max(1, (atk * power) / 100 - def / 2)
-    return isCrit ? Math.floor(base * critMultiplier) : Math.floor(base)
-  },
-)
+// DamageContext: { attacker: Combatant; target: Combatant; effectiveAttack: number;
+//   effectiveDefense: number; power: number; isCrit: boolean; critMultiplier: number }
+battle.setDamageFormula((ctx: DamageContext): number => {
+  const sp = ctx.attacker.stats['spellPower'] ?? 0
+  const base = Math.max(1, (ctx.effectiveAttack + sp) * ctx.power - ctx.effectiveDefense / 2)
+  return Math.floor(ctx.isCrit ? base * ctx.critMultiplier : base)
+})
 ```
 
-Call `setDamageFormula` before `start()`. The callback receives raw numbers; return the final integer damage (or healing) amount.
+`effectiveAttack`/`effectiveDefense` already include status multipliers. Return the final integer damage.
 
 ---
 
 ## Save and resume
 
-Snapshot mid-battle state using `SaveSystem` and restore it on load. Always validate with a Zod schema before applying anything to a live `BattleSystem`.
+`BattleSystem` has no snapshot API. To persist a battle, store the roster yourself (read it with `getParty()` / `getEnemies()` / `getRound()`) in your own save data, and rebuild with `start(party, enemies)` on load; `start()` replays `battle-start` and begins at round 1. Persist through a `StorageAdapter` (see `skills/33-save-system.md`) or a component-based `SaveSystem`.
 
 ```typescript
-import { SaveSystem } from '@emptysock/engine'
-import { BattleSystem, type Combatant, type BattlePhase } from '@emptysock/battle'
-import { z } from 'zod'
+import { BattleSystem, type Combatant } from '@emptysock/battle'
 
-// --- Zod schema ---
-const StatsSchema = z.object({
-  hp: z.number(), maxHp: z.number(),
-  mp: z.number(), maxMp: z.number(),
-  attack: z.number(), defense: z.number(), speed: z.number(), luck: z.number(),
-})
-
-const StatusEffectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  turnsRemaining: z.number(),
-})
-
-const CombatantSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  stats: StatsSchema,
-  statusEffects: z.array(StatusEffectSchema),
-  isParty: z.boolean(),
-})
-
-const BattleSaveSchema = z.object({
-  round: z.number(),
-  phase: z.enum(['idle', 'input', 'resolving', 'victory', 'defeat']),
-  party: z.array(CombatantSchema),
-  enemies: z.array(CombatantSchema),
-})
-
-type BattleSave = z.infer<typeof BattleSaveSchema>
-
-const battleSaves = new SaveSystem<{ id: string; data: BattleSave }>(
-  'battle_save_',
-  z.object({ id: z.string(), data: BattleSaveSchema }),
-)
-
-// --- Snapshot (call before transitioning away mid-battle) ---
-function saveBattle(slot: string): void {
-  const snapshot: BattleSave = {
-    round: battle.getRound(),
-    phase: battle.getPhase(),
-    party: battle.getParty().map((c) => ({ ...c })),
-    enemies: battle.getEnemies().map((c) => ({ ...c })),
-  }
-  battleSaves.save(slot, { data: snapshot })
+async function saveBattle(adapter: StorageAdapter, battle: BattleSystem): Promise<void> {
+  await adapter.set('battle_save', JSON.stringify({
+    party: battle.getParty(),
+    enemies: battle.getEnemies(),
+  }))
 }
 
-// --- Restore ---
-function resumeBattle(slot: string): BattleSystem | null {
-  const raw = battleSaves.load(slot)
+async function resumeBattle(adapter: StorageAdapter, db: BattleDatabase): Promise<BattleSystem | null> {
+  const raw = await adapter.get('battle_save')
   if (raw === null) return null
-
-  const saved = raw.data
-
+  const saved = JSON.parse(raw) as { party: Combatant[]; enemies: Combatant[] }   // validate with a schema in real code
   const resumed = new BattleSystem({ db })
-
-  // Re-subscribe and start — the system fires battle-start from the beginning;
-  // use saved.round and saved.phase to restore any UI state your scene manages.
   resumed.subscribe(handleBattleEvent)
-  resumed.start(saved.party as Combatant[], saved.enemies as Combatant[])
+  resumed.start(saved.party, saved.enemies)
   return resumed
 }
 ```
+
+(`StorageAdapter` and `BattleDatabase` are imported from `@emptysock/engine` and `@emptysock/battle` respectively.)
 
 ---
 
@@ -407,7 +347,7 @@ function resumeBattle(slot: string): BattleSystem | null {
 | Wrong | Right |
 |---|---|
 | `async onUpdate() { battle.submitAction(...) }` | Submit actions from UI callbacks, never from `onUpdate` |
-| Forgetting `battle.destroy()` in `onDestroy` | Always call `battle.destroy()` in `onDestroy` |
-| `raw.data as BattleSave` | `BattleSaveSchema.parse(raw.data)` — always validate save data |
+| Forgetting `battle.destroy()` on scene unload | Call `battle.destroy()` in the scene's `onUnload` |
+| `JSON.parse(raw) as SavedBattle` | Validate loaded save data with a schema before starting a battle |
 | `battle.submitAction('goblin-1', action)` | Only call `submitAction` for party members (`isParty: true`) |
 | Calling `submitAction` while `battle.getPhase() !== 'input'` | Guard with `if (battle.getPhase() !== 'input') return` |

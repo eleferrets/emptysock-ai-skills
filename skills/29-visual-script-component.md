@@ -1,13 +1,18 @@
-# VisualScriptComponent
+# Visual script runtime (VisualScriptState + VisualScriptSystem)
 
-**Use this when** you're running a visual-script graph at runtime, or bridging one into `ActorSystem` messaging. `VisualScriptComponent` is an ECS `Component` that holds a serialized node graph and interprets it every frame or on a fired event — it's the runtime counterpart to the **Visual Script Editor** panel (see `skills/visual-script.md`). The panel authors a `VisualScriptGraph`; this component walks it against a `VariableStore` and, optionally, an `ActorSystem`.
+**Use this when** you're running a visual-script graph at runtime, or bridging one into `ActorSystem` messaging. The runtime counterpart to the **Visual Script Editor** panel (see `skills/visual-script.md`) is split in two: a tiny per-entity `VisualScriptState` component (just a `graphId`) and a `VisualScriptSystem` that compiles the shared graph and runs it. The graph itself is shared, immutable data held in a registry, never copied onto each entity.
 
 ---
 
 ## Setup
 
 ```typescript
-import { VisualScriptComponent, VisualScriptGraphBuilder } from '@emptysock/engine'
+import {
+  VisualScriptGraphBuilder,
+  VisualScriptState,
+  VisualScriptSystem,
+  registerVisualScriptGraph,
+} from '@emptysock/engine'
 
 const b = new VisualScriptGraphBuilder()
 const start = b.onUpdate()
@@ -19,11 +24,14 @@ b.connect(start, branch)
  .connect(branch, onHigh, 0)   // true edge
  .connect(branch, onLow, 1)    // false edge
 
-const vs = new VisualScriptComponent({ graph: b.build() })
-entity.addComponent(vs)
+registerVisualScriptGraph('door-logic', b.build())
+const door = this.spawn('door')                       // inside a Scene
+door.add(VisualScriptState, { graphId: 'door-logic' })
+
+const vs = new VisualScriptSystem({ variables: ctx.variables })   // omit for an isolated VariableStore
 ```
 
-`VisualScriptComponent.TYPE` is the string `"VisualScript"` — the key `addComponent`/`getComponent` use, per the engine's component-identity convention (`docs`: component types are identity keys — one `type` string per entity slot).
+`getVisualScriptGraph(id)` reads a registered graph and `unregisterVisualScriptGraph(id)` removes it. Re-registering a `graphId` with new data? Call `vs.invalidate(graphId)` so the cached compiled module is rebuilt.
 
 ---
 
@@ -31,55 +39,46 @@ entity.addComponent(vs)
 
 | Kind | Role | Fields |
 |---|---|---|
-| `onUpdate` | Entry point, fires every `update()` call | — |
-| `onEvent` | Entry point, fires when `fireEvent(eventType)` is called | `eventType` |
-| `sequence` | Passes execution straight through | — |
+| `onUpdate` | Entry point, fires on every `VisualScriptSystem.update(scene)` call | none |
+| `onEvent` | Entry point, fires when `fireEvent(scene, eventType)` is called | `eventType` |
+| `sequence` | Passes execution straight through | none |
 | `branch` | Reads a `VariableStore` variable and compares it | `variableIndex`, `comparator` (`'eq'\|'neq'\|'gt'\|'lt'\|'gte'\|'lte'`), `value`; `next[0]` = true edge, `next[1]` = false edge |
-| `getVariable` | Reads a `VariableStore` variable into the per-tick evaluation scope | `variableIndex`, `outputKey` |
+| `getVariable` | Reads a `VariableStore` variable into the per-trigger evaluation scope | `variableIndex`, `outputKey` |
 | `setVariable` | Writes a literal or a scoped value into `VariableStore` | `variableIndex`, `value: number \| { fromKey: string }` |
 | `getSwitch` / `setSwitch` | Same as above for `VariableStore` boolean switches | `switchIndex`, `outputKey` / `value` |
-| `sendMessage` | Sends a real `Message` through `ActorSystem.send()` | `targetActorId`, `messageType`, `payload?` |
+| `sendMessage` | Sends a `Message` through `ActorSystem.send()` | `targetActorId`, `messageType`, `payload?` |
 
-Every node carries a `next: string[]` array of node ids it wires forward to (execution-output ports). `branch` is the only node with two ports; every other node kind uses `next[0]`.
+Every node carries a `next: string[]` array of node ids it wires forward to. `branch` is the only node with two ports; every other kind uses `next[0]`.
 
 ---
 
 ## Driving the graph
 
 ```typescript
-// Every frame, from the entity's normal component update pass:
-override onUpdate(dt: number): void {
-  vs.update(dt)   // runs every onUpdate node's chain once — vs.update is not async
-}
+// Every frame, from a scene's onUpdate (synchronous):
+vs.update(this)                    // runs every VisualScriptState entity's onUpdate chains
 
-// From game logic, anywhere:
-vs.fireEvent('door_opened')   // runs every onEvent node whose eventType matches
-```
-
-Swap the graph or wire an `ActorSystem` after construction, and read the live store the interpreter is bound to:
-
-```typescript
-vs.setGraph(nextGraph)
-vs.setActorSystem(actorSystem)
-const store = vs.variableStore
+// From game logic, anywhere you have the scene:
+vs.fireEvent(this, 'door_opened')  // runs every matching onEvent chain
+const store = vs.variables         // the VariableStore the system is bound to
 ```
 
 ---
 
 ## Bridging to the Actor Model
 
-A `sendMessage` node needs an `ActorSystem` — pass one at construction or wire it later:
+A `sendMessage` node needs an `ActorSystem`, passed to `VisualScriptSystem` at construction (there is no setter):
 
 ```typescript
-import { ActorSystem, VisualScriptComponent, VisualScriptGraphBuilder } from '@emptysock/engine'
+import { ActorSystem, VisualScriptGraphBuilder, VisualScriptSystem } from '@emptysock/engine'
 
-const actors = new ActorSystem()   // one per scene — create in onLoad, destroy in onDestroy
+const actors = new ActorSystem()
 const b = new VisualScriptGraphBuilder()
 const onOpen = b.onEvent('door_opened')
 const notify = b.sendMessage('guard-1', 'alert', { reason: 'door' })
 b.connect(onOpen, notify)
 
-const vs = new VisualScriptComponent({ graph: b.build(), actorSystem: actors })
+const vs = new VisualScriptSystem({ actorSystem: actors })
 ```
 
 ---
@@ -87,8 +86,8 @@ const vs = new VisualScriptComponent({ graph: b.build(), actorSystem: actors })
 ## Execution semantics
 
 - A trigger fires, and execution walks `next` edges synchronously node-by-node until it hits a node with no outgoing edge for the port it took.
-- A per-tick evaluation scope (cleared at the start of each trigger) lets `getVariable`/`getSwitch` results flow into a later `setVariable` via `{ fromKey }` — read a variable once, reuse it across several writes in the same trigger.
-- A defensive step cap (10,000 steps per trigger) keeps a graph that wires back into itself from hanging the frame. It logs a warning and bails instead of looping forever — the same class of bug as the ActorSystem mailbox-drain case, just wearing a different hat.
+- A per-entity evaluation scope (cleared before each trigger) lets `getVariable`/`getSwitch` results flow into a later `setVariable` via `{ fromKey }`.
+- A defensive step cap (10,000 steps per trigger) keeps a graph that wires back into itself from hanging the frame.
 
 ---
 
@@ -96,7 +95,8 @@ const vs = new VisualScriptComponent({ graph: b.build(), actorSystem: actors })
 
 | Wrong | Right |
 |---|---|
-| Calling `vs.update()` as `async` | The engine calls component `update()` synchronously — reach for coroutines for anything multi-frame |
-| Wiring `sendMessage` nodes without passing `actorSystem` | Pass `actorSystem` at construction, or call `setActorSystem()` before the graph runs |
-| Hand-writing the `VisualScriptGraph` JSON shape from scratch | Use `VisualScriptGraphBuilder` — it produces exactly the shape the panel round-trips |
-| Expecting `getVariable` output to persist across triggers | The evaluation scope resets at the start of each trigger — read it again next time |
+| Copying the graph JSON onto each entity | Register once with `registerVisualScriptGraph`, reference by `graphId` |
+| Wiring `sendMessage` nodes without an `actorSystem` | Pass `actorSystem` to the `VisualScriptSystem` constructor |
+| Hand-writing the `VisualScriptGraph` JSON shape from scratch | Use `VisualScriptGraphBuilder` |
+| Expecting `getVariable` output to persist across triggers | The evaluation scope resets before each trigger |
+| Editing a registered graph and expecting the live system to notice | Re-register, then `vs.invalidate(graphId)` |

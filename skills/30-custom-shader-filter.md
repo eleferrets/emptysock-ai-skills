@@ -6,7 +6,7 @@
 
 ## Uniform / attribute contract
 
-Every custom shader must match the same contract `LightingSystem`'s built-in filter uses:
+Every custom shader must follow the PixiJS v8 filter contract:
 
 - Attributes: `aPosition` (vec2), `aUV` (vec2)
 - Vertex uniforms: `uProjectionMatrix`, `uWorldTransformMatrix`, `uTransformMatrix` (mat3) — standard PixiJS v8 filter uniforms
@@ -19,10 +19,10 @@ A filter draws a full-screen quad, so a vertex stage that reads a per-vertex `aU
 
 ---
 
-## Usage
+## Usage: one-off filter object
 
 ```typescript
-import { createCustomShaderFilter, RenderSystem } from '@emptysock/engine'
+import { createCustomShaderFilter } from '@emptysock/engine'
 
 const filter = createCustomShaderFilter({
   fragmentSrc: `
@@ -35,28 +35,37 @@ const filter = createCustomShaderFilter({
       finalColor = texture(uTexture, vUV + vec2(sin(uTime) * 0.01, 0.0));
     }
   `,
-  // vertexSrc?: string — defaults to DEFAULT_CUSTOM_SHADER_VERTEX
+  // vertexSrc?: string        defaults to a correct full-screen filter vertex stage
+  // uniforms?: Record<string, { value: number | number[]; type: string }>   extra scalar/vector uniforms, declared up front
+  // wgslFragment?: string     WGSL fragment stage; without it the filter is GL-only and renders nothing under WebGPU
+  // name?: string             debug label
 })
 
-// RenderSystem (not RenderPipeline) owns layer shader filters:
-private _renderSystem = new RenderSystem()
-
-override onLoad(): void {
-  // ... this._renderSystem.init(...) as part of your render setup ...
-  this._renderSystem.addLayerShaderFilter('default', filter)
-}
-
-override onUpdate(dt: number): void {
-  this._elapsed += dt
-  filter.setTime(this._elapsed)   // only needed if the shader reads uTime
-}
-
-override onDestroy(): void {
-  this._renderSystem.removeLayerShaderFilter('default', filter)
-}
+// Each frame, only if the shader reads uTime:
+filter.setTime(elapsedSeconds)
+filter.setUniform('uStrength', 0.5)   // writes a declared uniform; ignored if the name was not declared
 ```
 
-`RenderSystem.addLayerShaderFilter(layerName, filter)` / `removeLayerShaderFilter(layerName, filter)` attach and detach the filter on a named render layer's PixiJS container. `RenderPipeline` (the batteries-included renderer most scenes use — see `skills/23-rendering.md`) does not forward these methods; a scene that needs a custom shader filter drives `RenderSystem` directly instead of, or alongside, `RenderPipeline`.
+`createCustomShaderFilter` returns a `CustomShaderFilter`, which is a PixiJS `Filter`. Attach it by assigning to a PixiJS container's `filters` array, for example `render.stage.filters = [filter]` on a `RenderPipeline`'s stage (remove it by assigning `[]` or `null`). `RenderPipeline` has no per-layer shader-filter method.
+
+## Usage: registered shader on sprites
+
+For shaders shared across many sprites, register the source once and point `Sprite.shader` at the id; `RenderPipeline` builds one shared filter per id and applies it to those sprites:
+
+```typescript
+import { registerShader, setShaderUniform, Sprite } from '@emptysock/engine'
+
+registerShader('sh_white', {
+  vertexSrc: vertexGlsl,        // GLSL ES 3.00; only its `out` varyings are used, positioning is substituted
+  fragmentSrc: fragmentGlsl,
+  // wgslFragmentSrc?: string   optional, enables WebGPU
+})
+
+hero.add(Sprite, { texturePath: 'hero.png', shader: 'sh_white' })
+setShaderUniform('sh_white', 'uAmount', 'f', [0.5])   // kind 'f' float / 'i' int; values array per component
+```
+
+Other registry helpers: `unregisterShader(id)`, `hasShader(id)`, `getShader(id)`, `shaderIds()`, `getShaderUniforms(id)`, `clearShaders()`. Uniforms are per shader id, shared by every sprite using it (a per-sprite value would need a separate shader id). Scalar and vector uniforms (`float`, `int`, `vec2..vec4`) declared in the fragment source are picked up automatically via `parseShaderUniforms`.
 
 ---
 
@@ -65,6 +74,6 @@ override onDestroy(): void {
 | Wrong | Right |
 |---|---|
 | Writing `attribute`/`varying` or calling `texture2D()` | Use GLSL ES 3.00 style: `in`/`out` and `texture()` |
-| Expecting `uTime` to advance on its own | Call `filter.setTime(elapsedSeconds)` yourself, every frame, if the shader actually reads it |
-| Calling `addLayerShaderFilter` on a `RenderPipeline` instance | It lives on `RenderSystem` — `RenderPipeline` doesn't expose it |
-| Forgetting to name a real layer | `addLayerShaderFilter`/`removeLayerShaderFilter` take the same layer names `LayerSystem.defineLayer()` created; `'default'` is always there |
+| Expecting `uTime` to advance on its own | Call `filter.setTime(elapsedSeconds)` yourself, every frame, if the shader reads it |
+| Hand-wiring a filter onto a layer | `RenderSystem` (exported) has `addLayerShaderFilter(layerName, filter)`, but `RenderPipeline` owns its own instance; the simple routes are assigning the filter to a container's `filters`, or `registerShader` + `Sprite.shader` |
+| Assuming a GL shader works under WebGPU | Supply `wgslFragment` (or `wgslFragmentSrc`) to support WebGPU; otherwise it is GL-only |

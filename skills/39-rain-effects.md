@@ -9,10 +9,10 @@
 
 ## Rain on glass
 
-The normal route is a layer filter on `PostProcessSystem`, attached to your `RenderPipeline`:
+One route is a layer filter on `PostProcessSystem`, attached to a `RenderPipeline`; the other is building the filter yourself with `createRainGlassFilter` (below). The filter-option shape is the same:
 
 ```typescript
-import { PostProcessSystem, RenderPipeline } from '@emptysock/engine'
+import { PostProcessSystem } from '@emptysock/engine'
 
 const post = new PostProcessSystem()
 pipeline.attachPostProcess(post)
@@ -28,7 +28,7 @@ post.setLayerFilter('default', {
 
 Update the options at any time by calling `setLayerFilter` again for the same layer (the effect is not rebuilt; its values are updated). Remove it with `post.clearLayerFilter('default')`. Time advances by itself, so drops slide and creep with no per-frame call from you.
 
-To build the filter yourself, `createRainGlassFilter(options?)` returns a `RainGlassFilter` with `setOptions(partial)`, `setResolution(width, height)` (call when the target size changes) and `tick(dtSeconds)` (advance time once per frame), and you attach it to a layer with `renderSystem.addLayerShaderFilter(layer, filter)`.
+To build the filter yourself, `createRainGlassFilter(options?)` returns a `RainGlassFilter` with `setOptions(partial)`, `setResolution(width, height)` (call when the target size changes) and `tick(dtSeconds)` (advance time once per frame), and you attach it by assigning it to a PixiJS container's `filters` array (for example `pipeline.stage.filters = [filter]`).
 
 **What it is not.** It is a single fragment-shader pass: no per-drop simulation, no drops merging or running together, and no real lens geometry. It reads as "the screen is wet", not as a physical simulation. The cost scales with resolution only, never with the number of drops, so it is fine on mid-range GPUs. Profile it on your weakest target device before shipping alongside other heavy effects.
 

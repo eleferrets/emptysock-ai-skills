@@ -2,6 +2,8 @@
 
 The ideas behind EmptySock. Read this once, then the skill files make immediate sense.
 
+> **Deprecated.** EmptySock development has stopped. This guide documents the final state of the engine.
+
 Don't worry if some of this feels abstract at first — come back to it after you've made something, and it'll click.
 
 ---
@@ -24,12 +26,12 @@ EmptySock uses ECS — the same underlying idea as Unity, Godot, and Bevy, thoug
 
 // The ECS way: any entity can have any component.
 const player = scene.spawn('Player')
-player.add(Sprite, { texture: 'hero.png' })
+player.add(Sprite, { texturePath: 'hero.png' })
 player.add(PhysicsBody, { type: 'dynamic' })
 
 const bullet = scene.spawn('Bullet')
-bullet.add(Sprite, { texture: 'bullet.png' })
-bullet.add(PhysicsBody, { type: 'dynamic', ccd: true })
+bullet.add(Sprite, { texturePath: 'bullet.png' })
+bullet.add(PhysicsBody, { type: 'dynamic', shape: 'circle', radius: 4 })
 // Same PhysicsBody component — the same physics system handles both automatically.
 ```
 
@@ -64,10 +66,11 @@ There's no live parent/child entity tree — if you want a template made of seve
 
 EmptySock runs a game loop (default 60 times per second, called 60 FPS — frames per second). Each frame:
 
-1. Process input events
-2. Call `onUpdate(dt)` on your scene
-3. Step the physics simulation
-4. Render everything to the screen
+1. Freeze the input snapshot
+2. Flush actor mailboxes and update actors
+3. Step the physics simulation and dispatch collision callbacks
+4. Call `onUpdate(dt)` on your scene
+5. Render everything to the screen
 
 `dt` in `onUpdate` is the real elapsed time since the last frame, in seconds. At 60 FPS this is roughly 0.016. You use it to make movement **frame-rate independent** — so the game feels the same whether it's running at 30fps or 120fps.
 
@@ -85,31 +88,23 @@ Always use `dt` for anything that moves or changes over time.
 
 ---
 
-## Delta Time and Game Speed
+## Delta Time and Slow Motion
 
-The engine runs at `gameSpeed` FPS (default 60). You can slow time down globally — useful for slow-motion effects:
-
-```typescript
-Engine.timeScale = 0.5   // half speed — everything slows down
-Engine.timeScale = 2.0   // double speed
-Engine.timeScale = 1.0   // normal
-```
-
-`dt` passed to `onUpdate` reflects the time scale — so your movement code doesn't need to know about it. Coroutine `waitSeconds()` also respects time scale. `Timer.after()` runs in real time and doesn't slow down.
+`Game.update(dt)` takes the elapsed seconds from your host's render loop. There is no global `timeScale`; to slow time down, scale the `dt` you pass in (`game.update(dt * 0.5)`), which slows `onUpdate`, physics stepping, and coroutines together. Real-time effects belong in your own host code, outside `game.update`.
 
 ---
 
 ## Physics
 
-EmptySock uses a Rust physics library compiled to WebAssembly. The physics world runs alongside the game loop. Every entity with a `PhysicsBody` component participates in the simulation.
+EmptySock uses Rapier, a Rust physics library compiled to WebAssembly. The physics world runs alongside the game loop. Every entity with a `PhysicsBody` component participates in the simulation.
 
 - **Fixed** bodies never move. Use for walls, floors, platforms.
 - **Dynamic** bodies respond to gravity and forces. Use for enemies, crates, coins.
-- **Kinematic** bodies are moved by code, but they push dynamic bodies. Use for moving platforms and character controllers.
+- **Kinematic** bodies are moved by code, but they push dynamic bodies. Use for moving platforms and player-driven characters.
 
-`CharacterController` is a pre-built kinematic controller that handles slope climbing, step snapping (stairs), and ground detection. Use it for players. Use raw `PhysicsBody` for everything else.
+There is no built-in character controller; drive a body with its `velocity` and your own ground checks.
 
-Collision and sensor callbacks are a direct property assignment on the `PhysicsBody` you already hold — `body.onCollisionEnter = (other, contact) => {...}` — assigning the property is registering it.
+Collision and sensor callbacks are a direct property assignment on the handle `getPhysicsBody(entity)` returns, for example `getPhysicsBody(entity).onCollisionEnter = (other, contact) => {...}`. Assigning the property is registering it.
 
 One important note: if you're using `PhysicsSystem3D` with manual lifecycle management, always call `physics.destroy()` when your scene unloads. The physics engine allocates memory outside of JavaScript's reach, and if you don't free it, the memory never gets released. In the normal case (you didn't pass `{ manageLifecycle: false }` to `loadScene`), `Game` calls this for you automatically on scene teardown — you only need to remember it yourself if you opted out of automatic lifecycle management.
 
@@ -123,46 +118,38 @@ Key ideas:
 
 **Draw calls:** each texture switch is a new draw call. Fewer draw calls = faster rendering. Group sprites that share a texture. The IDE auto-packs texture atlases at export time, so you usually don't need to think about this.
 
-**Z-order:** entities render back-to-front. Control the order with `entity.zIndex` — higher = in front.
+**Z-order:** sprites render by layer, then depth. Set `Sprite.layer` and `Sprite.depth`; higher draws in front (`skills/layer-system.md`).
 
-**2D lighting:** optional. Enable with `lighting: true` in your scene config. Add `PointLight`, `DirectionalLight`, or `SpotLight` components to entities that should cast light.
+**2D lighting:** optional. Give entities a `LightSource` component (and walls a `LightOccluder`); see `skills/22-lighting-system.md`.
 
 ---
 
 ## Audio
 
-Audio is loaded from `assets/audio/` and played by name. Audio is grouped:
-
-- `music` — background music, usually looping
-- `sfx` — sound effects
-- `ui` — button clicks, UI sounds
-- `voice` — dialogue voice lines
-
-Each group has its own volume control. Players expect to be able to turn music down but keep sound effects loud, so keeping them separate is worth it from day one.
-
-Spatial audio pans and attenuates sounds based on distance from the camera (listener position).
+The game's audio system (`game.audio`) loads sounds by id (`audio.load(id, src, { group })`) and plays them by id (`audio.play(id)`). Default buses are `master`, `music`, `sfx`, `voice`, and `ambient`; each group has its own volume (`setGroupVolume`). Players expect to be able to turn music down but keep sound effects loud, so keep them separate from day one.
 
 ---
 
 ## Input
 
-Input is unified across keyboard, mouse, touch, and gamepad. The same code works on desktop and mobile:
+Input is unified across keyboard, mouse, touch, and gamepad through `InputManager` (`game.input`, `ctx.input`). You define named actions and bind them to keys or gamepad inputs; the same code works on desktop and mobile:
 
 ```typescript
-import { InputSystem } from '@emptysock/engine'
+import { InputManager } from '@emptysock/engine'
 
-// In onLoad:
-const input = new InputSystem()
-input.attach()   // register event listeners
+const input = new InputManager({
+  jump: [{ kind: 'key', code: 'Space' }],
+  right: [{ kind: 'key', code: 'ArrowRight' }],
+})
+input.attach()   // once, from your bootstrap code
 
-// In onUpdate — call flush() first, then read state:
-input.flush()
-input.isKeyDown('ArrowRight')   // keyboard right arrow — held every frame
-input.isKeyPressed('Space')     // true only on the frame the key went down
-input.mouseX / input.mouseY     // mouse position on desktop, first touch on mobile
+// In onUpdate (Game freezes a snapshot each frame):
+input.isDown('right')      // held
+input.wasPressed('jump')   // true only on the frame it went down
+input.pointers             // mouse / touch / pen positions
 ```
 
-Create one `InputSystem` instance in `onLoad`, call `attach()` to register listeners, `flush()` at the top of every `onUpdate`, and `detach()` in `onDestroy`.
+See `skills/05-touch-input.md` and `skills/28-accessibility-debugging.md`.
 
 ---
 
@@ -174,18 +161,20 @@ Create one `InputSystem` instance in `onLoad`, call `attach()` to register liste
 
 ## Timers
 
-Use `Timer` to run code after a delay or on a repeating interval. Never use `setTimeout` in game logic — it ignores the engine's time scale and doesn't get cleaned up automatically with your scene.
+Use `TweenManager` to run code after a delay or on a repeating interval. Never use `setTimeout` in game logic: it ignores your frame loop and doesn't get cleaned up with your scene.
 
 ```typescript
-import { Timer } from '@emptysock/engine'
+import { TweenManager } from '@emptysock/engine'
+
+const tweens = new TweenManager()   // call tweens.update(dt) every frame
 
 // Run once after 2 seconds
-const handle = Timer.after(2, () => {
+const handle = tweens.after(2, () => {
   console.log('2 seconds passed!')
 })
 
 // Run every 1 second
-const repeatingHandle = Timer.every(1, () => {
+const repeatingHandle = tweens.every(1, () => {
   spawnEnemy()
 })
 
@@ -193,7 +182,7 @@ const repeatingHandle = Timer.every(1, () => {
 handle.cancel()
 ```
 
-`Timer.after` and `Timer.every` both return a `TimerHandle`. Keep the handle if you might need to cancel the timer — for example, in `onDestroy` so a timer doesn't fire after the scene is gone.
+`after` and `every` both return a `TweenHandle`. Keep the handle if you might need to cancel the timer, for example on scene unload so a timer doesn't fire after the scene is gone (or call `tweens.killAll()`).
 
 ---
 
@@ -205,12 +194,12 @@ Coroutines are generator functions that run over multiple frames. They're the re
 entity.startCoroutine(function* () {
   yield waitSeconds(2.0)             // pause for 2 seconds
   spawnBoss()
-  yield waitForEvent('boss_dead')    // pause until a custom event fires
-  SceneManager.transition('WinScene', { effect: 'wipe' })
+  yield waitUntil(() => bossDead)    // pause until a condition becomes true
+  void game.loadScene(WinScene)
 })
 ```
 
-Coroutines respect `Engine.timeScale` — they slow down in slow motion just like everything else. They're deterministic and easy to read.
+Coroutines advance with the `dt` you pass to `game.update`, so they slow down with everything else. The other yield helpers are `waitFrames(n)` and `waitUntil(fn)`.
 
 ---
 
@@ -265,7 +254,7 @@ Red errors in the console after hitting Play are runtime errors — something we
 
 **How do I make something appear on screen?**
 
-The quickest way is to create a canvas in `onLoad` and draw to it with the 2D canvas API — no assets required. See the example in `docs/getting-started.md`. Once you're comfortable, move to using `Sprite` components with texture files for anything you want to stay in your game long-term.
+The quickest way is to create a canvas in `onLoad` and draw to it with the 2D canvas API (see `docs/getting-started.md`). For anything long-term, attach `Transform` + `Sprite` components with texture files and render through `RenderPipeline` (`skills/23-rendering.md`).
 
 ---
 

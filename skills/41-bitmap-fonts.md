@@ -1,6 +1,6 @@
 # Bitmap fonts: BitmapFontDef and FontRegistry
 
-**Use this when** you want text drawn from a pre-rendered glyph atlas (an image plus a rectangle per glyph) instead of a system font, so it looks identical on every machine. This is what the GameMaker importer produces for a GameMaker font, and what `draw_text` uses after `draw_set_font`. A bitmap font is plain data (`BitmapFontDef`) registered in the game's `FontRegistry` (`game.fonts`).
+**Use this when** you want text drawn from a pre-rendered glyph atlas (an image plus a rectangle per glyph) instead of a system font, so it looks identical on every machine. A bitmap font is plain data (`BitmapFontDef`) registered in the game's `FontRegistry` (`game.fonts`).
 
 ---
 
@@ -37,9 +37,9 @@ game.fonts.hasBitmap('fnt_menu')    // true
 game.fonts.getBitmap('fnt_menu')    // the def
 ```
 
-`registerBitmap` is independent of `register(id, descriptor)` (the CSS-style font descriptor used by `Label` widgets): an id can have either, or both. When both exist, GML `draw_text` prefers the bitmap; widgets keep using the descriptor.
+`registerBitmap` is independent of `register(id, descriptor)` (the CSS-style font descriptor used by `Label` widgets): an id can have either, or both.
 
-Attach the registry to your renderer so it can find bitmap fonts: `RenderPipeline` takes `options.fonts`, or call `pipeline.attachFonts(game.fonts)`. With a GML runtime and a renderer, this is wired for you.
+Attach the registry to your renderer so it can find bitmap fonts: `RenderPipeline` takes `options.fonts`, or call `pipeline.attachFonts(game.fonts)`.
 
 ## Layout helpers (no renderer needed)
 
@@ -56,10 +56,10 @@ bitmapKerning(menuFont, 65, 66)   // -1
 
 ## What to know
 
-- **First draw may use a fallback.** Until the atlas image has loaded, text draws with the normal font for that frame and the load is started; the bitmap version appears once the image is ready. Preload the atlas (`AssetManifest`, `skills/27-asset-manifest.md`) to avoid the swap.
-- **Colour tints the glyphs.** Atlases are drawn white-on-transparent and tinted by the current draw colour.
-- **`Label` and the other UI widgets do not use bitmap fonts yet**; they draw from the CSS descriptor.
-- **Alignment.** `fa_left` / `fa_center` / `fa_right` and the vertical equivalents work for bitmap and system fonts alike.
+- **First draw may use a fallback.** Until the atlas image has loaded, text draws with the normal font for that frame and the load is started; the bitmap version appears once the image is ready. Load the atlas early (for example `TextureStore.load(atlasPath)`, see `skills/42-texture-store.md`) to avoid the swap.
+- **Atlas format.** Atlases are expected to be white-on-transparent glyph sheets; `RenderPipeline` text uses them through pixi bitmap fonts, while `UISystem` only draws them untinted.
+- **UI widgets can use bitmap fonts.** Set `fontId` on a `Label` (or button/checkbox) to the registered id and give `UISystem` the registry (`new UISystem(tree, { fonts: game.fonts })`). Bitmap drawing only happens for the default white text colour; coloured text falls back to the CSS font. Without a bitmap def, `fontId` resolves through the CSS descriptor registered with `fonts.register(id, descriptor)`.
+- **Alignment.** `Label.align` (0 left, 1 centre, 2 right) works for bitmap and system fonts alike.
 
 ## Rules
 

@@ -1,6 +1,6 @@
 # TextureStore
 
-**Use this when** you are writing a host, tool or system that needs to load a texture by path and look it up again synchronously, and you want it to share the cache the engine's own rendering and UI already use. `TextureStore` is that one shared load-and-lookup path for sprites, `draw_sprite`, particles, tilemap tilesets and `ImageWidget`.
+**Use this when** you are writing a host, tool or system that needs to load a texture by path and look it up again synchronously, and you want it to share the cache the engine's own rendering and UI already use. `TextureStore` is that one shared load-and-lookup path for sprites, particles, tilemap tilesets and `ImageWidget`.
 
 Most games never touch it: `Sprite.texturePath` and friends load through it automatically. Reach for it when you need the loaded texture object itself, or need to swap the loader (tests, custom hosts).
 
@@ -30,7 +30,7 @@ const store = new TextureStore(async (path) => makeTextureSomehow(path))
 
 With a custom loader the store keeps its own small cache plus an in-flight table, so a path is still loaded once. Without one, it delegates to the engine's default asset cache and keeps no second copy.
 
-Passing a loader to `RenderPipeline` (`textureLoader`) or the UI system (`imageLoader`) is how the engine's own systems get this seam; give them the same function and they behave identically.
+Passing a loader to `RenderPipeline` (`textureLoader`) or the `UISystem` (`imageLoader` option) is how the engine's own systems get this seam; give them the same function and they behave identically.
 
 ## Rules
 

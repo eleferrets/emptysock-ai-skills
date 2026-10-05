@@ -16,7 +16,7 @@ const Position = networked(
 )
 ```
 
-`networked(componentDef, fields)` returns the same def unchanged, so it composes right into a `defineComponent(...)` chain — no `defineNetworkedComponent` wrapper to learn, no separate registry to keep in sync with `ComponentRegistry`. Call it once, on both client and server, keyed by the same `componentName` string the rest of the engine already uses for that component.
+`networked(componentDef, fields)` returns the same def unchanged, so it composes right into a `defineComponent(...)` chain — no `defineNetworkedComponent` wrapper to learn, no separate registry to keep in sync with `ComponentRegistry`. Call it once, on both client and server, keyed by the same `componentName` string the rest of the engine already uses for that component. Related exports: `getNetworkedFields(componentName)`, `isNetworkedComponent(componentName)`, `clearNetworkedFields()`.
 
 ## The one rule that actually matters: reassign, don't mutate
 
@@ -33,21 +33,29 @@ This isn't a bug waiting to be fixed — it's a documented tradeoff for keeping 
 
 `NetworkSystem.sync()` is meant to be called at a low, fixed cadence — a handful of times a second, not every frame. This package is built for "replicate state a handful of times a second to a handful of clients," not for competing with `scene.each()`'s no-proxy hot path. If your game needs tighter netcode than that (rollback, client-side prediction at 60Hz), you're past what this package is trying to solve and should look at Colyseus directly, or budget real engineering time for it — the engine explicitly didn't try to write rollback netcode itself (see the engine's own design notes on "don't reinvent solved problems").
 
-## Bridging entities to network ids
+## Wiring NetworkSystem
 
-Colyseus room state has no idea what a local entity id even is, and entity ids are only unique within one process's ECS world anyway. `NetworkEntityMap` bridges a Colyseus network id (typically `room.sessionId` for a player, or a synthetic key for a server-spawned entity) to a local `Entity` handle:
+`NetworkSystem` binds a Colyseus state collection (a `MapSchema` on `room.state`) to scene entities. It spawns an entity for each added schema, destroys it on removal, writes inbound field changes into remote entities, and pushes the local player's changed fields out with `room.send`. Its `entities` property is a `NetworkEntityMap` bridging Colyseus network ids (typically `room.sessionId` for a player) to local `Entity` handles, since entity ids are only unique within one process's ECS world.
 
 ```typescript
-import { NetworkEntityMap, NetworkSystem } from '@emptysock/network'
+import { NetworkSystem } from '@emptysock/network'
+import { getStateCallbacks } from 'colyseus.js'
 
-const entityMap = new NetworkEntityMap()
-const netSystem = new NetworkSystem(room, scene, entityMap, { componentDefs: [Position, Health] })
+const net = new NetworkSystem({
+  scene,
+  room,                              // a connected colyseus.js Room (RoomLike)
+  collection: 'players',             // property name on room.state holding the MapSchema
+  components: [Position, Health],    // ComponentDefs a networked entity may carry; only networked() fields sync
+  localId: room.sessionId,           // omit for a spectator / server-authoritative setup
+  getStateCallbacks,                 // injectable for tests
+  // messageType?: 'networkSync'     // default outbound room.send type
+})
 
-// low, fixed cadence — not every frame
-setInterval(() => netSystem.sync(), 100)
+// low, fixed cadence, not every frame: accumulate dt in onUpdate and call net.sync() a few times a second
+net.sync()
 ```
 
-`NetworkSystem` never reaches past `entity.get(Component)` to touch a networked field — it doesn't know bitECS exists, and it never will need to. It also reconciles stale mappings automatically: every `sync()` call first checks each tracked entity's already-public `.isAlive` and drops the mapping for anything that's gone. This matters because a locally `scene.destroy()`-ed entity has no way to push a notification into `NetworkEntityMap` on its own — without this reconciliation, a destroyed entity's recycled id could get silently aliased to a completely unrelated entity on the next sync. If you need tighter reconciliation than `sync()`'s own cadence, call `netSystem.reconcile()` directly — it's public for exactly that.
+`NetworkSystem` never reaches past `entity.get(Component)` to touch a networked field; it doesn't know bitECS exists. It also reconciles stale mappings: every `sync()` first checks each tracked entity's `.isAlive` and drops the mapping for anything that's gone, which matters because a locally `scene.destroy()`-ed entity cannot notify the map itself. `net.reconcile()` is public if you need tighter reconciliation. Other members: `getEntity(networkId)`, `getNetworkId(entity)`, `destroy()`, and `entities` (`NetworkEntityMap` with `set`, `getEntity`, `getNetworkId`, `deleteByNetworkId`, `deleteByEntity`, `entries`).
 
 ## What this package will never do
 

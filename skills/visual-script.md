@@ -1,70 +1,58 @@
 # Visual Script Editor
 
-**Use this when** you're authoring node-graph logic in the IDE panel itself, rather than driving `VisualScriptComponent` from code (see `skills/29-visual-script-component.md` for that side). The Visual Script Editor lets you wire up component logic without writing TypeScript, and produces `.esvs` files that a graph interpreter runs at runtime.
+**Use this when** you're authoring node-graph logic in the IDE panel itself, rather than driving the graph runtime from code (see `skills/29-visual-script-component.md` for that side). The panel has two tabs:
+
+- **Logic Script**: a node graph over `VariableStore` variables/switches and actor messages. This is the graph shape the runtime compiles and runs (`VisualScriptGraph`).
+- **Scene Scaffold**: a scene/entity/component structure editor that can generate scaffold code (**Export Code**). It is separate from the runtime graph format.
 
 ---
 
-## Opening the panel
-
-View → Panels → Visual Script Editor, or drag the tab from the tab bar into a docked pane.
-
----
-
-## Canvas controls
+## Logic Script canvas
 
 | Action | Input |
 |--------|-------|
-| Pan | Middle-click drag, or Space + drag |
-| Zoom | Scroll wheel |
-| Select node | Click |
-| Multi-select | Shift-click or drag a selection box |
-| Move nodes | Drag selected nodes |
-| Delete selected | `Delete` or `Backspace` |
-| Connect ports | Drag from an output port to an input port |
-| Disconnect a port | Click a connected port and drag off |
-| Open node picker | Right-click canvas or `Tab` |
+| Add a node | The **Add node** toolbar control |
+| Connect ports | Click an output port, then an input port |
+| Delete selected node | Select it, then `Delete` or `Backspace` (or the delete button in the node's inspector) |
+| Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (`Cmd` on macOS) |
+| Zoom | `Ctrl`/`Cmd` + scroll wheel |
+| Preview | The **Preview** / **Stop** toolbar button runs the graph against a throwaway `VariableStore`; fire an `onEvent` node with the event button |
 
 ---
 
-## Adding nodes
+## Logic Script nodes
 
-Right-click the canvas (or press `Tab`) to open the node picker. Node categories:
+These are exactly the runtime node kinds (`VSNodeKind`):
 
-- **Entity** — `Get Entity`, `Create Entity`, `Destroy Entity`
-- **Component** — `Add Component`, `Get Component`, `Set Property`, `Get Property`
-- **Events** — `On Update`, `On Collision Enter`, `On Message`
-- **Flow** — `Branch` (if/else), `Sequence`, `For Each`
-- **Math** — `Add`, `Subtract`, `Multiply`, `Compare`, `Lerp`
-- **Output** — `Log`, `Play Audio`, `Load Scene`
+| Node | Ports | Fields |
+|------|-------|--------|
+| On Update | output | none (entry point, every update) |
+| On Event | output | event type (entry point) |
+| Sequence | input, output | none |
+| Branch | input, `true` / `false` outputs | variable index, comparator (`eq`, `neq`, `gt`, `lt`, `gte`, `lte`), value |
+| Get Variable | input, output | variable index, output key |
+| Set Variable | input, output | variable index, literal value or a scoped key from an earlier Get Variable |
+| Get Switch | input, output | switch index, output key |
+| Set Switch | input, output | switch index, true/false |
+| Send Message | input, output | target actor id, message type, payload |
 
----
-
-## Edge types
-
-- **Yellow edges** — control-flow signals (execution order).
-- **White edges** — data values (numbers, strings, component references).
-
-Ports are colour-coded by type. Connecting incompatible types shows a red error indicator.
+There are no entity, component, math, loop, or audio nodes in this graph format. See `skills/36-visual-script-compiler.md` for why.
 
 ---
 
-## Saving
+## Runtime
 
-`Ctrl+S` or the **Save** toolbar button writes a `.esvs` JSON file.
-
-> **Note:** `VisualScriptComponent` is the runtime that attaches a graph to an entity via TypeScript and interprets it every `update()`/`fireEvent()` call — see `skills/29-visual-script-component.md` for its full API and `VisualScriptGraphBuilder` for hand-authoring the same graph shape in code.
+The graph the panel authors is a `VisualScriptGraph` (`{ nodes, connections }`). At runtime register it with `registerVisualScriptGraph(id, graph)`, attach `VisualScriptState` (`graphId`) to an entity, and drive it with `VisualScriptSystem`; see `skills/29-visual-script-component.md`. The same shape can be hand-authored in code with `VisualScriptGraphBuilder`.
 
 ---
 
 ## Performance guidance
 
-Visual scripts run through a graph interpreter, so expect roughly 10x slower execution than native TypeScript on hot paths. They're a great fit for event-driven, low-frequency logic: cutscenes, dialogue triggers, UI flows, puzzle mechanics. Anything running every frame with real computation belongs in a TypeScript scene or actor instead.
+Graphs are compiled once per `graphId` into JavaScript (`skills/36-visual-script-compiler.md`), so dispatch overhead is small, but a graph is still a poor fit for heavy per-frame computation. It suits event-driven, low-frequency logic: cutscene triggers, dialogue gating, puzzle switches.
 
 ---
 
 ## Tips
 
-- Break up complex graphs into sub-graphs: right-click selected nodes → Collapse to Subgraph. Your future self will thank you.
-- Use `Comment` nodes (right-click → Add Comment) to leave notes for whoever opens this graph next, including you in six months.
-- The `On Message` node plugs into the Actor Model — pair it with `actor.send()` from TypeScript to bridge the two systems.
-- Visual scripts are plain JSON, so they diff and review in version control just like any other file.
+- Pair an `On Event` node with `VisualScriptSystem.fireEvent(scene, eventType)` from TypeScript, and a `Send Message` node with an `Actor` registered under the target id, to bridge graphs and the Actor Model.
+- Graphs are plain JSON, so they diff and review in version control like any other file.

@@ -1,128 +1,83 @@
-# PathfindingSystem and NavMeshSystem
+# AStarSearch, Tilemap grids, and NavMeshSystem
 
-**Use this when** you need enemy/NPC pathfinding — grid-based A* for a tile grid, or polygon NavMesh for open terrain.
+**Use this when** you need enemy/NPC pathfinding: grid-based A* over a tile grid, or a polygon navmesh for open terrain.
 
-Grid-based A* pathfinding (`PathfindingSystem`) is a core engine system. Polygon `NavMeshSystem` and `Tilemap` live in the optional `@emptysock/tilemap` package. All `PathfindingSystem` methods are static — no instantiation needed.
+- `AStarSearch` is a generic, dependency-free A* function exported from `@emptysock/engine`. You supply the graph (neighbours, heuristic, key).
+- `Tilemap`, `TilemapSystem`, `NavMeshSystem`, and `AutoTileSystem` live in the optional `@emptysock/tilemap` package.
+- There is no `PathfindingSystem`, no `PathFollower` component, and no runtime navmesh builder. Build navmesh data offline and ship it as JSON.
 
-`NavMeshSystem.load()` takes a pre-built polygon graph — there's no runtime path from raw tile data to a navmesh. Building one from tiles at runtime means Delaunay triangulation and polygon merging, which is genuinely slow enough (hundreds of milliseconds on a real level) to stall the main thread if you tried to do it live. Build the navmesh offline (in the level editor, or a preprocessing step) and ship it as a JSON asset.
-
-## Import
-
-```typescript
-import { PathfindingSystem } from '@emptysock/engine'
-```
-
-## Grid pathfinding (most common)
-
-Load a tilemap layer as a grid and call `PathfindingSystem.findPath()`:
+## Generic A*: `AStarSearch`
 
 ```typescript
-import { PathfindingSystem } from '@emptysock/engine'
-import { TilemapSystem } from '@emptysock/tilemap'
+import { AStarSearch } from '@emptysock/engine'
+import { Tilemap, TilemapSystem } from '@emptysock/tilemap'
 
-// In onLoad:
-const map  = TilemapSystem.load('level1.esmap')
-const grid = map.getLayer('Collision').asGrid()   // Grid from tile layer
+interface Cell { x: number; y: number }
 
-// In a coroutine or onLoad — findPath is async:
-const path = await PathfindingSystem.findPath({
-  from:          { x: playerTileX, y: playerTileY },
-  to:            { x: targetTileX, y: targetTileY },
-  grid,
-  allowDiagonal: false,
+const map: Tilemap | undefined = TilemapSystem.get('level1')   // registered earlier with TilemapSystem.register(data)
+const grid = map?.asGrid() ?? []        // boolean[][] indexed [row][col]; true = walkable, false = a solid tile
+
+const result = AStarSearch<Cell>({
+  start: { x: 1, y: 1 },
+  isGoal: (n) => n.x === 8 && n.y === 5,
+  key: (n) => n.y * 1000 + n.x,
+  heuristic: (n) => Math.abs(n.x - 8) + Math.abs(n.y - 5),
+  neighbours: (n) => {
+    const out: { node: Cell; cost: number }[] = []
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const x = n.x + dx
+      const y = n.y + dy
+      if (grid[y]?.[x] === true) out.push({ node: { x, y }, cost: 1 })
+    }
+    return out
+  },
 })
-// path is a Path (array of { x, y } waypoints); empty if no path exists
+// result.found: boolean, result.path: ReadonlyArray<Cell> (start to goal)
 ```
 
-## NavMesh from a scene
+`AStarSearch` is synchronous. Run it from `onLoad`, a coroutine, or a throttled update, not every frame for many agents.
 
-For scene-level polygon pathfinding, build a NavMesh from the loaded scene:
+## Tilemap data and grids
 
-```typescript
-// In onLoad — after the scene is set up:
-const navMesh = PathfindingSystem.buildNavMesh(this)
-// navMesh is a NavMesh object used with PathFollower component
-```
-
-## Debug overlay
-
-```typescript
-// Toggle the debug path-draw overlay (disable in release builds):
-PathfindingSystem.debugDraw(true)
-```
-
-## API reference
-
-| Method | Signature | Notes |
-|--------|-----------|-------|
-| `PathfindingSystem.findPath` | `(opts: { from: Point, to: Point, grid: Grid, allowDiagonal?: boolean }): Promise<Path>` | Grid A*. Returns empty path if unreachable. |
-| `PathfindingSystem.buildNavMesh` | `(scene: Scene): NavMesh` | Build a NavMesh from the current scene's geometry. Build offline and cache — do not call every frame. |
-| `PathfindingSystem.debugDraw` | `(enabled: boolean): void` | Toggle visual path overlay. |
-
-## Notes
-
-- `findPath` returns a `Promise` — call it inside a coroutine (`function*`) or in `onLoad`; never inside `onUpdate`.
-- Build the NavMesh in `onLoad`, not on demand. NavMesh construction is O(n log n) over scene geometry.
-- Attach a `PathFollower` component to an entity to drive it along the returned `Path` automatically.
-- `PathfindingSystem` has no instance state — it is a static utility class, not a singleton or per-scene object.
+| API | Notes |
+|-----|-------|
+| `TilemapSystem.register(data: TilemapData): Tilemap` | Register a map by `data.name` |
+| `TilemapSystem.loadInto(scene, name): Tilemap` | Spawns a `Transform` entity named after the map and binds it |
+| `TilemapSystem.get(name)` / `.remove(name)` | Lookup / unregister |
+| `tilemap.getLayer(name)` | `TilemapLayer \| undefined` (`name`, `cells: TileCell[][]`, `visible`, `opacity`) |
+| `tilemap.asGrid()` | `boolean[][]` walkability grid (`true` = free, `false` where any layer cell has `solid: true`) |
+| `tilemap.tileAt(worldX, worldY, layerName)` | `TileCell \| null` (`tileIndex`, `solid?`) |
+| `tilemap.width` / `.height` / `.entity` | Pixel size and bound entity |
 
 ---
 
 # NavMeshSystem
 
-`NavMeshSystem` performs polygon-graph A* on a pre-built convex polygon dataset. Use it for open-world navigation where grid cells are too coarse. Unlike `PathfindingSystem`, it accepts pre-baked data rather than generating the mesh at runtime.
-
-## Import
+`NavMeshSystem` runs polygon-graph A* on pre-built convex polygon data. Use it where grid cells are too coarse.
 
 ```typescript
 import { NavMeshSystem, type NavMeshData } from '@emptysock/tilemap'
 import type { Vec2 } from '@emptysock/engine'
-```
 
-## Setup
-
-```typescript
-import navData from './assets/maps/world.navmesh.json'
-
-// In onLoad:
 const nav = new NavMeshSystem()
-nav.load(navData as NavMeshData)   // load pre-built polygon graph
+nav.load(navData as NavMeshData)                 // call once in onLoad
 
-// Find a path — synchronous, no await needed:
-const waypoints: Vec2[] = nav.findPath(
-  { x: player.position.x, y: player.position.y },
-  { x: target.position.x, y: target.position.y },
-)
-// Empty array if no path exists.
+const waypoints: Vec2[] = nav.findPath(from, to) // synchronous; [] if no path
+const snapped: Vec2 | null = nav.nearestNode(point)
 ```
 
-## NavMeshData shape
+`NavMeshData` is `{ polygons: NavPolygon[] }` with `NavPolygon = { id, vertices: Vec2[], centroid: Vec2, neighbours: number[] }` (neighbour polygon ids).
 
-```typescript
-// NavMeshData is a plain JSON object — build offline in the level editor:
-{
-  "polygons": [
-    {
-      "id": 0,
-      "vertices": [{ "x": 0, "y": 0 }, { "x": 64, "y": 0 }, { "x": 64, "y": 64 }],
-      "centroid": { "x": 42, "y": 21 },
-      "neighbours": [1, 3]
-    }
-    // … more convex polygons
-  ]
-}
-```
-
-## API reference
-
-| Method | Signature | Notes |
-|--------|-----------|-------|
-| `load` | `(data: NavMeshData): void` | Load the polygon graph. Call once in onLoad. |
-| `findPath` | `(from: Vec2, to: Vec2): Vec2[]` | Synchronous A* on polygon graph. Returns [] if no path. |
+| Method | Signature |
+|--------|-----------|
+| `load` | `(data: NavMeshData): void` |
+| `findPath` | `(from: Vec2, to: Vec2): Vec2[]` |
+| `nearestNode` | `(point: Vec2): Vec2 \| null` |
+| `update` | `(dt: number): void` (no-op; present for system-shape uniformity) |
 
 ## When to use which
 
-| System | Use when |
-|--------|---------|
-| `PathfindingSystem` | Tile-based levels with a collision grid |
-| `NavMeshSystem` | Open-world or irregular geometry; navmesh built offline |
+| Tool | Use when |
+|------|----------|
+| `AStarSearch` + `Tilemap.asGrid()` | Tile-based levels with a collision grid |
+| `NavMeshSystem` | Open or irregular geometry; navmesh built offline |

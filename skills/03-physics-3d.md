@@ -8,7 +8,7 @@
 import { PhysicsSystem3D } from '@emptysock/engine';
 
 const physics = new PhysicsSystem3D();
-await physics.init({ x: 0, y: -9.81, z: 0 }); // must await
+await physics.init({ gravity: { x: 0, y: -9.81, z: 0 } }); // must await; options: gravity, fixedTimestep, deterministic
 
 // Add a dynamic box
 const box = physics.addBody({
@@ -35,6 +35,8 @@ const pos = box.getPosition(); // { x, y, z }
 const rot = box.getRotation(); // { x, y, z, w }
 box.applyImpulse({ x: 0, y: 10, z: 0 });
 
+physics.onCollisionEnter((e) => { /* e.bodyA, e.bodyB (body indices) */ });
+
 physics.removeBody(box.bodyIndex);
 physics.destroy(); // free WASM resources on scene unload
 ```
@@ -54,4 +56,5 @@ physics.destroy(); // free WASM resources on scene unload
 ## Notes
 - Always `await physics.init()` before adding bodies — Rapier's WASM has to be up and running first.
 - Call `physics.destroy()` when the scene unloads. Rapier's memory lives outside the JS heap, so the garbage collector has no idea it exists — skip this and it just piles up.
+- Handle methods: `setPosition`, `getPosition`, `getRotation`, `setLinearVelocity`, `getLinearVelocity`, `setAngularVelocity`, `getAngularVelocity`, `applyForce`, `applyImpulse`, `applyTorqueImpulse`, `setLinearDamping`, `setAngularDamping`, `setGravityScale`, `isGrounded`.
 - Sensor bodies (`isSensor: true`) detect overlaps without pushing anything around — good for trigger volumes.

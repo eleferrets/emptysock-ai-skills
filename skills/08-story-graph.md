@@ -4,7 +4,7 @@
 
 The Story Graph is the EmptySock IDE panel for authoring branching dialogue trees (visual novels, cutscenes, quest dialogue). Scripts are exported as `.storyGraph.json` (the editor format) and converted to `DialogueTree` at runtime by `storyGraphToDialogueTree()`, then played by `VNSystem`.
 
-`VNSystem`'s constructor defaults to the engine's global `variableStore` singleton (`constructor(store: VariableStore = variableStore)`) — a VN choice gated on switch 12 shares state with anything else in the game touching that same switch. Usually what you want; pass your own `VariableStore` instance if you need an isolated store (e.g. per save slot, or in a test).
+`VNSystem`'s constructor takes an optional `VariableStore` (`constructor(store: VariableStore = new VariableStore())`). With no argument it gets its own isolated store, so a VN choice gated on switch 12 will NOT see the rest of the game's switches. Pass `ctx.variables` (the game-wide store from the scene lifecycle context) to share state with the rest of the game.
 
 ---
 
@@ -49,6 +49,7 @@ In the IDE menu bar: **Module → Story Graph**. The panel is an SVG node graph 
 ## VNSystem API
 
 ```typescript
+import type { VariableStore } from '@emptysock/engine'
 import {
   VNSystem,
   storyGraphToDialogueTree,
@@ -58,18 +59,16 @@ import {
   type StoryGraph,
 } from '@emptysock/vn'
 
-// In onLoad — fetch the exported graph, convert, and load:
-override async onLoad(): Promise<void> {
+// In a scene's onLoad — fetch the exported graph, convert, and load:
+async function startChapter(variables: VariableStore): Promise<void> {
   const response = await fetch('assets/story/chapter1.storyGraph.json')
   const graph: StoryGraph = await response.json() as StoryGraph
 
   const tree: DialogueTree = storyGraphToDialogueTree(graph)
 
-  // Uses the shared `variableStore` singleton by default — pass a different
-  // `VariableStore` instance as the constructor argument for isolated state
-  // (per-save-slot, tests). This is what "condition" nodes and a choice
-  // option's `when` field are evaluated against.
-  const vn = new VNSystem()
+  // Pass the game-wide store (ctx.variables) to share state; omit for an isolated store.
+  // This is what "condition" nodes and a choice option's `when` field are evaluated against.
+  const vn = new VNSystem(variables)
 
   // Register a listener BEFORE calling load():
   vn.setListener({
@@ -135,15 +134,17 @@ vn.setListener({
       // Options whose `when` evaluates false are already filtered out before
       // onChoice fires — you never see them and never re-check the condition.
     }
-    // 'jump' nodes are resolved automatically — onNode never fires for them
-    // 'variable-set' nodes auto-advance; read via vn.getVariable(key)
-    // 'condition' nodes resolve and advance to ifTrue/ifFalse synchronously,
-    // like jump — onNode never fires for them either
+    // onNode fires for every node the system moves to (including jump, event,
+    // variable-set and condition nodes), so always narrow by node.type.
+    // 'jump', 'variable-set' and 'condition' nodes resolve and auto-advance
+    // synchronously; read variable-set values via vn.getVariable(key).
   },
   onEvent(eventName, data) {
-    // eventName: string — fire game logic
-    // data: unknown — additional payload
-    // auto-advanced by the engine
+    // eventName: string — fire game logic; data: the node's payload object
+    // Event nodes do NOT auto-advance: call vn.advance() when the event is handled.
+  },
+  onCGNode(cgPath) {
+    // fires when a node carrying a cgPath is reached (see skills/18-cg-gallery.md)
   },
 })
 ```
@@ -152,12 +153,13 @@ vn.setListener({
 
 ## Branching on persistent variables
 
-`'condition'` dialogue nodes and a choice option's `when` field both branch on the shared `VariableStore` (see `skills/13-variable-store.md`), so a Story Graph can react to what happened elsewhere in the game — a boss fight, a switch flipped by a map event — without any special-case code in the scene.
+`'condition'` dialogue nodes and a choice option's `when` field both branch on the `VariableStore` passed to the `VNSystem` constructor (see `skills/13-variable-store.md`), so a Story Graph can react to what happened elsewhere in the game — a boss fight, a switch flipped by a map event — without any special-case code in the scene.
 
 ```typescript
-import { variableStore } from '@emptysock/engine'
+import { VariableStore } from '@emptysock/engine'
 import { VNSystem, type DialogueTree } from '@emptysock/vn'
 
+const variableStore = new VariableStore()   // in a scene, use ctx.variables instead
 variableStore.setSwitchName(10, 'bossDefeated')
 
 const tree: DialogueTree = {
@@ -174,7 +176,7 @@ const tree: DialogueTree = {
   },
 }
 
-const vn = new VNSystem()  // uses the shared variableStore by default
+const vn = new VNSystem(variableStore)
 vn.setListener({
   onNode(node) {
     if (node.type === 'dialogue') showText(node.speaker, node.text)
@@ -189,28 +191,9 @@ A choice option works the same way — add `when: { kind: 'variable', index: 4, 
 
 ## Save and resume pattern
 
-VNSystem has no internal save state. Store enough to recreate position yourself:
+VNSystem has no internal save state and no public node-id getter. `selectOption(nodeId)` jumps to any node id, so keep your own record of the current node id (for example from the `next` ids you pass to `selectOption`, or by tracking your own progress flags in `VariableStore`) and persist it yourself.
 
-```typescript
-import { SaveSystem } from '@emptysock/engine'
-import { VNSystem, storyGraphToDialogueTree } from '@emptysock/vn'
-import { z } from 'zod'
-
-const progressSaves = new SaveSystem<{ id: string; nodeId: string }>(
-  'vn_progress_',
-  z.object({ id: z.string(), nodeId: z.string() }),
-)
-
-// Save the current node id:
-function saveProgress(currentNodeId: string): void {
-  progressSaves.save('vn-progress', { nodeId: currentNodeId })
-}
-
-// Resume: load the tree again and navigate to the saved node
-// by walking the graph until reaching it, or by using selectOption to jump.
-// The simplest pattern: call vn.load(tree), then advance/selectOption until
-// currentNode?.type is not 'jump' and the id matches.
-```
+The simplest durable approach is to record progress in `VariableStore` switches/variables and pass the store to `SaveSystem` via its `variables` option (see `skills/13-variable-store.md` and `skills/33-save-system.md`). To resume at a known node: `vn.load(tree)` then `vn.selectOption(savedNodeId)`.
 
 ---
 
@@ -231,6 +214,6 @@ const graph: StoryGraph = dialogueTreeToStoryGraph(tree)
 ## Rules
 
 - Register a listener with `setListener()` **before** calling `load()` — `onNode` fires immediately for the first node.
-- `jump` and `variable-set` nodes are resolved automatically — `onNode` fires for `variable-set` but the engine auto-advances it; read the value with `getVariable()`.
+- `jump`, `variable-set` and `condition` nodes are resolved automatically; `event` nodes wait for you to call `advance()`. Read `variable-set` values with `getVariable()`.
 - VNSystem has no `destroy()` — it is garbage-collected when the scene releases it.
 - Never cast loaded JSON directly as `StoryGraph` without validation — use Zod in production.

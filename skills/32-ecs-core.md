@@ -97,3 +97,20 @@ One `ServiceRegistry` per `Game`, alive for the whole process, never reset by sc
 ## Input and audio are `Game`-owned, not scene-owned
 
 `game.input` and `game.audio` persist for the life of the `Game` instance and are never recreated on scene load — held-down keys and currently-playing music have nothing to do with which scene is loaded right now. If you want scene-scoped sound (stop this scene's music on unload), do it explicitly from that scene's own `onUnload`; the engine doesn't try to guess which sounds "belong" to which scene.
+
+
+## Standalone `CoroutineSystem`
+
+Entity coroutines (`entity.startCoroutine`) are the normal route. The exported `CoroutineSystem` class is a separate, name-keyed generator runner for logic that is not tied to an entity: `start(id, gen)`, `stop(id)`, `stopAll()`, `update(dt)` (call it yourself each frame from `onUpdate`) and `destroy()`. It accepts the same `waitFrames` / `waitSeconds` / `waitUntil` yields.
+
+```typescript
+import { CoroutineSystem, waitSeconds, type CoroutineGen } from '@emptysock/engine'
+
+const routines = new CoroutineSystem()
+function* intro(): CoroutineGen {
+  yield waitSeconds(1)
+  showTitle()
+}
+routines.start('intro', intro())
+// every frame: routines.update(dt)
+```

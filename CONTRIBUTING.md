@@ -1,5 +1,7 @@
 # Contributing
 
+> **Archived.** EmptySock development has stopped and this repository is no longer maintained. The notes below are kept for reference; issues and pull requests are not being reviewed.
+
 This is the public documentation repository for EmptySock.
 
 ## What you can contribute
@@ -31,6 +33,5 @@ Open an issue with:
 
 ## Branch and versioning
 
-- `main` tracks the latest stable engine release
-- Version tags (`v1.0.0`, `v1.1.0`) are created on each engine release
-- PRs should target `main`
+- The pack is frozen at the engine's final state (see `CHANGELOG.md`)
+- No further engine releases or version tags are planned

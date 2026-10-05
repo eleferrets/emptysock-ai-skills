@@ -1,34 +1,27 @@
 # PostProcessSystem
 
-**Use this when** you want screen-wide visual effects — bloom, vignette, a hit-flash, a scene transition overlay — or a CSS filter on one render layer. `PostProcessSystem` handles both. One instance per scene, and call `update(dt)` every frame so transient effects (flashes, shockwaves) decay properly.
+**Use this when** you want screen-wide visual effects (bloom, vignette, a hit-flash, a scene transition overlay) or a filter on one render layer. `PostProcessSystem` is a framework-agnostic registry of effects; `RenderPipeline` reads it to apply real filters once you call `renderPipeline.attachPostProcess(post)`. Call `update(dt)` every frame so transient effects (flashes, shockwaves) decay.
 
-## Import
+## Availability
 
-```typescript
-import {
-  PostProcessSystem,
-  type PostEffectType,
-  type PostEffectOptions,
-  type LayerFilterOptions,
-} from '@emptysock/engine'
-```
+`PostProcessSystem` and its option types (`PostEffectType`, `PostEffectOptions`, `LayerFilterOptions`, `LayerFilterType`, `ColourblindMode` and the per-effect option interfaces) are exported from `@emptysock/engine`, together with `COLOURBLIND_MATRICES`, `colourblindFilterId` and `colourblindFilterDefsSVG`. It is what `RenderPipeline.attachPostProcess()` and `SceneTransitionManager.attachPostProcess()` accept.
 
-## Setup (in onLoad)
+## Setup
 
 ```typescript
-private _post: PostProcessSystem | null = null
+import { PostProcessSystem } from '@emptysock/engine'
 
-override onLoad(): void {
-  this._post = new PostProcessSystem()
-}
+const post = new PostProcessSystem()
+// once, where you build the pipeline:  render.attachPostProcess(post)
 
-override onUpdate(dt: number): void {
-  this._post?.update(dt)   // drives transient effect (flash, shockwave) decay
-}
-
-override onDestroy(): void {
-  this._post?.destroy()
-}
+export const Level = defineScene({
+  onUpdate(dt) {
+    post.update(dt)   // drives transient effect (flash, shockwave) decay
+  },
+  onUnload() {
+    post.clear()      // remove effects; call post.destroy() when discarding it
+  },
+})
 ```
 
 ## Full-screen effects
@@ -37,48 +30,48 @@ override onDestroy(): void {
 
 ```typescript
 // Add effects — composited in the order they were added:
-this._post
-  .add('bloom', { threshold: 0.7, strength: 0.4, radius: 1.0 })
+post
+  .add('bloom', { threshold: 0.7, strength: 0.4 })
   .add('vignette', { intensity: 0.45 })
 
 // Check / remove:
-if (this._post.has('bloom')) {
-  this._post.remove('bloom')
+if (post.has('bloom')) {
+  post.remove('bloom')
 }
 
 // Read the current options for an active effect:
-const bloomEffect = this._post.get('bloom') // ActiveEffect | undefined
+const bloomEffect = post.get('bloom') // ActiveEffect | undefined
 ```
 
 ## Transient flash
 
 ```typescript
-this._post.flash({ colour: 0xffffff, duration: 0.15 })
+post.flash({ colour: 0xffffff, duration: 0.15 })
 ```
 
 ## Per-layer CSS filters
 
 ```typescript
 // Apply a filter to a named render layer:
-this._post.setLayerFilter('Background', { type: 'blur', radius: 8 })
-this._post.setLayerFilter('UI', { type: 'colour-grade', saturation: 0.0 }) // greyscale
+post.setLayerFilter('Background', { type: 'blur', radius: 8 })
+post.setLayerFilter('UI', { type: 'colour-grade', saturation: 0.0 }) // greyscale
 
 // Toggle without removing:
-this._post.toggleLayerFilter('Background', false) // disable
-this._post.toggleLayerFilter('Background', true)  // re-enable
+post.toggleLayerFilter('Background', false) // disable
+post.toggleLayerFilter('Background', true)  // re-enable
 
 // Read:
-const f: LayerFilterOptions | undefined = this._post.getLayerFilter('Background')
+const f: LayerFilterOptions | undefined = post.getLayerFilter('Background')
 
 // Remove:
-this._post.clearLayerFilter('Background')
+post.clearLayerFilter('Background')
 ```
 
 ## Effect types
 
 | PostEffectType | Key params | Description |
 |---|---|---|
-| `'bloom'` | `threshold`, `strength`, `radius` | Bright-pass additive glow |
+| `'bloom'` | `threshold`, `strength` | Bright-pass additive glow |
 | `'vignette'` | `intensity` | Screen-edge darkening |
 | `'chromatic-aberration'` | `offset` | RGB channel split |
 | `'blur'` | `strength` | Gaussian blur |
@@ -102,7 +95,8 @@ this._post.clearLayerFilter('Background')
 | `'outline'` | Params: `colour`, `thickness` |
 | `'invert'` | No params |
 | `'colourblind'` | Params: `mode` (`'protanopia'`, `'deuteranopia'`, `'tritanopia'`); a simulation, see `skills/28-accessibility-debugging.md` |
-| `'rain-glass'` | Params: `intensity`, `dropletSize`, `dropletSpeed`, `streakAmount`; see `skills/39-rain-effects.md` |
+| `'rain-glass'` | Params: `intensity`, `dropletSize`, `dropletSpeed`, `streakAmount`, `quality`, `fog`, `blur`, `slope`, `wind`, `seed`, `wiperEnabled`, `wiperPeriod`; see `skills/39-rain-effects.md` |
+| `'none'` | No filter |
 
 ## API reference
 
@@ -113,7 +107,7 @@ this._post.clearLayerFilter('Background')
 | `has` | `(type: PostEffectType): boolean` | Whether the effect is active. |
 | `get` | `(type: PostEffectType): ActiveEffect \| undefined` | Read current options. |
 | `flash` | `(opts?: { colour?: number, duration?: number }): void` | Transient bright flash. |
-| `setLayerFilter` | `(layerId: string, filter: LayerFilterOptions): void` | Apply CSS filter to a layer. |
+| `setLayerFilter` | `(layerId: string, filter: LayerFilterOptions): void` | Apply a filter to a layer. |
 | `clearLayerFilter` | `(layerId: string): void` | Remove layer filter. |
 | `toggleLayerFilter` | `(layerId: string, enabled: boolean): void` | Enable/disable without removing. |
 | `getLayerFilter` | `(layerId: string): LayerFilterOptions \| undefined` | Read current filter. |
@@ -123,27 +117,30 @@ this._post.clearLayerFilter('Background')
 
 ## Notes
 
-- Effects composite in the order you added them — `bloom` before `colour-grade` means the grade acts on the already-bloomed result.
-- `PostProcessSystem` needs a second WebGL framebuffer to do its thing. On `'potato'` and `'low'` GPU tiers, turn off `bloom` and `blur` — they're the expensive ones.
-- Per-layer filters ride on CSS compositing instead, so they skip the WebGL framebuffer entirely.
+- Effects composite in the order you added them: `bloom` before `colour-grade` means the grade acts on the already-bloomed result.
+- Other members: `effects` (all active effects), `layerFilters` (map of layer filters), `flashActive` / `flashIntensity` / `flashColour`, `transitionActive`, `beginTransition(effect, colour?)` / `endTransition()`, `cssFilterForLayer(layerId)`.
+- `bloom` and `blur` are the expensive effects; turn them off on the `'potato'` and `'low'` GPU tiers (see `skills/24-viewport-system.md`).
+- Layer filters are applied by `RenderPipeline` each frame once `attachPostProcess(post)` has been called.
 
 ## Scene transitions
 
-`SceneManagerInstance.transition()` (see `skills/00-quickstart.md`) only times and tracks a `TransitionEffect` (`'none' | 'fade' | 'wipe' | 'slide'`) — it never imports pixi, so it stays inside the engine's environment boundary. Attach a `PostProcessSystem` and let `RenderPipeline` paint the overlay each frame:
+`SceneTransitionManager` (construct your own; it is not a singleton) only times a transition and calls your `load` callback; it never imports pixi, so it stays inside the engine's environment boundary. Attach a `PostProcessSystem` as its sink and let `RenderPipeline` paint the overlay each frame:
 
 ```typescript
-import { SceneManagerInstance, PostProcessSystem, RenderPipeline } from '@emptysock/engine'
+import { PostProcessSystem, SceneTransitionManager } from '@emptysock/engine'
 
-// In onLoad:
-private _postProcess = new PostProcessSystem()
-SceneManagerInstance.attachPostProcess(this._postProcess)
+const post = new PostProcessSystem()
+const transitions = new SceneTransitionManager()
+transitions.attachPostProcess(post)
 
-// In onUpdate:
-this._postProcess.update(dt)
-this._render.renderFrame(this, this._postProcess)   // paints the transition overlay too
+// Start a transition: `load` fires once `duration` (default 0.3s) has elapsed
+transitions.transition(() => game.loadScene(NextScene), { effect: 'fade', duration: 0.4, colour: 0x000000 })
 
-// Or paint it yourself without going through renderFrame's second argument:
-this._render.renderTransitionOverlay(this._postProcess)
+// Every frame:
+transitions.update(dt)
+post.update(dt)
+// RenderPipeline.renderFrame() paints the overlay automatically once render.attachPostProcess(post) was called;
+// call render.renderTransitionOverlay(post) yourself only in a custom render loop
 ```
 
-`PostProcessSystem.transitionEffect` / `.transitionProgress` / `.transitionColour` are set by `transition()` through `attachPostProcess()` and read by `RenderPipeline.renderTransitionOverlay()`. This paints a full-screen overlay rect on top of the current frame (a triangle-wave alpha for `'fade'`, a growing rect for `'wipe'`, a sweeping rect for `'slide'`) — it is not a true two-scene crossfade, since `RenderPipeline` does not keep two scenes' sprites live at once.
+`transition(load, options?)` options: `effect` (`'none' | 'fade' | 'wipe' | 'slide'`, default `'none'`), `duration` (seconds), `colour`. A second `transition()` call while one is in flight replaces the pending `load`. `transitions.isTransitioning` reports state. The overlay is a full-screen rect (a triangle-wave alpha for `'fade'`, a growing rect for `'wipe'`, a sweeping rect for `'slide'`), not a true two-scene crossfade.
